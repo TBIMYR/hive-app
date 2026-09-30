@@ -42,6 +42,17 @@ test('unbekannte Route → 404', () => withServer(async base => {
   assert.equal((await fetch(base + '/nope')).status, 404);
 }));
 
+test('Icons werden ausgeliefert, andere Dateien unter /icons/ nicht', () => withServer(async base => {
+  const touch = await fetch(base + '/apple-touch-icon.png');
+  assert.equal(touch.status, 200);
+  assert.equal(touch.headers.get('content-type'), 'image/png');
+  const svg = await fetch(base + '/icons/hive.svg');
+  assert.equal(svg.status, 200);
+  assert.match(await svg.text(), /<svg/);
+  assert.equal((await fetch(base + '/icons/../server.js')).status, 404);
+  assert.equal((await fetch(base + '/icons/nope.png')).status, 404);
+}));
+
 test('POST /api/focus/<pid> ruft focusPid für lebende Session mit Fenster', async () => {
   const calls = [];
   await withServer(async base => {

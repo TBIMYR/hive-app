@@ -9,6 +9,15 @@ const { focusPid: defaultFocusPid } = require('./lib/focus');
 
 const NAME_RE = /^[A-Za-z0-9._-]+$/;
 const INDEX = path.join(__dirname, 'public', 'index.html');
+const ICON_DIR = path.join(__dirname, 'public', 'icons');
+// feste Liste statt Verzeichnis-Auslieferung; /apple-touch-icon.png und /favicon.ico fragen Browser von selbst ab
+const ICONS = {
+  '/icons/hive.svg': ['hive.svg', 'image/svg+xml'],
+  '/icons/hive-512.png': ['hive-512.png', 'image/png'],
+  '/icons/favicon-32.png': ['favicon-32.png', 'image/png'],
+  '/apple-touch-icon.png': ['apple-touch-icon.png', 'image/png'],
+  '/favicon.ico': ['favicon-32.png', 'image/png'],
+};
 
 function send(res, status, type, body) {
   res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' });
@@ -50,6 +59,10 @@ function createServer({ claudeHome = path.join(os.homedir(), '.claude'), isAlive
       }
       if (url.pathname === '/') {
         return send(res, 200, 'text/html; charset=utf-8', fs.readFileSync(INDEX));
+      }
+      if (ICONS[url.pathname]) {
+        const [file, type] = ICONS[url.pathname];
+        return send(res, 200, type, fs.readFileSync(path.join(ICON_DIR, file)));
       }
       if (url.pathname === '/api/state') {
         const state = buildState({ claudeHome, isAlive, devRoot });
