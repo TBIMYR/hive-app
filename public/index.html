@@ -152,7 +152,16 @@
   .t-foot { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--hair);
             font-size: 13px; color: var(--muted); }
   .t-foot .sp { flex: 1; }
-  .t-foot .ho { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-weight: 600; }
+  .t-foot .ho { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-weight: 600;
+                border: 1px solid var(--hair-2); border-radius: 8px; padding: 4px 10px; background: var(--card); cursor: pointer; }
+  .t-foot .ho:hover { border-color: var(--ink); }
+  .t-foot .jump { color: var(--ink-2); font-weight: 600; opacity: 0; transition: opacity .15s; }
+  .tile:hover .t-foot .jump { opacity: 1; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; z-index: 20;
+           background: var(--ink); color: var(--card); font-weight: 600; font-size: 14px; padding: 10px 16px; border-radius: 10px;
+           transition: opacity .2s, transform .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.bad { background: var(--need); color: #fff; }
   .t-foot .err { color: var(--need); font-weight: 600; }
 
   .empty { color: var(--muted); padding: 70px 0; text-align: center; font-size: 16px; }
@@ -317,16 +326,36 @@
     const old = s.task.stale ? '<span class="st" title="Aufgaben-Zeile seit über 60 min nicht aktualisiert">älter als 1 h</span>' : '';
     return `<div><div class="lbl">Aufgabe${st ? `<span class="st ${esc(st)}">${esc(STATE_DE[st] || st)}</span>` : ''}${old}</div><div class="task">${esc(s.task.text)}</div></div>`;
   }
+  const canJump = s => s.alive && s.pid && s.kind !== 'bg';
+
+  let toastTimer;
+  function toast(msg, bad) {
+    let el = $('#toast');
+    if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+    el.textContent = msg; el.classList.toggle('bad', !!bad); el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), bad ? 4000 : 1600);
+  }
+  async function jump(s) {
+    try {
+      const res = await fetch(`/api/focus/${s.pid}`, { method: 'POST' });
+      const r = await res.json().catch(() => ({}));
+      if (res.ok) toast(`→ ${s.name} in iTerm`);
+      else toast(`${s.name}: ${r.reason || 'Springen nicht möglich'}`, true);
+    } catch { toast('Server nicht erreichbar', true); }
+  }
+
   function tile(s, k, labels, now, i) {
     const lastText = s.lastAssistant ? s.lastAssistant.text : '';
     const last = s.alive ? `<div><div class="lbl">Zuletzt</div><div class="last${lastText ? '' : ' none'}">${esc(lastText || 'keine Antwort im sichtbaren Verlauf')}</div></div>` : '';
     const when = s.lastAssistant?.at || s.task?.updatedAt;
     const errs = s.errors && s.errors.length ? `<span class="err" title="${esc(s.errors.join(' · '))}">Lesefehler</span>` : '';
-    return `<article class="tile s-${k.cls}${selected === s.name ? ' sel' : ''}" data-open="${esc(s.name)}" style="--i:${i};--c:${k.c}">
+    return `<article class="tile s-${k.cls}${selected === s.name ? ' sel' : ''}" data-open="${esc(s.name)}" title="${canJump(s) ? 'Klick: zur Session in iTerm springen' : 'Klick: Details'}" style="--i:${i};--c:${k.c}">
       ${head(s, k, labels, now)}
       ${k.why ? `<div class="t-alert">${ICON.alert}${esc(k.why)}</div>` : ''}
       <div class="t-body">${taskBlock(s)}${last}</div>
-      <div class="t-foot"><span>${when ? esc('letzte Antwort ' + ago(when, now)) : ''}</span><span class="sp"></span>${errs}${s.hasHandover ? `<span class="ho">${ICON.doc}Handover</span>` : ''}</div>
+      <div class="t-foot"><span>${when ? esc('letzte Antwort ' + ago(when, now)) : ''}</span><span class="sp"></span>${errs}
+        ${canJump(s) ? '<span class="jump">↗ iTerm</span>' : ''}
+        <button class="ho" data-details="${esc(s.name)}">${ICON.doc}${s.hasHandover ? 'Handover' : 'Details'}</button></div>
     </article>`;
   }
 
@@ -487,8 +516,14 @@
     const tg = t.closest('[data-toggle]');
     if (tg) { f[tg.dataset.toggle] = !f[tg.dataset.toggle]; save(); return render(); }
     if (t.closest('[data-reset]')) { f.hidden = []; f.q = ''; f.only = null; $('#q').value = ''; save(); return render(); }
+    const det = t.closest('[data-details]');
+    if (det) return selected === det.dataset.details ? closeSide() : openSide(det.dataset.details);
     const tile = t.closest('[data-open]');
-    if (tile && !window.getSelection().toString()) return selected === tile.dataset.open ? closeSide() : openSide(tile.dataset.open);
+    if (tile && !window.getSelection().toString()) {
+      const s = state.sessions.find(x => x.name === tile.dataset.open);
+      if (s && canJump(s)) return jump(s);
+      return selected === tile.dataset.open ? closeSide() : openSide(tile.dataset.open);
+    }
   });
   $('#q').addEventListener('input', e => { f.q = e.target.value; save(); render(); });
   document.addEventListener('keydown', e => {

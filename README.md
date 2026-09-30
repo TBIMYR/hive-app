@@ -72,6 +72,11 @@ Skills (global, Symlinks nach `~/.claude/skills/`):
 
 - `GET /api/state`: alle Sessions als JSON, bei jedem Abruf frisch.
 - `GET /api/handover/<name>`: die rohe Handover-Datei.
+- `POST /api/focus/<pid>`: holt das iTerm-Fenster und den Tab der Session nach vorn
+  (PID → tty per `ps`, dann AppleScript). Nur für lebende Sessions aus dem Register,
+  nicht für Hintergrund-Sessions, nur von dieser Seite selbst (Origin-Prüfung).
+  Im Dashboard: Klick auf die Kachel springt nach iTerm, der Knopf „Handover“ bzw.
+  „Details“ öffnet die Seitenleiste.
 
 Sessions ohne lebenden Prozess, aber mit Handover-Datei, erscheinen als
 `offline`. Die Zeile verschwindet, wenn die Datei gelöscht oder die Session
