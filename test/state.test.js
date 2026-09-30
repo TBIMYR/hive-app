@@ -14,7 +14,7 @@ function build(overrides = {}) {
 test('lebende Sessions + Offline-Zeile aus Handover, jeder Name einmal', () => {
   const s = build();
   const names = s.sessions.map(x => x.name);
-  assert.deepEqual([...names].sort(), ['lu.01', 'lu.01#101', 'lu.pm', 'or.pm']);
+  assert.deepEqual([...names].sort(), ['lu.01', 'lu.01#101', 'lu.pm', 'lu.pm#103', 'or.pm']);
   const off = s.sessions.find(x => x.name === 'or.pm');
   assert.equal(off.alive, false);
   assert.equal(off.status, 'offline');
@@ -48,10 +48,17 @@ test('stale: busy und task älter als 60 min', () => {
 
 test('Sortierung: Gruppe, PM zuerst, dann Name', () => {
   const s = build();
-  assert.deepEqual(s.sessions.map(x => x.name), ['lu.pm', 'lu.01', 'lu.01#101', 'or.pm']);
+  assert.deepEqual(s.sessions.map(x => x.name), ['lu.pm', 'lu.01', 'lu.01#101', 'lu.pm#103', 'or.pm']);
 });
 
 test('tote Register-Einträge ohne Handover fallen weg', () => {
-  const s = build({ isAlive: pid => pid !== 100 });
-  assert.equal(s.sessions.find(x => x.name === 'lu.pm'), undefined);
+  const s = build({ isAlive: pid => pid !== 100 && pid !== 103 });
+  assert.equal(s.sessions.find(x => x.name.startsWith('lu.pm')), undefined);
+});
+
+test('kind wird durchgereicht, Offline-Zeilen haben kind null', () => {
+  const s = build();
+  assert.equal(s.sessions.find(x => x.name === 'lu.pm').kind, 'interactive');
+  assert.equal(s.sessions.find(x => x.name === 'lu.pm#103').kind, 'bg');
+  assert.equal(s.sessions.find(x => x.name === 'or.pm').kind, null);
 });
