@@ -1,0 +1,119 @@
+#!/bin/sh
+# cc-task — Aufgaben-Zeile und Handover-Datei einer Claude-Code-Session schreiben.
+#
+#   cc-task [--name NAME] [--body FILE] [--archive] [--no-create] "TASK" [STATE]
+#
+# STATE: working | blocked | done | handover (ohne Angabe: bisheriger Wert, sonst working)
+# Umgebung: CC_HOME (Standard ~/.claude), CC_DEV_ROOT (Standard ~/Development), CLAUDE_PID
+set -eu
+
+home="${CC_HOME:-$HOME/.claude}"
+dev_root="${CC_DEV_ROOT:-$HOME/Development}"
+name=""; body_file=""; archive=0; nocreate=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --name) name="$2"; shift 2 ;;
+    --body) body_file="$2"; shift 2 ;;
+    --archive) archive=1; shift ;;
+    --no-create) nocreate=1; shift ;;
+    --) shift; break ;;
+    -*) echo "cc-task: unbekannte Option $1" >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+
+task="${1:-}"; state_arg="${2:-}"
+if [ -z "$task" ]; then
+  echo "usage: cc-task [--name NAME] [--body FILE] [--archive] [--no-create] \"TASK\" [STATE]" >&2
+  exit 2
+fi
+task=$(printf '%s' "$task" | tr '\n\r' '  ')
+
+# --- Name und Register ---------------------------------------------------
+reg=""
+if [ -z "$name" ]; then
+  if [ -n "${CLAUDE_PID:-}" ] && [ -f "$home/sessions/$CLAUDE_PID.json" ]; then
+    reg="$home/sessions/$CLAUDE_PID.json"
+    name=$(jq -r '.name // empty' "$reg" 2>/dev/null || true)
+  fi
+  if [ -z "$name" ]; then
+    echo "cc-task: Session-Name unbekannt. Session mit 'claude -n <name>' starten oder --name angeben." >&2
+    exit 1
+  fi
+else
+  for f in "$home"/sessions/*.json; do
+    [ -f "$f" ] || continue
+    if [ "$(jq -r '.name // empty' "$f" 2>/dev/null)" = "$name" ]; then reg="$f"; break; fi
+  done
+fi
+
+case "$name" in
+  *[!A-Za-z0-9._#-]*|*..*) echo "cc-task: ungültiger Name '$name'" >&2; exit 2 ;;
+esac
+
+project_from_cwd() {
+  case "$1" in
+    "$dev_root"/*) rest="${1#"$dev_root"/}"; printf '%s' "${rest%%/*}" ;;
+    "") printf '' ;;
+    *) basename "$1" ;;
+  esac
+}
+project_reg=""
+if [ -n "$reg" ]; then
+  project_reg=$(project_from_cwd "$(jq -r '.cwd // empty' "$reg" 2>/dev/null)")
+fi
+
+# --- Datei ----------------------------------------------------------------
+dir="$home/handover"
+file="$dir/$name.md"
+mkdir -p "$dir"
+
+fm_end=0; old_state=""; old_project=""
+if [ -f "$file" ]; then
+  fm_end=$(awk 'NR==1 && $0!="---" {print 0; exit} NR>1 && $0=="---" {print NR; exit}' "$file")
+  fm_end="${fm_end:-0}"
+  if [ "$fm_end" -gt 0 ]; then
+    old_state=$(awk -v n="$fm_end" 'NR>1 && NR<n && index($0,"state: ")==1 {print substr($0,8); exit}' "$file")
+    old_project=$(awk -v n="$fm_end" 'NR>1 && NR<n && index($0,"project: ")==1 {print substr($0,10); exit}' "$file")
+  fi
+elif [ "$nocreate" -eq 1 ]; then
+  exit 0
+fi
+
+state="$state_arg"
+[ -n "$state" ] || state="$old_state"
+[ -n "$state" ] || state="working"
+project="$old_project"
+[ -n "$project" ] || project="$project_reg"
+
+d=$(date +%Y-%m-%dT%H:%M:%S%z)
+updated="${d%??}:${d#"${d%??}"}"
+
+if [ "$archive" -eq 1 ] && [ -f "$file" ]; then
+  mkdir -p "$dir/archive/$name"
+  cp "$file" "$dir/archive/$name/$(date +%Y-%m-%dT%H-%M).md"
+fi
+
+tmp=$(mktemp "$dir/.cc-task.XXXXXX")
+{
+  # printf statt echo: /bin/sh auf macOS interpretiert in echo Backslash-Sequenzen
+  printf '%s\n' "---"
+  printf 'session: %s\n' "$name"
+  printf 'project: %s\n' "$project"
+  printf 'task: %s\n' "$task"
+  printf 'state: %s\n' "$state"
+  printf 'updated: %s\n' "$updated"
+  if [ "$fm_end" -gt 0 ]; then
+    awk -v n="$fm_end" 'NR>1 && NR<n && $0 !~ /^(session|project|task|state|updated): / {print}' "$file"
+  fi
+  printf '%s\n' "---"
+  if [ -n "$body_file" ]; then
+    cat "$body_file"
+  elif [ -f "$file" ]; then
+    tail -n +"$((fm_end + 1))" "$file"
+  else
+    printf '# Handover %s\n\n## Lage\n\n## Offen\n\n## Regeln und Lehren\n' "$name"
+  fi
+} > "$tmp"
+mv "$tmp" "$file"

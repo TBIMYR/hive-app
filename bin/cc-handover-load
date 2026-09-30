@@ -1,0 +1,40 @@
+#!/bin/sh
+# cc-handover-load — SessionStart/UserPromptSubmit-Hook.
+# Gibt das Handover der Session mit demselben Namen einmalig als Kontext aus
+# und setzt die Aufgaben-Zeile auf "neu gestartet". Niemals Exit ≠ 0.
+home="${CC_HOME:-$HOME/.claude}"
+cc_task="${CC_TASK:-$HOME/.claude/bin/cc-task}"
+
+input=$(cat 2>/dev/null || true)
+session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
+
+reg=""
+if [ -n "${CLAUDE_PID:-}" ] && [ -f "$home/sessions/$CLAUDE_PID.json" ]; then
+  reg="$home/sessions/$CLAUDE_PID.json"
+elif [ -n "$session_id" ]; then
+  for f in "$home"/sessions/*.json; do
+    [ -f "$f" ] || continue
+    if [ "$(jq -r '.sessionId // empty' "$f" 2>/dev/null)" = "$session_id" ]; then reg="$f"; break; fi
+  done
+fi
+[ -n "$reg" ] || exit 0
+
+# Nur vom Nutzer gesetzte Namen (claude -n / /rename); abgeleitete Namen bekommen kein Handover.
+name=$(jq -r 'select(.nameSource != "derived") | .name // empty' "$reg" 2>/dev/null || true)
+[ -n "$name" ] || exit 0
+[ -n "$session_id" ] || session_id=$(jq -r '.sessionId // empty' "$reg" 2>/dev/null || true)
+
+marker="$home/handover/.loaded/${session_id:-$CLAUDE_PID}"
+[ -f "$marker" ] && exit 0
+
+file="$home/handover/$name.md"
+[ -f "$file" ] || exit 0
+
+mkdir -p "$home/handover/.loaded" 2>/dev/null && : > "$marker"
+
+printf 'Handover der Vorgänger-Session %s (aus %s). Lies es als Ausgangslage; die Aufgaben-Zeile steht auf "neu gestartet", setze sie mit /status, sobald du einen Auftrag hast.\n\n' "$name" "$file"
+cat "$file"
+printf '\n'
+
+sh "$cc_task" --name "$name" --no-create "neu gestartet, Handover gelesen" working >/dev/null 2>&1 || true
+exit 0
