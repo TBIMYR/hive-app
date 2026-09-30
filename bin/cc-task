@@ -3,7 +3,7 @@
 #
 #   cc-task [--name NAME] [--body FILE] [--archive] [--no-create] "TASK" [STATE]
 #
-# STATE: working | blocked | done | handover (ohne Angabe: bisheriger Wert, sonst working)
+# STATE: working | blocked | waiting | done | handover (ohne Angabe: bisheriger Wert, sonst working)
 # Umgebung: CC_HOME (Standard ~/.claude), CC_DEV_ROOT (Standard ~/Development), CLAUDE_PID
 set -eu
 

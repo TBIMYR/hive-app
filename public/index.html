@@ -21,6 +21,7 @@
     --need: #e5341f;
     --block: #f08c00;
     --busy: #12a150;
+    --wait: #8b5cf6;
     --idle: #b4b4b0;
     --shell: #2f6fed;
     --off: #d4d4d0;
@@ -142,6 +143,7 @@
   .st { font-size: 10px; letter-spacing: .08em; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--hair-2); color: var(--ink-2); }
   .st.blocked { border-color: var(--block); color: var(--block); }
   .st.done { border-color: var(--busy); color: var(--busy); }
+  .st.waiting { border-color: var(--wait); color: var(--wait); }
   .st.handover { border-color: var(--ink); color: var(--ink); }
   .task { font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: -.005em; overflow-wrap: anywhere; }
   .task.none { color: var(--muted); font-weight: 400; font-style: italic; font-size: 14px; }
@@ -265,6 +267,8 @@
     if (s.status === 'waiting') return { rank: 0, cls: 'need', label: 'wartet auf dich', c: 'var(--need)', solid: true, why: s.waitingFor || 'Eingabe nötig' };
     if (s.task && s.task.state === 'blocked') return { rank: 0, cls: 'block', label: 'blockiert', c: 'var(--block)', solid: true, why: 'Blockiert – braucht eine Entscheidung' };
     if (s.status === 'busy') return { rank: 1, cls: 'busy', label: 'arbeitet', c: 'var(--busy)', solid: true };
+    // fertig, wartet auf Rückmeldung von Menschen: braucht dich nicht direkt, steht aber vorn unter „Bereit“
+    if (s.task && s.task.state === 'waiting') return { rank: 2, cls: 'wait', label: 'wartet auf Rückmeldung', c: 'var(--wait)', solid: true };
     if (s.status === 'shell') return { rank: 2, cls: 'shell', label: 'Shell', c: 'var(--shell)', solid: false };
     return { rank: 2, cls: 'idle', label: 'bereit', c: 'var(--idle)', solid: false };
   }
@@ -274,7 +278,7 @@
     { rank: 2, title: 'Bereit', c: 'var(--idle)' },
     { rank: 3, title: 'Offline', c: 'var(--off)' },
   ];
-  const STATE_DE = { working: 'in Arbeit', blocked: 'blockiert', done: 'erledigt', handover: 'übergeben' };
+  const STATE_DE = { working: 'in Arbeit', blocked: 'blockiert', waiting: 'wartet', done: 'erledigt', handover: 'übergeben' };
 
   function groupLabels(sessions) {
     const m = new Map();
@@ -409,7 +413,7 @@
       if (!items.length) continue;
       items.sort((a, b) => sec.rank === 0
         ? (Date.parse(a.s.statusUpdatedAt || 0) - Date.parse(b.s.statusUpdatedAt || 0))
-        : ((labels.get(a.s.group) || '').localeCompare(labels.get(b.s.group) || '') || (b.s.isPm - a.s.isPm) || a.s.name.localeCompare(b.s.name)));
+        : ((b.k.cls === 'wait') - (a.k.cls === 'wait') || (labels.get(a.s.group) || '').localeCompare(labels.get(b.s.group) || '') || (b.s.isPm - a.s.isPm) || a.s.name.localeCompare(b.s.name)));
       html += `<section><h2 style="--c:${sec.c}"><span class="d"></span>${sec.title}<span class="n">${items.length}</span></h2>
         <div class="grid">${items.map(x => tile(x.s, x.k, labels, now, i++)).join('')}</div></section>`;
     }
