@@ -26,12 +26,25 @@ function run(home, env = {}, input = '{"session_id":"sid-4242","hook_event_name"
   });
 }
 
-test('ohne Handover-Datei: keine Ausgabe, keine Datei, Exit 0', () => {
+test('ohne Handover-Datei: keine Ausgabe, keine Datei, aber Marker, Exit 0', () => {
   const home = setup();
   const r = run(home);
   assert.equal(r.status, 0);
   assert.equal(r.stdout, '');
   assert.equal(fs.existsSync(path.join(home, 'handover', 'lu.01.md')), false);
+  assert.ok(fs.existsSync(path.join(home, 'handover', '.loaded', 'sid-4242')), 'Marker wird bei erster Namensauflösung gesetzt');
+});
+
+test('Datei, die die Session später selbst anlegt, wird nicht als Vorgänger geladen', () => {
+  const home = setup();
+  run(home);
+  const r1 = spawnSync('sh', [CC_TASK, 'eigener Auftrag'], {
+    encoding: 'utf8', env: { PATH: process.env.PATH, HOME: os.homedir(), CC_HOME: home, CLAUDE_PID: '4242' },
+  });
+  assert.equal(r1.status, 0, r1.stderr);
+  const r = run(home);
+  assert.equal(r.stdout, '');
+  assert.match(fs.readFileSync(path.join(home, 'handover', 'lu.01.md'), 'utf8'), /task: eigener Auftrag/);
 });
 
 test('mit Handover-Datei: Inhalt ausgeben, Aufgaben-Zeile setzen, Marker anlegen', () => {

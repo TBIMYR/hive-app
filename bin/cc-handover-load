@@ -1,7 +1,13 @@
 #!/bin/sh
 # cc-handover-load — SessionStart/UserPromptSubmit-Hook.
-# Gibt das Handover der Session mit demselben Namen einmalig als Kontext aus
+# Gibt das Handover der Vorgänger-Session mit demselben Namen einmalig als Kontext aus
 # und setzt die Aufgaben-Zeile auf "neu gestartet". Niemals Exit ≠ 0.
+#
+# Marker-Regel: Sobald der Name dieser Session zum ersten Mal auflösbar ist, wird
+# ~/.claude/handover/.loaded/<session_id> angelegt, ob eine Handover-Datei existiert
+# oder nicht. Nur eine Datei, die in diesem Moment schon da ist, gilt als Vorgänger-
+# Handover. Eine Datei, die die Session später selbst per /status anlegt, wird so
+# nie als fremdes Handover in denselben Kontext zurückgeladen.
 home="${CC_HOME:-$HOME/.claude}"
 cc_task="${CC_TASK:-$HOME/.claude/bin/cc-task}"
 
@@ -26,11 +32,10 @@ name=$(jq -r 'select(.nameSource != "derived") | .name // empty' "$reg" 2>/dev/n
 
 marker="$home/handover/.loaded/${session_id:-$CLAUDE_PID}"
 [ -f "$marker" ] && exit 0
+mkdir -p "$home/handover/.loaded" 2>/dev/null && : > "$marker"
 
 file="$home/handover/$name.md"
 [ -f "$file" ] || exit 0
-
-mkdir -p "$home/handover/.loaded" 2>/dev/null && : > "$marker"
 
 printf 'Handover der Vorgänger-Session %s (aus %s). Lies es als Ausgangslage; die Aufgaben-Zeile steht auf "neu gestartet", setze sie mit /status, sobald du einen Auftrag hast.\n\n' "$name" "$file"
 cat "$file"

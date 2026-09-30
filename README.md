@@ -1,0 +1,75 @@
+# hive
+
+Lokales Dashboard für alle laufenden Claude-Code-Sessions plus ein globaler
+Handover-Ort je Session-Name. Keine Abhängigkeiten, ein Node-Prozess.
+
+Design: `docs/superpowers/specs/2026-09-30-session-dashboard-design.md`
+
+## Start
+
+```sh
+node server.js              # http://127.0.0.1:7777, PORT überschreibbar
+sh install.sh               # Symlinks nach ~/.claude, Hook, CLAUDE.md-Abschnitt
+sh install.sh --launchd     # zusätzlich als LaunchAgent (läuft nach Login immer)
+node --test                 # 45 Tests, keine Tokens
+```
+
+Logs des LaunchAgents: `/tmp/hive.log`, `/tmp/hive.err`.
+Neustart nach Änderungen an `server.js`: `launchctl kickstart -k gui/$(id -u)/io.github.tbimyr.hive`.
+`public/index.html` wird bei jedem Abruf neu gelesen, dafür ist kein Neustart nötig.
+
+## Datenquellen
+
+| Quelle | Liefert | Wer schreibt |
+|---|---|---|
+| `~/.claude/sessions/<pid>.json` | Name, Verzeichnis, Status (busy/idle/waiting/shell), waitingFor | Claude Code |
+| Transkript `~/.claude/projects/<slug>/<sessionId>.jsonl` (letzte 64 KB) | letzte Antwort, letzter Prompt, Branch | Claude Code |
+| `~/.claude/handover/<name>.md` | Aufgaben-Zeile (Frontmatter) und Handover (Body) | die Session per `cc-task` |
+
+## Handover-Datei
+
+```markdown
+---
+session: lu.01
+project: lumen
+task: Kalender-Ansicht Layout #41, PR offen
+state: working        # working | blocked | done | handover
+updated: 2026-09-30T16:09:00+02:00
+---
+# Handover lu.01 — Stand 30.09.2026
+## Lage
+## Offen
+## Regeln und Lehren
+```
+
+Der Name ist der Schlüssel: Eine neue Session mit `claude -n lu.01` bekommt die
+Datei beim Start als Kontext (Hook `cc-handover-load`), und die Aufgaben-Zeile
+steht auf „neu gestartet“. Vorversionen liegen unter
+`~/.claude/handover/archive/<name>/`.
+
+## Session-Seite
+
+```sh
+cc-task "Text" [state]                       # Aufgaben-Zeile setzen (Body bleibt)
+cc-task --name or.02 "Text" done             # fremde Session setzen (PM)
+cc-task --archive --body datei.md "Kurz" handover   # Handover schreiben
+cc-task --no-create "Text"                   # nur wenn Datei existiert (Hook)
+```
+
+`cc-task` ermittelt den Namen über `$CLAUDE_PID` und das Register. Sessions mit
+abgeleitetem Namen (ohne `-n`) bekommen kein Handover.
+
+Skills (global, Symlinks nach `~/.claude/skills/`):
+
+- `/status`: ruft `cc-task` mit einer Zeile auf. Sessions setzen es selbst bei
+  Auftragsannahme, Blocker und Abschluss (Regel in `~/.claude/CLAUDE.md`).
+- `/handover`: schreibt den Body ins Scratchpad und übergibt ihn an `cc-task --archive --body`.
+
+## API
+
+- `GET /api/state`: alle Sessions als JSON, bei jedem Abruf frisch.
+- `GET /api/handover/<name>`: die rohe Handover-Datei.
+
+Sessions ohne lebenden Prozess, aber mit Handover-Datei, erscheinen als
+`offline`. Die Zeile verschwindet, wenn die Datei gelöscht oder die Session
+neu gestartet wird.
