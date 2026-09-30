@@ -11,7 +11,7 @@ Design: `docs/superpowers/specs/2026-09-30-session-dashboard-design.md`
 node server.js              # http://127.0.0.1:7777, PORT überschreibbar
 sh install.sh               # Symlinks nach ~/.claude, Hook, CLAUDE.md-Abschnitt
 sh install.sh --launchd     # zusätzlich als LaunchAgent (läuft nach Login immer)
-node --test                 # 45 Tests, keine Tokens
+node --test                 # 52 Tests, keine Tokens
 ```
 
 Logs des LaunchAgents: `/tmp/hive.log`, `/tmp/hive.err`.
