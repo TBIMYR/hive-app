@@ -4,127 +4,220 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sessions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f4f5f7; --fg: #16181d; --muted: #6b7280; --faint: #9ca3af;
-    --card: #ffffff; --line: #e3e5e9; --chip: #eceef2;
-    --need: #dc2626; --need-bg: #fef2f2;
-    --block: #d97706; --block-bg: #fffbeb;
-    --busy: #16a34a; --busy-bg: #f0fdf4;
-    --idle: #9ca3af; --shell: #2563eb; --offline: #b6bac2;
-    --accent: #2563eb;
-    --sat: 55%; --lig: 48%;
+    --bg: #f3f1ec;
+    --bg-2: #ebe8e1;
+    --card: #fffefb;
+    --ink: #1b1a17;
+    --ink-2: #4a4740;
+    --muted: #8a867c;
+    --hair: #e2ded5;
+    --hair-2: #d4cfc4;
+    --shadow: 0 1px 0 rgba(27,26,23,.04), 0 1px 3px rgba(27,26,23,.06);
+    --shadow-hi: 0 2px 0 rgba(27,26,23,.04), 0 8px 24px rgba(27,26,23,.10);
+
+    --need: #c8321f;   --need-soft: #fbece8;  --need-line: #efc6bd;
+    --block: #b86b00;  --block-soft: #fbf1e0; --block-line: #ecd3a8;
+    --busy: #1f7a45;   --busy-soft: #e8f3ec;
+    --idle: #8a867c;
+    --shell: #2f5fb3;  --shell-soft: #e8eef9;
+    --off: #b3aea3;
+    --focus: #2f5fb3;
+
+    --sans: "Instrument Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0e1014; --fg: #e6e8eb; --muted: #9aa1ab; --faint: #6b7280;
-      --card: #171a20; --line: #262a33; --chip: #20242c;
-      --need: #f87171; --need-bg: #2a1414;
-      --block: #fbbf24; --block-bg: #2a2110;
-      --busy: #4ade80; --busy-bg: #11241a;
-      --idle: #6b7280; --shell: #60a5fa; --offline: #4b5563;
-      --accent: #60a5fa;
-      --sat: 60%; --lig: 62%;
+      --bg: #141412; --bg-2: #1b1b18; --card: #1e1e1b;
+      --ink: #efece5; --ink-2: #c3bfb5; --muted: #8b877d;
+      --hair: #2c2b27; --hair-2: #3a3833;
+      --shadow: 0 1px 0 rgba(0,0,0,.3); --shadow-hi: 0 8px 28px rgba(0,0,0,.45);
+      --need: #ff7a63;  --need-soft: #2c1814;  --need-line: #5a2a20;
+      --block: #f0b04a; --block-soft: #2a2213; --block-line: #57421d;
+      --busy: #5fd08c;  --busy-soft: #15251b;
+      --idle: #8b877d; --shell: #7fa6ef; --shell-soft: #18213a; --off: #55524b;
+      --focus: #7fa6ef;
     }
   }
+
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg);
-         font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }
-  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  html { -webkit-font-smoothing: antialiased; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+  button { font: inherit; color: inherit; }
+  .mono { font-family: var(--mono); }
 
-  /* Kopf + Filter */
-  header { position: sticky; top: 0; z-index: 2; background: var(--bg);
-           border-bottom: 1px solid var(--line); padding: 10px 16px; }
-  .top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .top h1 { font-size: 15px; margin: 0; }
-  .counts { display: flex; gap: 12px; color: var(--muted); }
-  .counts b { color: var(--fg); font-weight: 600; }
-  .meta { margin-left: auto; color: var(--muted); font-size: 12px; }
-  .meta .err { color: var(--need); }
-  .filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
-  .filters input[type=search] { font: inherit; padding: 4px 8px; border: 1px solid var(--line);
-         border-radius: 6px; background: var(--card); color: var(--fg); width: 200px; }
-  .chipbtn { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--card);
-         color: var(--muted); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
-  .chipbtn.on { color: var(--fg); border-color: var(--fg); }
-  .chipbtn .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
-  .sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+  /* ───────── Kopf ───────── */
+  header.top {
+    position: sticky; top: 0; z-index: 5;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: saturate(1.2) blur(10px); -webkit-backdrop-filter: saturate(1.2) blur(10px);
+    border-bottom: 1px solid var(--hair);
+    padding: 18px 28px 14px;
+  }
+  .bar { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+  .brand { display: flex; flex-direction: column; gap: 2px; margin-right: 8px; }
+  .brand h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+  .brand .meta { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .brand .meta .err { color: var(--need); }
 
-  /* Bereiche */
-  main { display: grid; grid-template-columns: 1fr; }
-  main.with-side { grid-template-columns: 1fr minmax(340px, 38%); }
-  #board { padding: 4px 16px 60px; min-width: 0; }
-  section h2 { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
-        text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; }
-  section h2 .n { font-weight: 400; }
-  section.need h2 { color: var(--need); }
-  section h2 button { all: unset; cursor: pointer; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--accent); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  .stats { display: flex; gap: 10px; }
+  .stat { display: flex; align-items: baseline; gap: 10px; padding: 8px 16px 8px 14px;
+          border-radius: 12px; border: 1px solid var(--hair); background: var(--card);
+          cursor: pointer; transition: border-color .15s, box-shadow .15s; box-shadow: var(--shadow); }
+  .stat:hover { border-color: var(--hair-2); }
+  .stat .num { font-size: 26px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: 13px; color: var(--ink-2); font-weight: 500; }
+  .stat.need .num { color: var(--need); }
+  .stat.need.hot { background: var(--need-soft); border-color: var(--need-line); }
+  .stat.busy .num { color: var(--busy); }
+  .stat.idle .num { color: var(--ink-2); }
+  .stat.on { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-  /* Kachel */
-  .tile { position: relative; background: var(--card); border: 1px solid var(--line);
-          border-left: 4px solid var(--proj); border-radius: 8px; padding: 10px 12px 10px 12px;
-          display: flex; flex-direction: column; gap: 6px; min-width: 0; cursor: pointer; }
-  .tile:hover { border-color: var(--faint); border-left-color: var(--proj); }
-  .tile.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
-  .tile.k-need { background: var(--need-bg); border-color: color-mix(in srgb, var(--need) 45%, var(--line)); border-left-color: var(--proj); }
-  .tile.k-block { background: var(--block-bg); border-color: color-mix(in srgb, var(--block) 45%, var(--line)); border-left-color: var(--proj); }
-  .tile.k-off { opacity: .6; }
-  .row1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .name { font-weight: 650; font-size: 14px; }
-  .proj { font-size: 11px; color: var(--proj); font-weight: 600; }
-  .tag { font-size: 10px; padding: 0 5px; border-radius: 3px; background: var(--chip); color: var(--muted); font-weight: 600; }
-  .tag.bg { background: var(--block); color: #fff; }
-  .pill { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
-          font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
-          color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
-  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
-  .pill.pulse .dot { animation: pulse 1.4s infinite; }
-  @keyframes pulse { 50% { opacity: .3; } }
-  .why { font-size: 12px; font-weight: 600; color: var(--c); }
-  .task { font-size: 13px; overflow-wrap: anywhere; }
-  .task .st { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; margin-right: 6px; color: var(--muted); }
-  .task.none { color: var(--faint); font-style: italic; }
-  .last { color: var(--muted); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .search { position: relative; }
+  .search input { font: inherit; font-size: 14px; width: 260px; padding: 7px 12px 7px 34px;
+                  border-radius: 10px; border: 1px solid var(--hair-2); background: var(--card);
+                  color: var(--ink); outline: none; }
+  .search input:focus { border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 18%, transparent); }
+  .search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .search kbd { position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+                font: 11px var(--mono); color: var(--muted); border: 1px solid var(--hair-2);
+                border-radius: 4px; padding: 0 5px; background: var(--bg); }
+  .chip { font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+          border: 1px solid var(--hair-2); background: transparent; color: var(--muted);
+          transition: background .12s, color .12s, border-color .12s; }
+  .chip:hover { color: var(--ink); }
+  .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .chip .c { opacity: .6; margin-left: 4px; font-variant-numeric: tabular-nums; }
+  .chip.ghost { border-style: dashed; }
+  .vsep { width: 1px; height: 22px; background: var(--hair-2); margin: 0 4px; }
+
+  /* ───────── Fläche ───────── */
+  main { display: grid; grid-template-columns: minmax(0, 1fr); }
+  main.with-side { grid-template-columns: minmax(0, 1fr) minmax(380px, 36%); }
+  #board { padding: 8px 28px 80px; }
+
+  section { margin-top: 26px; }
+  section > h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px;
+                 font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+  section > h2 .n { font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0;
+                    color: var(--muted); padding: 1px 8px; border-radius: 999px; background: var(--bg-2); }
+  section > h2::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
+  section.need > h2 { color: var(--need); }
+  section.need > h2 .n { background: var(--need-soft); color: var(--need); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+
+  /* ───────── Kachel ───────── */
+  .tile { position: relative; display: flex; flex-direction: column; min-width: 0;
+          background: var(--card); border: 1px solid var(--hair); border-radius: 14px;
+          box-shadow: var(--shadow); cursor: pointer; overflow: hidden;
+          transition: box-shadow .18s, transform .18s, border-color .18s; }
+  .tile:hover { box-shadow: var(--shadow-hi); transform: translateY(-1px); border-color: var(--hair-2); }
+  .tile.sel { border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 20%, transparent), var(--shadow-hi); }
+  .tile.s-need  { background: var(--need-soft);  border-color: var(--need-line); }
+  .tile.s-block { background: var(--block-soft); border-color: var(--block-line); }
+  .tile.s-off   { opacity: .55; }
+
+  .t-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px 0; }
+  .t-id { min-width: 0; flex: 1; }
+  .t-name { display: flex; align-items: center; gap: 8px; font: 600 18px/1.2 var(--mono); letter-spacing: -.01em; }
+  .t-tag { font: 600 10px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase;
+           padding: 4px 6px; border-radius: 5px; background: var(--bg-2); color: var(--ink-2); }
+  .t-tag.bg { background: var(--block); color: #fff; }
+  .t-sub { margin-top: 4px; font-size: 13px; color: var(--muted); display: flex; gap: 6px; min-width: 0; }
+  .t-sub .br { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .t-status { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px;
+              border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap;
+              color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+  .t-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+  .t-status.pulse i { animation: pulse 1.6s ease-in-out infinite; box-shadow: 0 0 0 0 var(--c); }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 55%, transparent); }
+                     70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+  .t-alert { margin: 12px 18px 0; display: flex; align-items: center; gap: 8px;
+             font-size: 14px; font-weight: 600; color: var(--c); }
+  .t-alert svg { flex: none; }
+
+  .t-body { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .lbl { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px;
+         display: flex; align-items: center; gap: 8px; }
+  .lbl .st { letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; background: var(--bg-2); color: var(--ink-2); }
+  .lbl .st.blocked { background: var(--block-soft); color: var(--block); }
+  .lbl .st.done { background: var(--busy-soft); color: var(--busy); }
+  .lbl .st.handover { background: var(--shell-soft); color: var(--shell); }
+  .task { font-size: 15px; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+  .task.none { color: var(--muted); font-weight: 400; font-style: italic; font-size: 14px; }
+  .last { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere;
           display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .last.open { -webkit-line-clamp: unset; color: var(--fg); }
-  .foot { display: flex; gap: 10px; font-size: 11px; color: var(--faint); min-width: 0; }
-  .foot .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .foot .age { margin-left: auto; white-space: nowrap; }
-  .errors { color: var(--need); font-size: 11px; }
-  .empty { color: var(--muted); padding: 40px 0; }
+  .last.none { color: var(--muted); font-style: italic; }
 
-  /* Seitenleiste */
-  aside { border-left: 1px solid var(--line); background: var(--card); padding: 12px 18px 40px;
-          position: sticky; top: var(--hh, 90px); height: calc(100vh - var(--hh, 90px)); overflow: auto; min-width: 0; }
-  aside .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  aside .head button { all: unset; cursor: pointer; color: var(--accent); }
-  aside h1, aside h2, aside h3 { font-size: 13px; margin: 14px 0 4px; }
-  aside h1 { font-size: 15px; }
-  aside pre { background: var(--bg); padding: 8px; overflow: auto; border-radius: 4px; font-size: 12px; }
-  aside code { background: var(--bg); padding: 0 3px; border-radius: 3px; font-size: 12px; }
-  aside ul, aside ol { padding-left: 20px; }
-  aside p, aside li { overflow-wrap: anywhere; }
-  aside .sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
-  aside .lastfull { white-space: pre-wrap; background: var(--bg); padding: 8px; border-radius: 6px; font-size: 12px; }
+  .t-foot { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--hair);
+            font-size: 12.5px; color: var(--muted); }
+  .tile.s-need .t-foot { border-color: var(--need-line); }
+  .tile.s-block .t-foot { border-color: var(--block-line); }
+  .t-foot .sp { flex: 1; }
+  .t-foot .ho { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); font-weight: 500; }
+  .t-foot .err { color: var(--need); }
 
-  @media (max-width: 800px) {
+  .empty { color: var(--muted); padding: 60px 0; text-align: center; font-size: 15px; }
+  .hidden-note { color: var(--muted); font-size: 13px; margin-top: 28px; text-align: center; }
+
+  /* erstes Laden: gestaffeltes Einblenden */
+  .intro .tile { animation: rise .45s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 28ms); }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .intro .tile, .t-status.pulse i { animation: none; } }
+
+  /* ───────── Seitenleiste ───────── */
+  aside { border-left: 1px solid var(--hair); background: var(--card); min-width: 0;
+          position: sticky; top: var(--hh, 120px); height: calc(100vh - var(--hh, 120px)); overflow: auto; }
+  .s-head { position: sticky; top: 0; background: var(--card); padding: 20px 26px 16px; border-bottom: 1px solid var(--hair);
+            display: flex; gap: 12px; align-items: flex-start; }
+  .s-head .t-id { flex: 1; }
+  .s-close { all: unset; cursor: pointer; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); }
+  .s-close:hover { background: var(--bg-2); color: var(--ink); }
+  .s-body { padding: 8px 26px 60px; }
+  .s-block { margin-top: 20px; }
+  .s-block > .lbl { margin-bottom: 8px; }
+  .quote { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.6; color: var(--ink-2);
+           background: var(--bg); border-radius: 10px; padding: 12px 14px; }
+  .md { font-size: 14.5px; line-height: 1.65; color: var(--ink-2); }
+  .md h1 { font-size: 18px; color: var(--ink); margin: 6px 0 10px; }
+  .md h2 { font-size: 15px; color: var(--ink); margin: 20px 0 6px; }
+  .md h3 { font-size: 14px; color: var(--ink); margin: 16px 0 4px; }
+  .md p { margin: 6px 0; overflow-wrap: anywhere; }
+  .md ul, .md ol { padding-left: 20px; margin: 6px 0; }
+  .md li { margin: 3px 0; overflow-wrap: anywhere; }
+  .md code { font: 12.5px var(--mono); background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+  .md pre { font: 12.5px/1.5 var(--mono); background: var(--bg); padding: 12px; border-radius: 8px; overflow: auto; }
+  .md pre code { background: none; padding: 0; }
+
+  @media (max-width: 900px) {
+    header.top { padding: 14px 16px 12px; }
+    #board { padding: 4px 16px 60px; }
+    .grid { grid-template-columns: 1fr; }
     main.with-side { grid-template-columns: 1fr; }
-    aside { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+    aside { position: fixed; inset: 0; top: 0; height: 100vh; z-index: 10; border: 0; }
+    .search input { width: 100%; }
   }
 </style>
 </head>
 <body>
-<header id="hdr">
-  <div class="top">
-    <h1>Sessions</h1>
-    <div class="counts" id="counts"></div>
-    <div class="meta" id="meta">…</div>
+<header class="top" id="hdr">
+  <div class="bar">
+    <div class="brand"><h1>Sessions</h1><div class="meta" id="meta">…</div></div>
+    <div class="stats" id="stats"></div>
   </div>
   <div class="filters" id="filters"></div>
 </header>
 <main id="main">
-  <div id="board"><div class="empty">Lade…</div></div>
+  <div id="board" class="intro"><div class="empty">Lade…</div></div>
   <aside id="side" hidden></aside>
 </main>
 <script>
@@ -132,42 +225,42 @@
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-  // ---------- Filterzustand (pro Browser gemerkt) ----------
+  const ICON = {
+    search: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+    alert: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+    doc: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+    close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  };
+
+  // ---------- Filter (pro Browser gemerkt) ----------
   const store = {
     get() { try { return JSON.parse(localStorage.getItem('hive-filter')) || {}; } catch { return {}; } },
     set(v) { try { localStorage.setItem('hive-filter', JSON.stringify(v)); } catch {} },
   };
-  const f = Object.assign({ hidden: [], q: '', offline: false, onlyNeed: false }, store.get());
+  const f = Object.assign({ hidden: [], q: '', offline: false, only: null }, store.get());
+  delete f.onlyNeed;
   const save = () => store.set(f);
 
-  let state = null, lastJson = '', selected = null;
-  const expanded = new Set();
+  let state = null, lastJson = '', selected = null, firstPaint = true;
 
   // ---------- Einordnung ----------
-  // Rang 0 = braucht dich, 1 = arbeitet, 2 = bereit, 3 = offline
+  // rank: 0 braucht dich · 1 arbeitet · 2 bereit · 3 offline
   function classify(s) {
-    if (s.status === 'offline') return { rank: 3, kind: 'off', label: 'offline', c: 'var(--offline)' };
-    if (s.status === 'waiting') return { rank: 0, kind: 'need', label: 'wartet auf dich', c: 'var(--need)', why: s.waitingFor || 'Eingabe nötig' };
-    if (s.task && s.task.state === 'blocked') return { rank: 0, kind: 'block', label: 'blockiert', c: 'var(--block)', why: 'Blockiert' };
-    if (s.task && s.task.stale) return { rank: 0, kind: 'block', label: 'arbeitet', c: 'var(--block)', why: 'Seit über 60 min keine Meldung', pulse: true };
-    if (s.status === 'busy') return { rank: 1, kind: 'busy', label: 'arbeitet', c: 'var(--busy)', pulse: true };
-    if (s.status === 'shell') return { rank: 2, kind: 'idle', label: 'Shell', c: 'var(--shell)' };
-    return { rank: 2, kind: 'idle', label: 'bereit', c: 'var(--idle)' };
+    if (s.status === 'offline') return { rank: 3, cls: 'off', label: 'offline', c: 'var(--off)' };
+    if (s.status === 'waiting') return { rank: 0, cls: 'need', label: 'wartet auf dich', c: 'var(--need)', why: s.waitingFor || 'Eingabe nötig' };
+    if (s.task && s.task.state === 'blocked') return { rank: 0, cls: 'block', label: 'blockiert', c: 'var(--block)', why: 'Blockiert – braucht eine Entscheidung' };
+    if (s.task && s.task.stale) return { rank: 0, cls: 'block', label: 'arbeitet', c: 'var(--block)', pulse: true, why: 'Seit über 60 min keine Meldung' };
+    if (s.status === 'busy') return { rank: 1, cls: 'busy', label: 'arbeitet', c: 'var(--busy)', pulse: true };
+    if (s.status === 'shell') return { rank: 2, cls: 'idle', label: 'Shell', c: 'var(--shell)' };
+    return { rank: 2, cls: 'idle', label: 'bereit', c: 'var(--idle)' };
   }
   const SECTIONS = [
     { rank: 0, key: 'need', title: 'Braucht dich' },
     { rank: 1, key: 'busy', title: 'Arbeitet' },
     { rank: 2, key: 'idle', title: 'Bereit' },
-    { rank: 3, key: 'off', title: 'Offline' },
+    { rank: 3, key: 'off',  title: 'Offline' },
   ];
-
-  // Projektfarbe stabil aus dem Gruppenschlüssel. Feste Palette ohne Rot, Orange
-  // und Grün, damit Projektfarben nie mit den Statusfarben verwechselt werden.
-  // Vergabe der Reihe nach über die alphabetisch sortierten Gruppen, damit
-  // benachbarte Projekte nie denselben Ton bekommen.
-  const PALETTE = [215, 320, 175, 275, 195, 245, 300, 230];
-  let colorIndex = new Map();
-  const projColor = key => `hsl(${PALETTE[(colorIndex.get(key) ?? 0) % PALETTE.length]} var(--sat) var(--lig))`;
+  const STATE_DE = { working: 'in Arbeit', blocked: 'blockiert', done: 'erledigt', handover: 'übergeben' };
 
   function groupLabels(sessions) {
     const m = new Map();
@@ -178,46 +271,19 @@
     return m;
   }
 
-  function age(iso, now) {
+  function ago(iso, now) {
     if (!iso) return '';
     const s = Math.max(0, (now - Date.parse(iso)) / 1000);
-    if (s < 60) return 'gerade';
-    if (s < 3600) return `${Math.round(s / 60)} min`;
-    if (s < 86400) return `${Math.round(s / 3600)} h`;
-    return `${Math.round(s / 86400)} d`;
+    if (s < 60) return 'gerade eben';
+    if (s < 3600) return `vor ${Math.round(s / 60)} min`;
+    if (s < 86400) return `vor ${Math.round(s / 3600)} h`;
+    return `vor ${Math.round(s / 86400)} Tagen`;
   }
 
-  // ---------- Rendern ----------
-  function tile(s, labels, now) {
-    const k = classify(s);
-    const lbl = labels.get(s.group) || s.group;
-    const task = s.task
-      ? `<div class="task"><span class="st">${esc(s.task.state || '')}</span>${esc(s.task.text)}</div>`
-      : `<div class="task none">keine Aufgaben-Zeile</div>`;
-    const lastText = s.lastAssistant ? s.lastAssistant.text : (s.alive ? 'keine Antwort im Fenster' : '');
-    const last = lastText ? `<div class="last${expanded.has(s.name) ? ' open' : ''}" data-expand="${esc(s.name)}">${esc(lastText)}</div>` : '';
-    const errs = s.errors && s.errors.length ? `<div class="errors">${esc(s.errors.join(' · '))}</div>` : '';
-    const when = age(s.lastAssistant?.at || s.statusUpdatedAt || s.task?.updatedAt, now);
-    return `<div class="tile k-${k.kind}${selected === s.name ? ' sel' : ''}" style="--proj:${projColor(s.group)};--c:${k.c}" data-open="${esc(s.name)}">
-      <div class="row1">
-        <span class="name mono">${esc(s.name)}</span>
-        ${s.isPm ? '<span class="tag">PM</span>' : ''}
-        ${s.kind === 'bg' ? `<span class="tag bg" title="Hintergrund-Session ohne Fenster, PID ${esc(s.pid)}">bg</span>` : ''}
-        <span class="proj">${esc(lbl)}</span>
-        <span class="pill${k.pulse ? ' pulse' : ''}"><span class="dot"></span>${esc(k.label)}</span>
-      </div>
-      ${k.why ? `<div class="why">${esc(k.why)}</div>` : ''}
-      ${task}
-      ${last}
-      <div class="foot mono"><span class="br">${esc(s.branch || '')}</span><span class="age">${when}</span></div>
-      ${errs}
-    </div>`;
-  }
-
-  function visible(s) {
+  function visible(s, k) {
     if (f.hidden.includes(s.group)) return false;
-    if (s.status === 'offline' && !f.offline) return false;
-    if (f.onlyNeed && classify(s).rank !== 0) return false;
+    if (k.rank === 3 && !f.offline) return false;
+    if (f.only !== null && k.rank !== f.only) return false;
     if (f.q) {
       const hay = [s.name, s.project, s.task?.text, s.lastAssistant?.text, s.branch].join(' ').toLowerCase();
       if (!hay.includes(f.q.toLowerCase())) return false;
@@ -225,59 +291,94 @@
     return true;
   }
 
-  function renderFilters(labels, sessions) {
+  // ---------- Bausteine ----------
+  function ident(s, labels) {
+    const proj = labels.get(s.group) || s.group;
+    const br = s.branch && s.branch !== 'HEAD' ? `<span>·</span><span class="br">${esc(s.branch)}</span>` : '';
+    return `<div class="t-id">
+      <div class="t-name">${esc(s.name)}${s.isPm ? '<span class="t-tag">PM</span>' : ''}${s.kind === 'bg' ? `<span class="t-tag bg" title="Hintergrund-Session ohne Fenster, PID ${esc(s.pid)}">bg</span>` : ''}</div>
+      <div class="t-sub"><span>${esc(proj)}</span>${br}</div>
+    </div>`;
+  }
+  const statusPill = k => `<span class="t-status${k.pulse ? ' pulse' : ''}" style="--c:${k.c}"><i></i>${esc(k.label)}</span>`;
+  function taskBlock(s) {
+    if (!s.task) return `<div><div class="lbl">Aufgabe</div><div class="task none">noch keine Aufgaben-Zeile</div></div>`;
+    const st = s.task.state || '';
+    return `<div><div class="lbl">Aufgabe${st ? `<span class="st ${esc(st)}">${esc(STATE_DE[st] || st)}</span>` : ''}</div>
+      <div class="task">${esc(s.task.text)}</div></div>`;
+  }
+
+  function tile(s, k, labels, now, i) {
+    const lastText = s.lastAssistant ? s.lastAssistant.text : '';
+    const last = s.alive
+      ? `<div><div class="lbl">Zuletzt</div><div class="last${lastText ? '' : ' none'}">${esc(lastText || 'keine Antwort im sichtbaren Verlauf')}</div></div>`
+      : '';
+    const when = s.lastAssistant?.at || s.statusUpdatedAt || s.task?.updatedAt;
+    const errs = s.errors && s.errors.length ? `<span class="err" title="${esc(s.errors.join(' · '))}">Lesefehler</span>` : '';
+    return `<article class="tile s-${k.cls}${selected === s.name ? ' sel' : ''}" data-open="${esc(s.name)}" style="--i:${i};--c:${k.c}">
+      <div class="t-head">${ident(s, labels)}${statusPill(k)}</div>
+      ${k.why ? `<div class="t-alert">${ICON.alert}${esc(k.why)}</div>` : ''}
+      <div class="t-body">${taskBlock(s)}${last}</div>
+      <div class="t-foot"><span>${when ? esc(ago(when, now)) : ''}</span><span class="sp"></span>${errs}${s.hasHandover ? `<span class="ho">${ICON.doc}Handover</span>` : ''}</div>
+    </article>`;
+  }
+
+  // ---------- Rendern ----------
+  function renderHeader(all, labels) {
+    const n = r => all.filter(x => x.k.rank === r).length;
+    const need = n(0), busy = n(1), idle = n(2);
+    $('#stats').innerHTML = [
+      [0, 'need', need, 'braucht dich'],
+      [1, 'busy', busy, 'arbeitet'],
+      [2, 'idle', idle, 'bereit'],
+    ].map(([r, cls, v, l]) => `<button class="stat ${cls}${cls === 'need' && v ? ' hot' : ''}${f.only === r ? ' on' : ''}" data-only="${r}" title="nur diese anzeigen">
+        <span class="num">${v}</span><span class="lbl">${l}</span></button>`).join('');
+    document.title = need ? `(${need}) Sessions` : 'Sessions';
+
     const counts = new Map();
-    for (const s of sessions) counts.set(s.group, (counts.get(s.group) || 0) + 1);
+    for (const x of all) if (x.k.rank !== 3 || f.offline) counts.set(x.s.group, (counts.get(x.s.group) || 0) + 1);
     const chips = [...labels].sort((a, b) => a[1].localeCompare(b[1])).map(([key, lbl]) =>
-      `<button class="chipbtn${f.hidden.includes(key) ? '' : ' on'}" data-proj="${esc(key)}">
-         <span class="sw" style="background:${projColor(key)}"></span>${esc(lbl)} <span style="color:var(--faint)">${counts.get(key) || 0}</span></button>`).join('');
+      `<button class="chip${f.hidden.includes(key) ? '' : ' on'}" data-proj="${esc(key)}" title="Alt-Klick: nur dieses Projekt">${esc(lbl)}<span class="c">${counts.get(key) || 0}</span></button>`).join('');
+    const offCount = all.filter(x => x.k.rank === 3).length;
     const active = document.activeElement && document.activeElement.id === 'q';
     const pos = active ? document.activeElement.selectionStart : null;
     $('#filters').innerHTML =
-      `<input id="q" type="search" placeholder="Suchen (/)" value="${esc(f.q)}">
-       <span class="sep"></span>${chips}<span class="sep"></span>
-       <button class="chipbtn${f.onlyNeed ? ' on' : ''}" data-toggle="onlyNeed">nur „Braucht dich“</button>
-       <button class="chipbtn${f.offline ? ' on' : ''}" data-toggle="offline">offline zeigen</button>
-       ${f.hidden.length || f.q || f.onlyNeed ? '<button class="chipbtn" data-reset>zurücksetzen</button>' : ''}`;
+      `<label class="search">${ICON.search}<input id="q" type="search" placeholder="Session, Aufgabe, Branch…" value="${esc(f.q)}" autocomplete="off"><kbd>/</kbd></label>
+       <span class="vsep"></span>${chips}
+       ${offCount ? `<span class="vsep"></span><button class="chip ghost${f.offline ? ' on' : ''}" data-toggle="offline">offline<span class="c">${offCount}</span></button>` : ''}
+       ${f.hidden.length || f.q || f.only !== null ? '<button class="chip ghost" data-reset>Filter zurücksetzen</button>' : ''}`;
     if (active) { const q = $('#q'); q.focus(); q.setSelectionRange(pos, pos); }
+
+    const errs = state.errors && state.errors.length ? ` · <span class="err">${state.errors.length} Register-Fehler</span>` : '';
+    $('#meta').innerHTML = `aktualisiert ${new Date(state.generatedAt).toLocaleTimeString('de-DE')}${errs}`;
   }
 
   function render() {
     if (!state) return;
     const now = Date.now();
     const labels = groupLabels(state.sessions);
-    colorIndex = new Map([...labels.keys()].sort().map((k, i) => [k, i]));
-    renderFilters(labels, state.sessions);
-
     const all = state.sessions.map(s => ({ s, k: classify(s) }));
-    const shown = all.filter(x => visible(x.s));
+    renderHeader(all, labels);
 
-    let html = '';
+    const shown = all.filter(x => visible(x.s, x.k));
+    let html = '', i = 0;
     for (const sec of SECTIONS) {
       const items = shown.filter(x => x.k.rank === sec.rank);
       if (!items.length) continue;
       items.sort((a, b) => sec.rank === 0
-        // Wer am längsten wartet, zuerst
         ? (Date.parse(a.s.statusUpdatedAt || 0) - Date.parse(b.s.statusUpdatedAt || 0))
         : ((labels.get(a.s.group) || '').localeCompare(labels.get(b.s.group) || '') || (b.s.isPm - a.s.isPm) || a.s.name.localeCompare(b.s.name)));
-      html += `<section class="${sec.key}"><h2>${sec.title} <span class="n">${items.length}</span></h2>
-        <div class="grid">${items.map(x => tile(x.s, labels, now)).join('')}</div></section>`;
+      html += `<section class="${sec.key}"><h2>${sec.title}<span class="n">${items.length}</span></h2>
+        <div class="grid">${items.map(x => tile(x.s, x.k, labels, now, i++)).join('')}</div></section>`;
     }
-    const hiddenCount = all.length - shown.length;
-    if (!html) html = '<div class="empty">Keine Session passt zum Filter.</div>';
-    if (hiddenCount) html += `<div class="empty" style="padding:16px 0">${hiddenCount} ausgeblendet</div>`;
-    $('#board').innerHTML = html;
-
-    const need = all.filter(x => x.k.rank === 0).length;
-    const busy = all.filter(x => x.k.rank === 1).length;
-    const idle = all.filter(x => x.k.rank === 2).length;
-    $('#counts').innerHTML =
-      `<span style="color:var(--need)"><b style="color:inherit">${need}</b> braucht dich</span>
-       <span><b>${busy}</b> arbeitet</span><span><b>${idle}</b> bereit</span>`;
-    document.title = need ? `(${need}) Sessions` : 'Sessions';
-    const errs = state.errors && state.errors.length ? ` · <span class="err">${state.errors.length} Register-Fehler</span>` : '';
-    $('#meta').innerHTML = `${new Date(state.generatedAt).toLocaleTimeString('de-DE')}${errs}`;
+    const hidden = all.length - shown.length;
+    if (!html) html = '<div class="empty">Keine Session passt zu den Filtern.</div>';
+    if (hidden) html += `<div class="hidden-note">${hidden} ausgeblendet</div>`;
+    const board = $('#board');
+    board.innerHTML = html;
+    if (firstPaint) { firstPaint = false; setTimeout(() => board.classList.remove('intro'), 1200); }
     document.documentElement.style.setProperty('--hh', $('#hdr').offsetHeight + 'px');
+    if (selected) refreshSideMeta();
   }
 
   async function poll() {
@@ -298,8 +399,8 @@
     const inline = t => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
     for (let i = fm ? 1 : 0; i < lines.length; i++) {
       const raw = lines[i];
-      if (fm) { if (raw === '---') fm = false; continue; }   // Frontmatter steht schon oben
-      if (raw.startsWith('```')) { closeList(); inCode = !inCode; out += inCode ? '<pre>' : '</pre>'; continue; }
+      if (fm) { if (raw === '---') fm = false; continue; }
+      if (raw.startsWith('```')) { closeList(); inCode = !inCode; out += inCode ? '<pre><code>' : '</code></pre>'; continue; }
       if (inCode) { out += esc(raw) + '\n'; continue; }
       const h = /^(#{1,3})\s+(.*)$/.exec(raw);
       if (h) { closeList(); out += `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`; continue; }
@@ -316,26 +417,42 @@
     return out;
   }
 
+  let sideHandover = '';
+  function sideHtml(s) {
+    const labels = groupLabels(state.sessions);
+    const k = classify(s);
+    const now = Date.now();
+    const meta = [s.cwd, s.pid ? `PID ${s.pid}` : ''].filter(Boolean).join(' · ');
+    return `<div class="s-head">${ident(s, labels)}${statusPill(k)}<button class="s-close" data-close title="Schließen (Esc)">${ICON.close}</button></div>
+      <div class="s-body">
+        ${k.why ? `<div class="t-alert" style="--c:${k.c};margin:18px 0 0">${ICON.alert}${esc(k.why)}</div>` : ''}
+        <div class="s-block">${taskBlock(s)}</div>
+        ${s.lastUser ? `<div class="s-block"><div class="lbl">Letzter Prompt · ${esc(ago(s.lastUser.at, now))}</div><div class="quote">${esc(s.lastUser.text)}</div></div>` : ''}
+        ${s.lastAssistant ? `<div class="s-block"><div class="lbl">Letzte Antwort · ${esc(ago(s.lastAssistant.at, now))}</div><div class="quote">${esc(s.lastAssistant.text)}</div></div>` : ''}
+        <div class="s-block"><div class="lbl">Handover</div><div class="md">${sideHandover}</div></div>
+        ${meta ? `<div class="s-block"><div class="lbl">Prozess</div><div class="mono" style="font-size:12px;color:var(--muted);overflow-wrap:anywhere">${esc(meta)}</div></div>` : ''}
+      </div>`;
+  }
+  function refreshSideMeta() {
+    const s = state.sessions.find(x => x.name === selected);
+    if (s) { const top = $('#side').scrollTop; $('#side').innerHTML = sideHtml(s); $('#side').scrollTop = top; }
+  }
   async function openSide(name) {
-    selected = name;
     const s = state && state.sessions.find(x => x.name === name);
+    if (!s) return;
+    selected = name;
+    sideHandover = s.hasHandover ? '<span style="color:var(--muted)">Lade…</span>' : '<span style="color:var(--muted);font-style:italic">Noch kein Handover.</span>';
     const side = $('#side');
-    side.hidden = false;
+    side.hidden = false; side.scrollTop = 0;
     $('#main').classList.add('with-side');
-    const head = `<div class="head"><b class="mono" style="font-size:15px">${esc(name)}</b><button data-close>schließen ✕</button></div>`;
-    const sub = s ? `<div class="sub">${esc(s.cwd || s.project || '')}${s.pid ? ` · PID ${esc(s.pid)}` : ''}</div>` : '';
-    const lastUser = s && s.lastUser ? `<h3>Letzter Prompt</h3><div class="lastfull">${esc(s.lastUser.text)}</div>` : '';
-    const lastA = s && s.lastAssistant ? `<h3>Letzte Antwort</h3><div class="lastfull">${esc(s.lastAssistant.text)}</div>` : '';
-    side.innerHTML = `${head}${sub}${lastUser}${lastA}<h3>Handover</h3><div class="empty" style="padding:8px 0">Lade…</div>`;
     render();
-    let ho = '<div class="empty" style="padding:8px 0">Kein Handover.</div>';
-    if (s && s.hasHandover) {
+    if (s.hasHandover) {
       try {
         const res = await fetch(`/api/handover/${encodeURIComponent(name)}`, { cache: 'no-store' });
-        if (res.ok) ho = md(await res.text());
-      } catch {}
+        sideHandover = res.ok ? md(await res.text()) : '<span style="color:var(--muted)">Nicht lesbar.</span>';
+      } catch { sideHandover = '<span style="color:var(--muted)">Nicht lesbar.</span>'; }
+      if (selected === name) refreshSideMeta();
     }
-    if (selected === name) side.innerHTML = `${head}${sub}${lastUser}${lastA}<h3>Handover</h3>${ho}`;
   }
   function closeSide() { selected = null; $('#side').hidden = true; $('#main').classList.remove('with-side'); render(); }
 
@@ -343,37 +460,26 @@
   document.addEventListener('click', e => {
     const t = e.target;
     if (t.closest('[data-close]')) return closeSide();
+    const o = t.closest('[data-only]');
+    if (o) { const r = Number(o.dataset.only); f.only = f.only === r ? null : r; save(); return render(); }
     const p = t.closest('[data-proj]');
     if (p) {
-      const k = p.dataset.proj;
-      if (e.altKey) {  // Alt-Klick: nur dieses Projekt
-        const keys = [...groupLabels(state.sessions).keys()];
-        f.hidden = f.hidden.length === keys.length - 1 && !f.hidden.includes(k) ? [] : keys.filter(x => x !== k);
-      } else {
-        f.hidden = f.hidden.includes(k) ? f.hidden.filter(x => x !== k) : [...f.hidden, k];
-      }
+      const k = p.dataset.proj, keys = [...groupLabels(state.sessions).keys()];
+      if (e.altKey) f.hidden = (f.hidden.length === keys.length - 1 && !f.hidden.includes(k)) ? [] : keys.filter(x => x !== k);
+      else f.hidden = f.hidden.includes(k) ? f.hidden.filter(x => x !== k) : [...f.hidden, k];
       save(); return render();
     }
     const tg = t.closest('[data-toggle]');
     if (tg) { f[tg.dataset.toggle] = !f[tg.dataset.toggle]; save(); return render(); }
-    if (t.closest('[data-reset]')) { f.hidden = []; f.q = ''; f.onlyNeed = false; save(); return render(); }
-    const ex = t.closest('[data-expand]');
-    if (ex && e.detail === 2) return;  // Doppelklick ignorieren
-    if (ex && window.getSelection().toString() === '') {
-      const n = ex.dataset.expand;
-      expanded.has(n) ? expanded.delete(n) : expanded.add(n);
-      ex.classList.toggle('open');
-      return;
-    }
+    if (t.closest('[data-reset]')) { f.hidden = []; f.q = ''; f.only = null; save(); return render(); }
     const tile = t.closest('[data-open]');
-    if (tile) return selected === tile.dataset.open ? closeSide() : openSide(tile.dataset.open);
+    if (tile && !window.getSelection().toString()) return selected === tile.dataset.open ? closeSide() : openSide(tile.dataset.open);
   });
-  document.addEventListener('input', e => {
-    if (e.target.id === 'q') { f.q = e.target.value; save(); render(); }
-  });
+  document.addEventListener('input', e => { if (e.target.id === 'q') { f.q = e.target.value; save(); render(); } });
   document.addEventListener('keydown', e => {
-    if (e.key === '/' && document.activeElement.id !== 'q') { e.preventDefault(); $('#q').focus(); }
-    if (e.key === 'Escape') { if (document.activeElement.id === 'q') document.activeElement.blur(); else if (selected) closeSide(); }
+    const inQ = document.activeElement && document.activeElement.id === 'q';
+    if (e.key === '/' && !inQ) { e.preventDefault(); $('#q').focus(); }
+    if (e.key === 'Escape') { if (inQ) document.activeElement.blur(); else if (selected) closeSide(); }
   });
 
   poll();
