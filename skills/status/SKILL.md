@@ -1,6 +1,6 @@
 ---
 name: status
-description: Setzt die Aufgaben-Zeile dieser Session für das Session-Dashboard. Selbst aufrufen bei Auftragsannahme, bei einem Blocker und bei Abschluss eines Auftrags; außerdem wenn der User /status aufruft.
+description: Setzt die Aufgaben-Zeile dieser Session für das Session-Dashboard. Nur wenn der User /status ausdrücklich aufruft. Für die automatische Pflege cc-task direkt per Bash nutzen (Regel in der globalen CLAUDE.md), nicht diesen Skill.
 ---
 
 Führe genau einen Bash-Aufruf aus, sonst nichts:

@@ -61,8 +61,11 @@ abgeleitetem Namen (ohne `-n`) bekommen kein Handover.
 
 Skills (global, Symlinks nach `~/.claude/skills/`):
 
-- `/status`: ruft `cc-task` mit einer Zeile auf. Sessions setzen es selbst bei
-  Auftragsannahme, Blocker und Abschluss (Regel in `~/.claude/CLAUDE.md`).
+- `/status`: ruft `cc-task` mit einer Zeile auf, nur für den manuellen Gebrauch.
+  Automatisch rufen Sessions `cc-task` direkt per Bash auf, gebündelt mit einem
+  ohnehin anstehenden Tool-Aufruf (Regel in `~/.claude/CLAUDE.md`). Grund: Jede
+  zusätzliche Modell-Anfrage liest den ganzen Kontext erneut (am 30.09.2026 im
+  Schnitt knapp 500.000 Tokens pro Anfrage); über den Skill wären es zwei.
 - `/handover`: schreibt den Body ins Scratchpad und übergibt ihn an `cc-task --archive --body`.
 
 ## API
