@@ -9,7 +9,7 @@ claude_md="$home/CLAUDE.md"
 
 mkdir -p "$home/bin" "$home/handover" "$home/skills"
 
-for b in cc-task cc-handover-load cc-spawn; do
+for b in cc-task cc-handover-load cc-spawn cc-close; do
   chmod +x "$here/bin/$b"
   ln -sfn "$here/bin/$b" "$home/bin/$b"
   echo "bin: $home/bin/$b -> $here/bin/$b"
@@ -45,7 +45,7 @@ if ! grep -q '^# Session-Status' "$claude_md" 2>/dev/null; then
 - Aufgaben-Zeile selbst setzen bei Auftragsannahme, bei einem Blocker und bei Abschluss: `~/.claude/bin/cc-task "<eine Zeile>" <working|blocked|waiting|done>` direkt per Bash, NICHT über den Skill `/status`. Den Aufruf parallel im selben Schritt wie einen ohnehin anstehenden Tool-Aufruf abschicken (z. B. mit dem ersten Read/Bash eines Auftrags oder mit der letzten Aktion davor), damit keine zusätzliche Modell-Anfrage entsteht.
 - `/handover` vor jedem geplanten Ende oder Neustart. Die Nachfolger-Session mit demselben Namen liest es beim Start automatisch.
 - Die PM-Session darf `~/.claude/handover/<name>.md` der Worker jederzeit lesen, statt sie zu fragen.
-- Neue Sessions per `~/.claude/bin/cc-spawn <name> <verzeichnis> ["erster Auftrag"]` starten (neuer iTerm-Tab, lädt das Handover zum Namen).
+- Neue Sessions per `~/.claude/bin/cc-spawn <name> <verzeichnis> ["erster Auftrag"]` starten (neuer iTerm-Tab, lädt das Handover zum Namen), fertige per `~/.claude/bin/cc-close <name>` beenden.
 EOF
   echo "CLAUDE.md: Abschnitt Session-Status angehängt"
 else
