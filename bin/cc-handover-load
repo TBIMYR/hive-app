@@ -37,7 +37,7 @@ mkdir -p "$home/handover/.loaded" 2>/dev/null && : > "$marker"
 file="$home/handover/$name.md"
 [ -f "$file" ] || exit 0
 
-printf 'Handover der Vorgänger-Session %s (aus %s). Lies es als Ausgangslage; die Aufgaben-Zeile steht auf "neu gestartet", setze sie mit /status, sobald du einen Auftrag hast.\n\n' "$name" "$file"
+printf 'Handover der Vorgänger-Session %s (aus %s). Lies es als Ausgangslage; die Aufgaben-Zeile steht auf "neu gestartet", setze sie per ~/.claude/bin/cc-task, sobald du einen Auftrag hast.\n\n' "$name" "$file"
 cat "$file"
 printf '\n'
 

@@ -1,0 +1,65 @@
+#!/bin/sh
+# cc-spawn — neue Claude-Code-Session in einem iTerm-Tab starten.
+#
+#   cc-spawn NAME DIR ["ERSTER AUFTRAG"]
+#
+# Öffnet im vordersten iTerm-Fenster einen neuen Tab (oder ein neues Fenster) und führt dort
+# `cd DIR && claude -n NAME ["AUFTRAG"]` aus. Der Start-Hook lädt das Handover zu NAME.
+# Lehnt ab, wenn unter NAME schon eine Session läuft.
+# Umgebung: CC_HOME (Standard ~/.claude), CC_SPAWN_DRYRUN=1 gibt den Befehl nur aus.
+set -eu
+
+home="${CC_HOME:-$HOME/.claude}"
+
+if [ $# -lt 2 ] || [ $# -gt 3 ]; then
+  echo "usage: cc-spawn NAME DIR [\"ERSTER AUFTRAG\"]" >&2
+  exit 2
+fi
+name="$1"; dir="$2"; prompt="${3:-}"
+
+case "$name" in
+  ""|*[!A-Za-z0-9._#-]*|*..*) echo "cc-spawn: ungültiger Name '$name'" >&2; exit 2 ;;
+esac
+if [ ! -d "$dir" ]; then
+  echo "cc-spawn: Verzeichnis '$dir' gibt es nicht" >&2
+  exit 2
+fi
+dir=$(cd "$dir" && pwd)
+
+for f in "$home"/sessions/*.json; do
+  [ -f "$f" ] || continue
+  [ "$(jq -r '.name // empty' "$f" 2>/dev/null)" = "$name" ] || continue
+  pid=$(jq -r '.pid // empty' "$f" 2>/dev/null)
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    echo "cc-spawn: Session '$name' läuft schon (PID $pid)" >&2
+    exit 1
+  fi
+done
+
+if [ "${CC_SPAWN_DRYRUN:-}" = "1" ]; then
+  printf 'cd %s && claude -n %s' "$dir" "$name"
+  [ -z "$prompt" ] || printf ' %s' "$prompt"
+  printf '\n'
+  exit 0
+fi
+
+# Argumente über argv statt Interpolation, quoted form schützt vor Sonderzeichen im Pfad oder Auftrag
+osascript - "$dir" "$name" "$prompt" <<'EOF' >/dev/null
+on run argv
+  set d to item 1 of argv
+  set n to item 2 of argv
+  set p to item 3 of argv
+  set cmd to "cd " & quoted form of d & " && claude -n " & quoted form of n
+  if p is not "" then set cmd to cmd & " " & quoted form of p
+  tell application "iTerm2"
+    if (count of windows) = 0 then
+      set w to (create window with default profile)
+    else
+      set w to current window
+      tell w to create tab with default profile
+    end if
+    tell current session of w to write text cmd
+  end tell
+end run
+EOF
+echo "cc-spawn: $name gestartet in $dir"

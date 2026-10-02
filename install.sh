@@ -9,7 +9,7 @@ claude_md="$home/CLAUDE.md"
 
 mkdir -p "$home/bin" "$home/handover" "$home/skills"
 
-for b in cc-task cc-handover-load; do
+for b in cc-task cc-handover-load cc-spawn; do
   chmod +x "$here/bin/$b"
   ln -sfn "$here/bin/$b" "$home/bin/$b"
   echo "bin: $home/bin/$b -> $here/bin/$b"
@@ -42,9 +42,10 @@ if ! grep -q '^# Session-Status' "$claude_md" 2>/dev/null; then
 # Session-Status
 
 - Sessions immer mit `claude -n <name>` starten (z. B. `lu.pm`, `lu.01`); der Name ist der Schlüssel für Dashboard und Handover.
-- Aufgaben-Zeile selbst setzen bei Auftragsannahme, bei einem Blocker und bei Abschluss: `~/.claude/bin/cc-task "<eine Zeile>" <working|blocked|done>` direkt per Bash, NICHT über den Skill `/status`. Den Aufruf parallel im selben Schritt wie einen ohnehin anstehenden Tool-Aufruf abschicken (z. B. mit dem ersten Read/Bash eines Auftrags oder mit der letzten Aktion davor), damit keine zusätzliche Modell-Anfrage entsteht.
+- Aufgaben-Zeile selbst setzen bei Auftragsannahme, bei einem Blocker und bei Abschluss: `~/.claude/bin/cc-task "<eine Zeile>" <working|blocked|waiting|done>` direkt per Bash, NICHT über den Skill `/status`. Den Aufruf parallel im selben Schritt wie einen ohnehin anstehenden Tool-Aufruf abschicken (z. B. mit dem ersten Read/Bash eines Auftrags oder mit der letzten Aktion davor), damit keine zusätzliche Modell-Anfrage entsteht.
 - `/handover` vor jedem geplanten Ende oder Neustart. Die Nachfolger-Session mit demselben Namen liest es beim Start automatisch.
 - Die PM-Session darf `~/.claude/handover/<name>.md` der Worker jederzeit lesen, statt sie zu fragen.
+- Neue Sessions per `~/.claude/bin/cc-spawn <name> <verzeichnis> ["erster Auftrag"]` starten (neuer iTerm-Tab, lädt das Handover zum Namen).
 EOF
   echo "CLAUDE.md: Abschnitt Session-Status angehängt"
 else
