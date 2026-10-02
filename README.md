@@ -4,6 +4,8 @@ Lokales Dashboard für alle laufenden Claude-Code-Sessions plus ein globaler
 Handover-Ort je Session-Name. Keine Abhängigkeiten, ein Node-Prozess.
 
 Design: `docs/superpowers/specs/2026-09-30-session-dashboard-design.md`
+Was die Master-Session `keeper` geändert hat (auch außerhalb des Repos): `docs/keeper-log.md`
+Gültige Session-Regeln für die globale CLAUDE.md: `docs/claude-md-session-status.md`
 
 ## Start
 
@@ -11,7 +13,7 @@ Design: `docs/superpowers/specs/2026-09-30-session-dashboard-design.md`
 node server.js              # http://127.0.0.1:7777, PORT überschreibbar
 sh install.sh               # Symlinks nach ~/.claude, Hook, CLAUDE.md-Abschnitt
 sh install.sh --launchd     # zusätzlich als LaunchAgent (läuft nach Login immer)
-node --test                 # 52 Tests, keine Tokens
+node --test                 # 60 Tests, keine Tokens
 ```
 
 Logs des LaunchAgents: `/tmp/hive.log`, `/tmp/hive.err`.
@@ -33,7 +35,7 @@ Neustart nach Änderungen an `server.js`: `launchctl kickstart -k gui/$(id -u)/i
 session: lu.01
 project: lumen
 task: Kalender-Ansicht Layout #41, PR offen
-state: working        # working | blocked | done | handover
+state: working        # working | blocked | waiting | done | handover
 updated: 2026-09-30T16:09:00+02:00
 ---
 # Handover lu.01 — Stand 30.09.2026
@@ -56,6 +58,16 @@ cc-task --archive --body datei.md "Kurz" handover   # Handover schreiben
 cc-task --no-create "Text"                   # nur wenn Datei existiert (Hook)
 ```
 
+Einordnung im Dashboard (in dieser Reihenfolge): wartet auf Eingabe → „Braucht dich“;
+arbeitet (`busy`) → „Arbeitet“, auch wenn die Zeile noch `blocked` sagt; Zeile `blocked` →
+„Braucht dich“; Zeile `waiting` → vorn unter „Bereit“ (violett); sonst „Bereit“.
+
+```sh
+cc-spawn lu.01 ~/Development/lumen/worktrees/x "Ticket #17: …"   # neuer iTerm-Tab mit claude -n
+cc-close lu.01                     # /exit tippen, Tab schließen; nicht bei busy/ohne Handover
+cc-close --force lu.01             # trotzdem
+```
+
 `cc-task` ermittelt den Namen über `$CLAUDE_PID` und das Register. Sessions mit
 abgeleitetem Namen (ohne `-n`) bekommen kein Handover.
 
@@ -71,6 +83,8 @@ Skills (global, Symlinks nach `~/.claude/skills/`):
 ## API
 
 - `GET /api/state`: alle Sessions als JSON, bei jedem Abruf frisch.
+- `GET /icons/hive.svg`, `/icons/hive-512.png`, `/icons/favicon-32.png`, `/apple-touch-icon.png`,
+  `/favicon.ico`: Waben-Icon (feste Liste, keine Verzeichnis-Auslieferung).
 - `GET /api/handover/<name>`: die rohe Handover-Datei.
 - `POST /api/focus/<pid>`: holt das iTerm-Fenster und den Tab der Session nach vorn
   (PID → tty per `ps`, dann AppleScript). Nur für lebende Sessions aus dem Register,
