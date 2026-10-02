@@ -270,8 +270,9 @@
   function classify(s) {
     if (s.status === 'offline') return { rank: 3, cls: 'off', label: 'offline', c: 'var(--off)', solid: false };
     if (s.status === 'waiting') return { rank: 0, cls: 'need', label: 'wartet auf dich', c: 'var(--need)', solid: true, why: s.waitingFor || 'Eingabe nötig' };
-    if (s.task && s.task.state === 'blocked') return { rank: 0, cls: 'block', label: 'blockiert', c: 'var(--block)', solid: true, why: 'Blockiert – braucht eine Entscheidung' };
+    // wer gerade arbeitet, ist nicht blockiert, auch wenn die Aufgaben-Zeile noch „blocked“ sagt (Antwort kam schon)
     if (s.status === 'busy') return { rank: 1, cls: 'busy', label: 'arbeitet', c: 'var(--busy)', solid: true };
+    if (s.task && s.task.state === 'blocked') return { rank: 0, cls: 'block', label: 'blockiert', c: 'var(--block)', solid: true, why: 'Blockiert – braucht eine Entscheidung' };
     // fertig, wartet auf Rückmeldung von Menschen: braucht dich nicht direkt, steht aber vorn unter „Bereit“
     if (s.task && s.task.state === 'waiting') return { rank: 2, cls: 'wait', label: 'wartet auf Rückmeldung', c: 'var(--wait)', solid: true };
     if (s.status === 'shell') return { rank: 2, cls: 'shell', label: 'Shell', c: 'var(--shell)', solid: false };
