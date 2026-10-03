@@ -5,14 +5,17 @@ public struct RegistryEntry: Equatable, Sendable {
     public var name: String
     public let cwd: String
     public let sessionId: String?
-    public let status: String
-    public let waitingFor: String?
+    public var status: String
+    public var waitingFor: String?
     public let kind: String?
     /// tmux-Pane, in der Claude läuft („%13“), unabhängig von Session- und tmux-Namen
     public let tmuxPane: String?
     public let startedAt: Double
-    public let statusUpdatedAt: String?
+    public var statusUpdatedAt: String?
     public let alive: Bool
+    /// Hintergrund-Session: ihr Auftrag; Fenster: an welchen Auftrag es sein Gespräch übergeben hat
+    public let jobId: String?
+    public let parkedJobId: String?
 }
 
 /// Liest das Claude-Register ~/.claude/sessions/*.json wie hive/lib/registry.js.
@@ -53,12 +56,27 @@ public enum Registry {
                     tmuxPane: paneOf(string(j["tmux"])),
                     startedAt: number(j["startedAt"]) ?? 0,
                     statusUpdatedAt: number(updated).map { isoString(ms: $0) },
-                    alive: isAlive(pid)
+                    alive: isAlive(pid),
+                    jobId: string(j["jobId"]),
+                    parkedJobId: string(j["parkedJobId"])
                 ))
             } catch {
                 errors.append("\(f): \(error.localizedDescription)")
             }
         }
+        // Hat ein Fenster sein Gespräch an eine Hintergrund-Session übergeben (parkedJobId), läuft die
+        // Arbeit dort und das Fenster zeigt sie nur an: eine Session mit dem Status von dort.
+        var jobs: [String: Int] = [:]
+        for (i, e) in entries.enumerated() where e.alive { if let j = e.jobId { jobs[j] = i } }
+        var parked = Set<Int>()
+        for i in entries.indices where entries[i].alive {
+            guard let p = entries[i].parkedJobId, let k = jobs[p], k != i else { continue }
+            entries[i].status = entries[k].status
+            entries[i].waitingFor = entries[k].waitingFor
+            entries[i].statusUpdatedAt = entries[k].statusUpdatedAt
+            parked.insert(k)
+        }
+        entries = entries.enumerated().filter { !parked.contains($0.offset) }.map(\.element)
         // Duplikate unter lebenden Einträgen: den Namen behält zuerst eine Session mit
         // Fenster (kind != "bg"), danach die jüngste; alle anderen bekommen #pid.
         // Hintergrund-Sessions laufen ohne Fenster und wären sonst nicht auffindbar.

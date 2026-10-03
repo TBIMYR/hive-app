@@ -77,3 +77,15 @@ private func entry(pid: Int, _ r: (entries: [RegistryEntry], errors: [String])) 
     #expect(Registry.isAlive(Int(getpid())))
     #expect(!Registry.isAlive(999_999))
 }
+
+@Test func fensterMitUebergebenemGespraechWirdEineSession() {
+    let r = Registry.read(fixture("sessions-parked"), isAlive: { _ in true })
+    #expect(r.entries.count == 1)
+    let e = r.entries.first
+    #expect(e?.name == "x.01")
+    #expect(e?.pid == 105)
+    #expect(e?.tmuxPane == "%5")
+    #expect(e?.status == "waiting")
+    #expect(e?.waitingFor == "input needed")
+    #expect(e?.statusUpdatedAt == "1970-01-01T00:00:02.000Z")
+}
