@@ -33,3 +33,15 @@ public enum SessionOrder {
         return a.name < b.name
     }
 }
+
+extension SessionOrder {
+    /// Ziel der Sprung-Taste ⌘H. `candidates`: wartende Sessions (Rang 0) in Übersichts-Reihenfolge, nach Name
+    /// entdoppelt. Ist die Auswahl wartend und das Terminal noch nicht fokussiert, bleibt sie (der Sprung holt nur
+    /// den Fokus); sonst geht es zur nächsten, am Ende wieder zur ersten. Ohne Kandidatin bleibt die Auswahl.
+    public static func nextWaiting(candidates: [String], selected: String?, terminalFocused: Bool) -> String? {
+        guard let first = candidates.first else { return selected }
+        guard let sel = selected, let i = candidates.firstIndex(of: sel) else { return first }
+        if !terminalFocused { return sel }
+        return candidates[(i + 1) % candidates.count]
+    }
+}
