@@ -41,7 +41,7 @@ struct TerminalPane: View {
         } else if s.alive == true {
             VStack(spacing: 12) {
                 ContentUnavailableView("Läuft in iTerm", systemImage: "macwindow",
-                                       description: Text("Diese Session hat keine tmux-Session. Neue Sessions über „Neue Session“ oder das + am Projekt starten."))
+                                       description: Text("Diese Session hat keine tmux-Session. Neue Sessions über die Karte „Neue Session“ oder ⌘N starten."))
                 if s.kind != "bg" {
                     Button("In iTerm zeigen") {
                         Task { message = await store.focusInITerm(s) ?? "→ iTerm" }
