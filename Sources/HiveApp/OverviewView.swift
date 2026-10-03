@@ -5,7 +5,6 @@ import HiveCore
 struct OverviewView: View {
     @EnvironmentObject private var store: StateStore
     @Binding var selected: String?
-    @Binding var newPreset: NewSessionPreset?
     @State private var showOffline = false
 
     private static let sections: [(rank: Int, title: String, color: Color)] = [
@@ -56,13 +55,7 @@ struct OverviewView: View {
                      color: store.color(for: s.groupKey), inTmux: store.tmux(s) != nil,
                      isSelected: s.name == selected, now: store.now)
                     .onTapGesture { selected = s.name }
-                    .contextMenu {
-                        if let next = SessionNaming.nextName(in: store.sessions.filter { $0.groupKey == s.groupKey }) {
-                            Button("Start \(next) in the same project") {
-                                newPreset = NewSessionPreset(name: next, dir: s.cwd)
-                            }
-                        }
-                    }
+                    .contextMenu { SessionMenu(store: store, session: s) }
             }
         }
     }

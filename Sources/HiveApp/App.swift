@@ -36,13 +36,12 @@ struct HiveApp: App {
 
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
-    @State private var newPreset: NewSessionPreset?
 
     var body: some View {
         // Übersicht ⅔, Terminal fest ⅓ (wie besprochen; die Übersicht soll Platz behalten)
         GeometryReader { geo in
             HStack(spacing: 0) {
-                OverviewView(selected: $store.selected, newPreset: $newPreset)
+                OverviewView(selected: $store.selected)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Rectangle().fill(Hive.hair2).frame(width: 1)
                 TerminalPane(session: store.displaySessions.first { $0.name == store.selected })
@@ -53,13 +52,13 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
+                Button { store.newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
                     .disabled(Tmux.path == nil)
                     .help("Start a new session in tmux (⌘N)")
                     .keyboardShortcut("n")
             }
         }
-        .sheet(item: $newPreset) { preset in
+        .sheet(item: $store.newPreset) { preset in
             NewSessionSheet(preset: preset) { name in
                 store.selected = name
                 store.refreshSoon()

@@ -52,6 +52,10 @@ final class StateStore: ObservableObject {
     }()
     /// Mitteilungen und Dock-Zahl; der Store hält ihn, weil das Mitteilungszentrum seinen Delegate nur schwach hält
     let notifier = Notifier()
+    /// Angepinnte Sessions (Namen, in der Reihenfolge der Leiste), gespeichert unter `pinned`
+    @Published private(set) var pinned: [String] = UserDefaults.standard.stringArray(forKey: "pinned") ?? []
+    /// Vorbelegung für den Dialog „New Session“ (nil = zu)
+    @Published var newPreset: NewSessionPreset?
 
     private var timer: Timer?
     private var watcher: Watcher?
@@ -123,6 +127,32 @@ final class StateStore: ObservableObject {
             Session(name: name, group: SessionNaming.prefix(name) ?? name, isPm: name.hasSuffix(".pm"))
         }
         return sessions + extra
+    }
+
+    /// Je angepinntem Namen eine Session (bei totem und lebendem Eintrag der mit kleinerem Rang).
+    var pinnedSessions: [Session] {
+        Pins.resolve(pinned, in: displaySessions, name: \.name, rank: { self.status($0).rank })
+    }
+
+    /// Alle übrigen Sessions; gepinnte stehen nur oben in der Leiste.
+    var unpinnedSessions: [Session] {
+        let names = Set(pinned)
+        return displaySessions.filter { !names.contains($0.name) }
+    }
+
+    func isPinned(_ name: String) -> Bool { pinned.contains(name) }
+
+    func pin(_ name: String) { setPins(Pins.pinning(name, in: pinned)) }
+
+    func unpin(_ name: String) { setPins(pinned.filter { $0 != name }) }
+
+    /// Beim Ziehen in der Leiste: `name` nimmt den Platz von `target` ein.
+    func movePin(_ name: String, to target: String) { setPins(Pins.moving(name, to: target, in: pinned)) }
+
+    private func setPins(_ list: [String]) {
+        guard list != pinned else { return }
+        pinned = list
+        UserDefaults.standard.set(list, forKey: "pinned")
     }
 
     /// Projektname je Gruppe, wie groupLabels() im Dashboard (PM bestimmt den Namen).
