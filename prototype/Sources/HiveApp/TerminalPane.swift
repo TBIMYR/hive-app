@@ -14,7 +14,7 @@ struct TerminalPane: View {
                     Text(s.name).font(.hiveMono(14, .semibold))
                     Spacer(minLength: 4)
                     if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
-                    StatusLabel(status: Status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
+                    StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
                 }
                 .padding(.horizontal, 14).frame(height: 40)
                 Rectangle().fill(Hive.hair).frame(height: 1)

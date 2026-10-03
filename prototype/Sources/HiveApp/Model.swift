@@ -54,9 +54,13 @@ struct Status {
     let solid: Bool
     let why: String?
 
-    init(_ s: Session) {
+    /// `inTmux`: Session läuft im hive-tmux-Server. Steht sie dann nicht (lebend) im Register,
+    /// hängt Claude noch vor dem Start, meist an der Vertrauensabfrage für einen neuen Ordner.
+    init(_ s: Session, inTmux: Bool = false) {
         let state = s.task?.state
         switch true {
+        case inTmux && s.alive != true:
+            self.init(0, "need", "wartet beim Start", Hive.need, true, why: "Start-Abfrage im Terminal beantworten")
         case s.status == "offline":
             self.init(3, "off", "offline", Hive.off, false)
         case s.status == "waiting":
@@ -119,6 +123,20 @@ final class StateStore: ObservableObject {
             self.error = "hive nicht erreichbar (\(hiveURL.absoluteString)): \(error.localizedDescription)"
         }
         now = Date()
+    }
+
+    /// Status mit Blick auf tmux (siehe Status.init).
+    func status(_ s: Session) -> Status { Status(s, inTmux: tmuxNames.contains(s.name)) }
+
+    /// Sessions aus hive plus tmux-Sessions, die hive noch nicht kennt (kein Register, kein Handover).
+    var displaySessions: [Session] {
+        let known = Set(sessions.map(\.name))
+        let extra = tmuxNames.subtracting(known).sorted().map { name in
+            Session(name: name, group: SessionNaming.prefix(name) ?? name, project: nil, isPm: name.hasSuffix(".pm"),
+                    status: "offline", alive: false, kind: nil, waitingFor: nil, statusUpdatedAt: nil, branch: nil,
+                    cwd: nil, pid: nil, task: nil, lastAssistant: nil, hasHandover: false)
+        }
+        return sessions + extra
     }
 
     /// Projektname je Gruppe, wie groupLabels() im Dashboard (PM bestimmt den Namen).

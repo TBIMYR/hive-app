@@ -26,7 +26,7 @@ struct OverviewView: View {
 
     private var board: some View {
         let labels = store.labels
-        let all = store.sessions.map { ($0, Status($0)) }
+        let all = store.displaySessions.map { ($0, store.status($0)) }
         // PMs stehen immer oben (Mika spricht sie von sich aus an); darunter nur Worker nach Dringlichkeit
         let pms = all.filter { $0.0.isPm == true && $0.1.rank != 3 }
             .sorted { (labels[$0.0.groupKey] ?? "").localizedCompare(labels[$1.0.groupKey] ?? "") == .orderedAscending }
