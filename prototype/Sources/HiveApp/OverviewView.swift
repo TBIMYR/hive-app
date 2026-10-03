@@ -46,8 +46,6 @@ struct OverviewView: View {
             .padding(.horizontal, 26).padding(.top, 22).padding(.bottom, 60)
         }
         .scrollIndicators(.hidden)
-        // Höhe der normalen Karten an die Karte „Neue Session“ weitergeben (LazyVGrid streckt nicht)
-        .onPreferenceChange(TileHeightKey.self) { h in if h > 0 { tileHeight = h } }
     }
 
     private func grid(_ items: [(Session, Status)], labels: [String: String], add: Bool) -> some View {
@@ -72,6 +70,8 @@ struct OverviewView: View {
                 AddTile(height: tileHeight) { newPreset = NewSessionPreset() }
             }
         }
+        // Höhe der höchsten Karte im eigenen Abschnitt an „Neue Session“ weitergeben (LazyVGrid streckt nicht)
+        .onPreferenceChange(TileHeightKey.self) { h in if add && h > 0 { tileHeight = h } }
     }
 
     private func sectionHeader(_ title: String, _ n: Int, _ color: Color, collapsible: Bool) -> some View {
@@ -106,12 +106,11 @@ struct OverviewView: View {
 
 // MARK: Bausteine
 
-/// Höhe einer Karte ohne Hinweiszeile (kleinster gemessener Wert), für die Karte „Neue Session“.
+/// Höhe der höchsten Karte eines Abschnitts (auch mit Hinweiszeile), für die Karte „Neue Session“.
 struct TileHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        let n = nextValue()
-        if n > 0 { value = value == 0 ? n : min(value, n) }
+        value = max(value, nextValue())
     }
 }
 
