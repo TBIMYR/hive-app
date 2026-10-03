@@ -27,21 +27,12 @@ struct OverviewView: View {
     private var board: some View {
         let labels = store.labels
         let all = store.displaySessions.map { ($0, store.status($0)) }
-        // PMs stehen immer oben (Mika spricht sie von sich aus an); darunter nur Worker nach Dringlichkeit
-        let pms = all.filter { $0.0.isPm == true && $0.1.rank != 3 }
-            .sorted { (labels[$0.0.groupKey] ?? "").localizedCompare(labels[$1.0.groupKey] ?? "") == .orderedAscending }
-        let workers = all.filter { !($0.0.isPm == true && $0.1.rank != 3) }
-        let addRank = workers.map(\.1.rank).filter { $0 != 3 }.min()
+        // PMs stehen ohne eigenen Abschnitt bei den übrigen Karten; sie heben sich nur durch die Projektfarbe ab (Tile)
+        let addRank = all.map(\.1.rank).filter { $0 != 3 }.min()
         return ScrollView {
             VStack(alignment: .leading, spacing: 34) {
-                if !pms.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        sectionHeader("Projektleitung", pms.count, Hive.ink, collapsible: false)
-                        grid(pms, labels: labels, add: addRank == nil)
-                    }
-                }
                 ForEach(Self.sections, id: \.rank) { sec in
-                    let items = sorted(workers.filter { $0.1.rank == sec.rank }, rank: sec.rank, labels: labels)
+                    let items = sorted(all.filter { $0.1.rank == sec.rank }, rank: sec.rank, labels: labels)
                     if !items.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             sectionHeader(sec.title, items.count, sec.color, collapsible: sec.rank == 3)
