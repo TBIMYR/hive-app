@@ -13,6 +13,51 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .cards: "Cards"
         }
     }
+    var symbol: String {
+        switch self {
+        case .list: "list.bullet"
+        case .tiles: "square.grid.2x2"
+        case .cards: "rectangle.grid.2x2"
+        }
+    }
+}
+
+/// Umschalter der Ansichten: Schiene mit hellem, mitgleitendem Feld für die gewählte Ansicht.
+struct ViewSwitcher: View {
+    @Binding var mode: ViewMode
+    @Namespace private var ns
+    @State private var hover: ViewMode?
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(ViewMode.allCases) { m in
+                let on = m == mode
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { mode = m }
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: m.symbol).font(.system(size: 12, weight: .semibold))
+                        Text(m.title).font(.system(size: 13, weight: on ? .semibold : .medium))
+                    }
+                    .foregroundStyle(on ? Hive.ink : (hover == m ? Hive.ink2 : Hive.muted))
+                    .padding(.horizontal, 14).frame(height: 30)
+                    .background {
+                        if on {
+                            RoundedRectangle(cornerRadius: 8).fill(Hive.card)
+                                .shadow(color: .black.opacity(0.10), radius: 1.5, y: 1)
+                                .matchedGeometryEffect(id: "on", in: ns)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .onHover { hover = $0 ? m : (hover == m ? nil : hover) }
+                .help("\(m.title) view")
+            }
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 11).fill(Hive.hair))
+    }
 }
 
 /// Rahmen der Übersicht: Umschalter, Leiste „Pinned“ fest oben, darunter die gewählte Ansicht.
@@ -50,10 +95,7 @@ struct OverviewView: View {
         let items = SessionOrder.sorted(store.unpinnedSessions.map(item), session: { $0.session },
                                         status: { $0.status.core }, labels: labels)
         return VStack(alignment: .leading, spacing: 0) {
-            Picker("View", selection: $mode) {
-                ForEach(ViewMode.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            ViewSwitcher(mode: $mode)
             .padding(.horizontal, 26).padding(.top, 16).padding(.bottom, 14)
 
             if !pins.isEmpty {
