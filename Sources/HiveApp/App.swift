@@ -25,7 +25,7 @@ struct HiveApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        WindowGroup("hive") {
+        WindowGroup("Hive") {
             ContentView()
                 .environmentObject(delegate.store)
                 .frame(minWidth: 900, minHeight: 560)
@@ -88,8 +88,17 @@ struct ContentView: View {
                     )
             }
         }
+        // statt des Fenstertitels: Signet und Wortmarke links in der Titelleiste
+        .onAppear { NSApp.windows.forEach { $0.titleVisibility = .hidden } }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .navigation) {
+                HStack(spacing: 8) {
+                    HiveMark().fill(Hive.ink).frame(width: 19, height: 18)
+                    Text("Hive").font(.system(size: 15, weight: .bold)).kerning(-0.2).foregroundStyle(Hive.ink)
+                }
+                .padding(.leading, 4)
+            }
+            ToolbarItem(placement: .automatic) {
                 Button { store.newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
                     .disabled(Tmux.path == nil)
                     .help("Start a new session in tmux (⌘N)")

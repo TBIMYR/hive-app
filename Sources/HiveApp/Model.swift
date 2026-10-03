@@ -150,12 +150,6 @@ final class StateStore: ObservableObject {
         Pins.resolve(pinned, in: displaySessions, name: \.name, rank: { self.status($0).rank })
     }
 
-    /// Alle übrigen Sessions; gepinnte stehen nur oben in der Leiste.
-    var unpinnedSessions: [Session] {
-        let names = Set(pinned)
-        return displaySessions.filter { !names.contains($0.name) }
-    }
-
     func isPinned(_ name: String) -> Bool { pinned.contains(name) }
 
     func pin(_ name: String) { setPins(Pins.pinning(name, in: pinned)) }

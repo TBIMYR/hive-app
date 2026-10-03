@@ -92,7 +92,7 @@ struct OverviewView: View {
                          since: s.alive ? dur(s.statusUpdatedAt, now: now) : "")
         }
         let pins = store.pinnedSessions.map(item)
-        let items = SessionOrder.sorted(store.unpinnedSessions.map(item), session: { $0.session },
+        let items = SessionOrder.sorted(store.displaySessions.map(item), session: { $0.session },
                                         status: { $0.status.core }, labels: labels)
         return VStack(alignment: .leading, spacing: 0) {
             // Kopfzeile: Umschalter links, Pins rechts auf gleicher Höhe

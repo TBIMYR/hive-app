@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 root=$(pwd -P)
 appname="${HIVE_APP:-HiveApp}"
 id="${HIVE_BUNDLE_ID:-io.github.tbimyr.hive-app}"
-title=hive; [ -z "${HIVE_APP:-}" ] || title="hive ($appname)"
+title=Hive; [ -z "${HIVE_APP:-}" ] || title="Hive ($appname)"
 app=".build/$appname.app"
 exe="$root/$app/Contents/MacOS/HiveApp"
 lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
@@ -23,6 +23,8 @@ new=".build/new/$appname.app"
 rm -rf .build/new
 mkdir -p "$new/Contents/MacOS"
 cp .build/debug/HiveApp "$new/Contents/MacOS/HiveApp"
+mkdir -p "$new/Contents/Resources"
+cp Resources/AppIcon.icns "$new/Contents/Resources/AppIcon.icns"
 cat > "$new/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -31,6 +33,7 @@ cat > "$new/Contents/Info.plist" <<EOF
   <key>CFBundleIdentifier</key><string>$id</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleName</key><string>$title</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleExecutable</key><string>HiveApp</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1</string>
