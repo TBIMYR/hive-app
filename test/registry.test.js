@@ -26,6 +26,12 @@ test('Felder werden übernommen, waitingFor optional', () => {
   assert.equal(w.waitingFor, 'input needed');
 });
 
+test('tmuxPane: Pane-ID aus dem Feld tmux, sonst null', () => {
+  const r = readRegistry(DIR, { isAlive: allAlive });
+  assert.equal(r.entries.find(e => e.pid === 100).tmuxPane, '%1');
+  assert.equal(r.entries.find(e => e.pid === 101).tmuxPane, null);
+});
+
 test('Duplikat-Name: jüngstes startedAt behält den Namen', () => {
   const r = readRegistry(DIR, { isAlive: allAlive });
   const names = r.entries.map(e => e.name).sort();
