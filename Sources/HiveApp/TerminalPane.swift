@@ -1,5 +1,6 @@
 import SwiftTerm
 import SwiftUI
+import HiveCore
 
 struct TerminalPane: View {
     @EnvironmentObject private var store: StateStore

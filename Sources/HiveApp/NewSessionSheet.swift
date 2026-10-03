@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import HiveCore
 
 /// Vorbelegung für den Dialog, z. B. vom „+“ einer Projektgruppe.
 struct NewSessionPreset: Identifiable {
@@ -40,7 +41,7 @@ enum SessionNaming {
         var seen = Set<String>()
         return sessions.compactMap { s -> (String, String)? in
             guard let d = s.cwd, !d.isEmpty, seen.insert(d).inserted else { return nil }
-            return ((s.project?.isEmpty == false ? s.project! : (d as NSString).lastPathComponent), d)
+            return ((s.project.isEmpty ? (d as NSString).lastPathComponent : s.project), d)
         }
         .sorted { $0.0.localizedCaseInsensitiveCompare($1.0) == .orderedAscending }
     }

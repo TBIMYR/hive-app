@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import HiveCore
 
 // Ohne App-Bundle (swift run) wäre das Fenster sonst ohne Tastaturfokus und Menüleiste.
 final class AppDelegate: NSObject, NSApplicationDelegate {

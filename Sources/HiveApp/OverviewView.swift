@@ -1,4 +1,5 @@
 import SwiftUI
+import HiveCore
 
 /// Übersicht: Abschnitte nach Dringlichkeit wie im Dashboard, aber ruhigere Karten und ohne Kopfleiste.
 struct OverviewView: View {
@@ -51,7 +52,7 @@ struct OverviewView: View {
     private func grid(_ items: [(Session, Status)], labels: [String: String], add: Bool) -> some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18, alignment: .top)],
                   alignment: .leading, spacing: 18) {
-            ForEach(items, id: \.0.name) { s, k in
+            ForEach(items, id: \.0.id) { s, k in
                 Tile(session: s, status: k, label: labels[s.groupKey] ?? s.groupKey,
                      color: store.color(for: s.groupKey), inTmux: store.tmuxNames.contains(s.name),
                      isSelected: s.name == selected, now: store.now)
@@ -254,6 +255,10 @@ struct Tile: View {
                     Text(ago(when, now: now)).fixedSize()
                 }
                 Spacer(minLength: 6)
+                if !session.errors.isEmpty {
+                    Image(systemName: "exclamationmark.triangle")
+                        .help("Lesefehler: " + session.errors.joined(separator: "\n"))
+                }
                 if inTmux {
                     Image(systemName: "terminal").help("Läuft in der App")
                 } else if session.alive == true && session.kind != "bg" {
