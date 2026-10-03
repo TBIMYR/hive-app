@@ -57,6 +57,29 @@ struct ContentView: View {
         return min(max(w, Self.minTerminal), max(Self.minTerminal, total - Self.minOverview)).rounded()
     }
 
+    /// Signet und Wortmarke links in der Titelleiste
+    private var brandLabel: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                HiveMark().fill(Hive.ink)
+                HiveMark().stroke(Hive.ink, style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+            }
+            .frame(width: 15, height: 17)
+            Text("Hive").font(.system(size: 15, weight: .medium)).kerning(-0.1).foregroundStyle(Hive.ink)
+        }
+        .padding(.leading, 4)
+    }
+
+    @ToolbarContentBuilder
+    private var brand: some ToolbarContent {
+        // ab macOS 26 bekommen Toolbar-Elemente sonst einen Glas-Hintergrund; das Logo steht frei
+        if #available(macOS 26, *) {
+            ToolbarItem(placement: .navigation) { brandLabel }.sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .navigation) { brandLabel }
+        }
+    }
+
     var body: some View {
         GeometryReader { geo in
             let total = Double(geo.size.width)
@@ -91,17 +114,7 @@ struct ContentView: View {
         // statt des Fenstertitels: Signet und Wortmarke links in der Titelleiste
         .onAppear { NSApp.windows.forEach { $0.titleVisibility = .hidden } }
         .toolbar {
-            ToolbarItem(placement: .navigation) {
-                HStack(spacing: 8) {
-                    ZStack {
-                        HiveMark().fill(Hive.ink)
-                        HiveMark().stroke(Hive.ink, style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
-                    }
-                    .frame(width: 15, height: 17)
-                    Text("Hive").font(.system(size: 15, weight: .bold)).kerning(-0.2).foregroundStyle(Hive.ink)
-                }
-                .padding(.leading, 4)
-            }
+            brand
             ToolbarItem(placement: .automatic) {
                 Button { store.newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
                     .disabled(Tmux.path == nil)

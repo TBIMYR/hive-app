@@ -22,7 +22,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// Umschalter der Ansichten: Schiene mit hellem, mitgleitendem Feld für die gewählte Ansicht.
+/// Umschalter der Ansichten: Schiene mit dunklem, mitgleitendem Feld für die gewählte Ansicht.
 struct ViewSwitcher: View {
     @Binding var mode: ViewMode
     @Namespace private var ns
@@ -39,12 +39,11 @@ struct ViewSwitcher: View {
                         Image(systemName: m.symbol).font(.system(size: 12, weight: .semibold))
                         Text(m.title).font(.system(size: 13, weight: on ? .semibold : .medium))
                     }
-                    .foregroundStyle(on ? Hive.ink : (hover == m ? Hive.ink2 : Hive.muted))
+                    .foregroundStyle(on ? Hive.bg : (hover == m ? Hive.ink2 : Hive.muted))
                     .padding(.horizontal, 14).frame(height: 30)
                     .background {
                         if on {
-                            RoundedRectangle(cornerRadius: 8).fill(Hive.card)
-                                .shadow(color: .black.opacity(0.10), radius: 1.5, y: 1)
+                            RoundedRectangle(cornerRadius: 8).fill(Hive.ink)
                                 .matchedGeometryEffect(id: "on", in: ns)
                         }
                     }

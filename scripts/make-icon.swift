@@ -41,7 +41,7 @@ func render(_ px: Int) -> Data {
     NSGraphicsContext.restoreGraphicsState()
 
     // eine Wabe mittig, spitze Seite oben, etwa halb so hoch wie die Kachel, Ecken gerundet
-    let color = NSColor(calibratedRed: 0xF5 / 255, green: 0xF5 / 255, blue: 0xF4 / 255, alpha: 1)
+    let color = NSColor.white
     color.setFill(); color.setStroke()
     let hex = hexagon(center: CGPoint(x: s / 2, y: s / 2), radius: tile.height * 0.25)
     hex.lineWidth = tile.height * 0.06
