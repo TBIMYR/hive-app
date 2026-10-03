@@ -32,7 +32,18 @@ Ziel: Mika arbeitet täglich in der App statt mit Dashboard und iTerm.
    Antwort per `send-keys`, es gibt keine automatischen Antworten. Solange das Terminal den Fokus
    hat, sind die Knöpfe gesperrt (sonst kollidiert es mit der eigenen Eingabe). Das Erkennen am
    Text ist anfällig: Unbekannte Dialoge fallen auf „wartet auf dich“ zurück.
-6. **Robustheit.** Wenn Register oder Gesprächsprotokoll unerwartet aussehen, zeigt die App das
+6. **Agentenoffen, tmux als führende Liste.** Neue Sessions starten als Shell mit vorgetipptem
+   `claude -n <name>` (seit 03.10. im Prototyp). Damit kann jeder Agent laufen (Codex, Claude mit
+   `--resume` …). Folgen:
+   - Die Liste der Sessions kommt aus tmux, ihr Name ist der tmux-Name. Die Zuordnung zum Agenten
+     läuft über die Prozess-ID des Bereichs. Bei Claude ergänzen Register, Hooks und
+     Gesprächsprotokoll wie bisher.
+   - Andere Agenten bekommen ein Teil-Statusmodell: Aktivität über tmux, Aufgaben-Zeile über
+     `cc-task` (Regel in `AGENTS.md`). „Wartet auf dich“ nur über den Bildschirmtext oder über Codex'
+     eigenen Benachrichtigungs-Mechanismus (noch zu prüfen).
+   - Die App setzt `HIVE_SESSION=<name>` in jeder Session. `cc-task` sollte den Namen künftig daraus
+     lesen können.
+7. **Robustheit.** Wenn Register oder Gesprächsprotokoll unerwartet aussehen, zeigt die App das
    sichtbar an (statt still falsch). Wo möglich `claude agents --json` als zweite Quelle.
 
 ## Etappe 2: Vollständige App (1–2 Wochen)
