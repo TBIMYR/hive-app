@@ -93,7 +93,11 @@ struct ContentView: View {
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 HStack(spacing: 8) {
-                    HiveMark().fill(Hive.ink).frame(width: 19, height: 18)
+                    ZStack {
+                        HiveMark().fill(Hive.ink)
+                        HiveMark().stroke(Hive.ink, style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+                    }
+                    .frame(width: 15, height: 17)
                     Text("Hive").font(.system(size: 15, weight: .bold)).kerning(-0.2).foregroundStyle(Hive.ink)
                 }
                 .padding(.leading, 4)

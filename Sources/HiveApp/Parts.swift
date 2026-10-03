@@ -102,29 +102,19 @@ struct SectionHeader: View {
     }
 }
 
-/// Waben-Signet von hive (sieben Waben, spitze Seite oben), wie das App-Symbol und public/icons/hive.svg.
+/// Signet von hive: eine Wabe (spitze Seite oben), wie das App-Symbol. Runde Ecken entstehen beim
+/// Zeichnen durch eine zusätzliche Linie mit runder Verbindung.
 struct HiveMark: Shape {
-    /// Mittelpunkte im 512er-Raster des Signets
-    private static let centers: [CGPoint] = [
-        CGPoint(x: 256, y: 256), CGPoint(x: 363.39, y: 256), CGPoint(x: 148.61, y: 256),
-        CGPoint(x: 309.69, y: 349), CGPoint(x: 202.31, y: 349), CGPoint(x: 309.69, y: 163), CGPoint(x: 202.31, y: 163),
-    ]
-
     func path(in rect: CGRect) -> Path {
-        // Waben reichen von x 101…411 und y 109…403 (mit Rundung); auf das Rechteck einpassen
-        let scale = min(rect.width / 310, rect.height / 294)
-        let mid = CGPoint(x: rect.midX, y: rect.midY)
+        let r = min(rect.width / sqrt(3), rect.height / 2)
+        let c = CGPoint(x: rect.midX, y: rect.midY)
         var path = Path()
-        for c in Self.centers {
-            let p = CGPoint(x: mid.x + (c.x - 256) * scale, y: mid.y + (c.y - 256) * scale)
-            let r = 50 * scale
-            path.move(to: CGPoint(x: p.x, y: p.y - r))
-            for i in 1..<6 {
-                let a = CGFloat.pi / 3 * CGFloat(i) - .pi / 2
-                path.addLine(to: CGPoint(x: p.x + r * cos(a), y: p.y + r * sin(a)))
-            }
-            path.closeSubpath()
+        for i in 0..<6 {
+            let a = CGFloat.pi / 3 * CGFloat(i) - .pi / 2
+            let p = CGPoint(x: c.x + r * cos(a), y: c.y + r * sin(a))
+            i == 0 ? path.move(to: p) : path.addLine(to: p)
         }
+        path.closeSubpath()
         return path
     }
 }

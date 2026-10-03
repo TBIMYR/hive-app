@@ -1,16 +1,10 @@
-// make-icon.swift — zeichnet das App-Symbol (Waben-Signet auf dunkler Kachel) als .iconset.
+// make-icon.swift — zeichnet das App-Symbol (eine Wabe auf dunkler Kachel) als .iconset.
 //   swift scripts/make-icon.swift Resources/AppIcon.iconset && iconutil -c icns Resources/AppIcon.iconset
-// Gleiche Waben wie public/icons/hive.svg im hive-Repo und HiveMark in der App.
+// Gleiche Wabe wie HiveMark in der App.
 import AppKit
 
 let out = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "AppIcon.iconset"
 try? FileManager.default.createDirectory(atPath: out, withIntermediateDirectories: true)
-
-/// Mittelpunkte der sieben Waben im 512er-Raster des Signets (spitze Seite oben)
-let centers: [CGPoint] = [
-    CGPoint(x: 256, y: 256), CGPoint(x: 363.39, y: 256), CGPoint(x: 148.61, y: 256),
-    CGPoint(x: 309.69, y: 349), CGPoint(x: 202.31, y: 349), CGPoint(x: 309.69, y: 163), CGPoint(x: 202.31, y: 163),
-]
 
 func hexagon(center c: CGPoint, radius r: CGFloat) -> NSBezierPath {
     let p = NSBezierPath()
@@ -46,16 +40,12 @@ func render(_ px: Int) -> Data {
         .draw(in: shape, angle: -90)
     NSGraphicsContext.restoreGraphicsState()
 
-    // Signet mittig: das 512er-Raster (Waben von x 108…404) auf ~62 % der Kachel skalieren
-    let scale = tile.width * 0.62 / (404.09 - 107.91)
+    // eine Wabe mittig, spitze Seite oben, etwa halb so hoch wie die Kachel, Ecken gerundet
     let color = NSColor(calibratedRed: 0xF5 / 255, green: 0xF5 / 255, blue: 0xF4 / 255, alpha: 1)
     color.setFill(); color.setStroke()
-    for c in centers {
-        let p = CGPoint(x: s / 2 + (c.x - 256) * scale, y: s / 2 - (c.y - 256) * scale)
-        let hex = hexagon(center: p, radius: 47 * scale)
-        hex.lineWidth = 12 * scale
-        hex.fill(); hex.stroke()
-    }
+    let hex = hexagon(center: CGPoint(x: s / 2, y: s / 2), radius: tile.height * 0.25)
+    hex.lineWidth = tile.height * 0.06
+    hex.fill(); hex.stroke()
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])!
 }
