@@ -3,7 +3,15 @@ import SwiftUI
 import HiveCore
 
 // Ohne App-Bundle (swift run) wäre das Fenster sonst ohne Tastaturfokus und Menüleiste.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Der Store gehört dem AppDelegate, damit der Mitteilungs-Delegate schon vor dem ersten Fenster steht.
+    let store = StateStore()
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        store.notifier.start()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
@@ -15,12 +23,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct HiveApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @StateObject private var store = StateStore()
 
     var body: some Scene {
         WindowGroup("hive") {
             ContentView()
-                .environmentObject(store)
+                .environmentObject(delegate.store)
                 .frame(minWidth: 900, minHeight: 560)
         }
         .defaultSize(width: 1440, height: 860)
@@ -29,23 +36,16 @@ struct HiveApp: App {
 
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
-    // `--select <name>` wählt beim Start eine Session (zum Ausprobieren)
-    @State private var selected: String? = {
-        let args = CommandLine.arguments
-        guard let i = args.firstIndex(of: "--select"), i + 1 < args.count else { return nil }
-        return args[i + 1]
-    }()
-
     @State private var newPreset: NewSessionPreset?
 
     var body: some View {
         // Übersicht ⅔, Terminal fest ⅓ (wie besprochen; die Übersicht soll Platz behalten)
         GeometryReader { geo in
             HStack(spacing: 0) {
-                OverviewView(selected: $selected, newPreset: $newPreset)
+                OverviewView(selected: $store.selected, newPreset: $newPreset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Rectangle().fill(Hive.hair2).frame(width: 1)
-                TerminalPane(session: store.displaySessions.first { $0.name == selected })
+                TerminalPane(session: store.displaySessions.first { $0.name == store.selected })
                     // ganze Punkte: sonst liegt das Terminal zwischen zwei Pixeln und der Text wird unscharf
                     .frame(width: max(340, (geo.size.width / 3).rounded()))
                     .frame(maxHeight: .infinity)
@@ -61,7 +61,7 @@ struct ContentView: View {
         }
         .sheet(item: $newPreset) { preset in
             NewSessionSheet(preset: preset) { name in
-                selected = name
+                store.selected = name
                 store.refreshSoon()
             }
         }

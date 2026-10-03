@@ -47,6 +47,14 @@ final class StateStore: ObservableObject {
     @Published private(set) var tmuxPanes = Tmux.Panes()
     /// Session-`id` → ihre tmux-Session (siehe TmuxMatch)
     @Published private(set) var tmuxOf: [String: String] = [:]
+    /// Ausgewählte Session (Name). `--select <name>` wählt beim Start eine (zum Ausprobieren).
+    @Published var selected: String? = {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--select"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }()
+    /// Mitteilungen und Dock-Zahl; der Store hält ihn, weil das Mitteilungszentrum seinen Delegate nur schwach hält
+    let notifier = Notifier()
 
     private var timer: Timer?
     private var watcher: Watcher?
@@ -54,6 +62,7 @@ final class StateStore: ObservableObject {
     private var again = false
 
     init() {
+        notifier.onSelect = { [weak self] name in self?.selected = name }
         Task { await refresh() }
         // Register, Handover und Gesprächsprotokolle melden Änderungen sofort; der Takt fängt
         // beendete Prozesse, tmux und die „vor x min“-Anzeige ab.
@@ -81,6 +90,7 @@ final class StateStore: ObservableObject {
             if panes != tmuxPanes { tmuxPanes = panes }
             let match = TmuxMatch.resolve(sessions, tmuxSessions: Set(panes.commands.keys), sessionOfPane: panes.sessionOfPane)
             if match != tmuxOf { tmuxOf = match }
+            notifier.update(needs, selected: selected)
             now = Date()
         } while again
         refreshing = false
@@ -88,6 +98,18 @@ final class StateStore: ObservableObject {
 
     /// Status mit Blick auf tmux (siehe Status.init).
     func status(_ s: Session) -> Status { Status(s, tmuxCommand: tmux(s).flatMap { tmuxPanes.commands[$0] }) }
+
+    /// Sessions mit Rang 0 nach Name, für Mitteilungen und Dock-Zahl. Bei doppelten Namen
+    /// (toter und lebender Eintrag) gewinnt der erste.
+    var needs: [String: AttentionTracker.Need] {
+        var m: [String: AttentionTracker.Need] = [:]
+        for s in displaySessions where m[s.name] == nil {
+            let st = status(s).core
+            guard st.rank == 0 else { continue }
+            m[s.name] = AttentionTracker.Need(reason: st.reason ?? st.label, confirmAfter: st.waitsAtStart ? 3 : 0)
+        }
+        return m
+    }
 
     /// tmux-Session dieser Session im hive-Server, nil = keine.
     /// Karten, die nur aus tmux stammen (displaySessions), tragen den tmux-Namen selbst.
