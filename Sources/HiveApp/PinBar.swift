@@ -9,10 +9,10 @@ struct PinBar: View {
     @Binding var dragging: String?
 
     var body: some View {
-        FlowLayout(spacing: 8, lineSpacing: 8) {
+        FlowLayout(spacing: 10, lineSpacing: 10) {
             Text("Pinned")
                 .textCase(.uppercase).kerning(0.6)
-                .font(.system(size: 10, weight: .semibold)).foregroundStyle(Hive.muted)
+                .font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted)
                 .frame(height: 26)
             ForEach(items) { it in
                 PinChip(item: it, isSelected: it.name == store.selected)
@@ -37,18 +37,18 @@ struct PinChip: View {
     var body: some View {
         let st = item.status
         let loud = st.rank == 0
-        HStack(spacing: 6) {
-            Circle().fill(st.color).frame(width: 8, height: 8)
-            Text(item.name).font(.hiveMono(11.5, .medium)).foregroundStyle(Hive.ink)
-            Text(st.label).font(.system(size: 11)).foregroundStyle(loud ? st.color : Hive.muted)
+        HStack(spacing: 8) {
+            Circle().fill(st.color).frame(width: 9, height: 9)
+            Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink)
+            Text(st.label).font(.system(size: 12.5)).foregroundStyle(loud ? st.color : Hive.muted)
         }
         .lineLimit(1).fixedSize()
-        .padding(.horizontal, 9).padding(.vertical, 5)
+        .padding(.horizontal, 14).padding(.vertical, 10)
         .background(loud ? st.color.opacity(0.06) : Color.clear)
         .background(Hive.card)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(isSelected ? Hive.ink : (loud ? st.color.opacity(0.5) : Hive.hair), lineWidth: isSelected ? 2 : 1)
         )
         .opacity(st.rank == 3 ? 0.55 : 1)
