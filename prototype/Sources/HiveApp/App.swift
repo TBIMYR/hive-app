@@ -45,7 +45,8 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Rectangle().fill(Hive.hair2).frame(width: 1)
                 TerminalPane(session: store.displaySessions.first { $0.name == selected })
-                    .frame(width: max(340, geo.size.width / 3))
+                    // ganze Punkte: sonst liegt das Terminal zwischen zwei Pixeln und der Text wird unscharf
+                    .frame(width: max(340, (geo.size.width / 3).rounded()))
                     .frame(maxHeight: .infinity)
             }
         }
