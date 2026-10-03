@@ -76,9 +76,13 @@ struct TmuxTerminal: NSViewRepresentable {
         let view = LocalProcessTerminalView(frame: .zero)
         // Proportionalschrift geht im Terminal-Raster nicht (jede Zelle so breit wie das breiteste
         // Zeichen, „C l a u d e“); zum Nachsehen: HIVE_TERM_FONT=system
+        // Sonst wie Mikas iTerm-Profil default: MesloLGS NF 13 (Fett/Kursiv aus den Schnitten der Familie),
+        // dünne Striche auf Retina (= ohne Font-Smoothing), Cursor als Strich ohne Blinken.
         view.font = ProcessInfo.processInfo.environment["HIVE_TERM_FONT"] == "system"
             ? NSFont.systemFont(ofSize: 13)
-            : NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+            : NSFont(name: "MesloLGS-NF-Regular", size: 13) ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        view.fontSmoothing = false
+        view.getTerminal().setCursorStyle(.steadyBar)
         applyColors(view)
         hideScroller(view)
         view.startProcess(executable: Tmux.path!,
