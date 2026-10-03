@@ -41,7 +41,7 @@ struct ContentView: View {
         // Übersicht ⅔, Terminal fest ⅓ (wie besprochen; die Übersicht soll Platz behalten)
         GeometryReader { geo in
             HStack(spacing: 0) {
-                OverviewView(selected: $store.selected)
+                OverviewView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Rectangle().fill(Hive.hair2).frame(width: 1)
                 TerminalPane(session: store.displaySessions.first { $0.name == store.selected })

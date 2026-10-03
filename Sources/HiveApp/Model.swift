@@ -165,12 +165,19 @@ final class StateStore: ObservableObject {
         return m
     }
 
-    /// Farbe je Gruppe: Gruppen alphabetisch, Palette der Reihe nach.
-    func color(for group: String) -> Color {
-        let keys = labels.keys.sorted()
-        guard let i = keys.firstIndex(of: group) else { return Color(nsColor: NSColor(hex: 0x1B1B1B)) }
-        return Color(nsColor: NSColor(hex: Hive.palette[i % Hive.palette.count]))
+    /// Farbe je Gruppe: Gruppen alphabetisch, Palette der Reihe nach. Für viele Sessions einmal holen.
+    func groupColors(_ labels: [String: String]) -> [String: Color] {
+        var m: [String: Color] = [:]
+        for (i, key) in labels.keys.sorted().enumerated() {
+            m[key] = Color(nsColor: NSColor(hex: Hive.palette[i % Hive.palette.count]))
+        }
+        return m
     }
+
+    /// Farbe für Gruppen ohne Projektnamen (reine tmux-Sessions)
+    static let fallbackColor = Color(nsColor: NSColor(hex: 0x1B1B1B))
+
+    func color(for group: String) -> Color { groupColors(labels)[group] ?? Self.fallbackColor }
 
     /// Springt in den iTerm-Tab der Session. Liefert eine Fehlermeldung oder nil.
     func focusInITerm(_ s: Session) async -> String? {
