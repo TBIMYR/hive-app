@@ -29,6 +29,10 @@ private func entry(pid: Int, _ r: (entries: [RegistryEntry], errors: [String])) 
     #expect(entry(pid: 101, r)?.waitingFor == "input needed")
 }
 
+@Test func vorratsProzesseSindKeineSessions() {
+    #expect(entry(pid: 104, read()) == nil)
+}
+
 @Test func tmuxPaneAusDemFeldTmux() {
     let r = read()
     #expect(entry(pid: 100, r)?.tmuxPane == "%1")

@@ -38,6 +38,8 @@ public enum Registry {
                       let pidValue = number(j["pid"]),
                       // Int(Double) stürzt bei 1e20 oder NaN ab; solche Einträge sind keine Prozesse
                       let pid = Int(exactly: pidValue.rounded(.towardZero)) else { continue }
+                // Vorrats-Prozess von Claude Code für die nächste Hintergrund-Session, noch keine Session
+                if j["spare"] as? Bool == true { continue }
                 // JS: j.statusUpdatedAt ?? j.updatedAt
                 let updated = j["statusUpdatedAt"].flatMap { $0 is NSNull ? nil : $0 } ?? j["updatedAt"]
                 entries.append(RegistryEntry(
