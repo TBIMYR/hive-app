@@ -37,7 +37,7 @@ struct TerminalPane: View {
                 .frame(maxHeight: .infinity)
         } else if store.tmuxNames.contains(s.name) {
             TmuxTerminal(name: s.name).id(s.name)
-                .padding(.horizontal, 18).padding(.top, 6)
+                .padding(.horizontal, 28).padding(.top, 6)
         } else if s.alive == true {
             VStack(spacing: 12) {
                 ContentUnavailableView("Läuft in iTerm", systemImage: "macwindow",
