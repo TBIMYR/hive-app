@@ -74,8 +74,8 @@ struct OverviewView: View {
     private func content(_ items: [OverviewItem]) -> some View {
         switch mode {
         case .list: SessionListView(items: items, showOffline: $showOffline)
-        // Tiles kommt in der nächsten Aufgabe dazu
-        case .tiles, .cards: SessionCardsView(items: items, showOffline: $showOffline)
+        case .tiles: SessionTileGrid(items: items, showOffline: $showOffline)
+        case .cards: SessionCardsView(items: items, showOffline: $showOffline)
         }
     }
 }
