@@ -24,7 +24,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center.delegate = self
         // Mitteilungen aus dem vorigen Lauf kennt der Tracker nicht mehr; die Dock-Zahl stimmt ohnehin sofort
         center.removeAllDeliveredNotifications()
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        // .badge ist nötig: mit Bundle-Kennung zeigt macOS die Dock-Zahl nur, wenn „Kennzeichen“ erlaubt ist
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
     /// Nach jeder Aktualisierung: Dock-Zahl setzen, neue Sessions melden, erledigte Mitteilungen entfernen.
