@@ -7,7 +7,6 @@ struct OverviewView: View {
     @Binding var selected: String?
     @Binding var newPreset: NewSessionPreset?
     @State private var showOffline = false
-    @State private var tileHeight: CGFloat = 150
 
     private static let sections: [(rank: Int, title: String, color: Color)] = [
         (0, "Braucht dich", Hive.need), (1, "Arbeitet", Hive.busy), (2, "Bereit", Hive.idle), (3, "Offline", Hive.off),
@@ -29,7 +28,6 @@ struct OverviewView: View {
         let labels = store.labels
         let all = store.displaySessions.map { ($0, store.status($0)) }
         // PMs stehen ohne eigenen Abschnitt bei den übrigen Karten; sie heben sich nur durch die Projektfarbe ab (Tile)
-        let addRank = all.map(\.1.rank).filter { $0 != 3 }.min()
         return ScrollView {
             VStack(alignment: .leading, spacing: 34) {
                 ForEach(Self.sections, id: \.rank) { sec in
@@ -38,7 +36,7 @@ struct OverviewView: View {
                         VStack(alignment: .leading, spacing: 14) {
                             sectionHeader(sec.title, items.count, sec.color, collapsible: sec.rank == 3)
                             if sec.rank != 3 || showOffline {
-                                grid(items, labels: labels, add: sec.rank == addRank)
+                                grid(items, labels: labels)
                             }
                         }
                     }
@@ -49,14 +47,13 @@ struct OverviewView: View {
         .scrollIndicators(.hidden)
     }
 
-    private func grid(_ items: [(Session, Status)], labels: [String: String], add: Bool) -> some View {
+    private func grid(_ items: [(Session, Status)], labels: [String: String]) -> some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18, alignment: .top)],
                   alignment: .leading, spacing: 18) {
             ForEach(items, id: \.0.id) { s, k in
                 Tile(session: s, status: k, label: labels[s.groupKey] ?? s.groupKey,
                      color: store.color(for: s.groupKey), inTmux: store.tmux(s) != nil,
                      isSelected: s.name == selected, now: store.now)
-                    .background(GeometryReader { g in Color.clear.preference(key: TileHeightKey.self, value: g.size.height) })
                     .onTapGesture { selected = s.name }
                     .contextMenu {
                         if let next = SessionNaming.nextName(in: store.sessions.filter { $0.groupKey == s.groupKey }) {
@@ -66,13 +63,7 @@ struct OverviewView: View {
                         }
                     }
             }
-            // Neue Session als letzte Karte im ersten Worker-Abschnitt
-            if add && Tmux.path != nil {
-                AddTile(height: tileHeight) { newPreset = NewSessionPreset() }
-            }
         }
-        // Höhe der höchsten Karte im eigenen Abschnitt an „Neue Session“ weitergeben (LazyVGrid streckt nicht)
-        .onPreferenceChange(TileHeightKey.self) { h in if add && h > 0 { tileHeight = h } }
     }
 
     private func sectionHeader(_ title: String, _ n: Int, _ color: Color, collapsible: Bool) -> some View {
@@ -106,42 +97,6 @@ struct OverviewView: View {
 }
 
 // MARK: Bausteine
-
-/// Höhe der höchsten Karte eines Abschnitts (auch mit Hinweiszeile), für die Karte „Neue Session“.
-struct TileHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
-/// Gestrichelte Karte „Neue Session“ im Raster.
-struct AddTile: View {
-    var height: CGFloat = 150
-    let action: () -> Void
-    @State private var hover = false
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: "plus").font(.system(size: 22, weight: .medium))
-                Text("Neue Session").font(.system(size: 13, weight: .medium))
-            }
-            .foregroundStyle(hover ? Hive.ink : Hive.muted)
-            .frame(maxWidth: .infinity, minHeight: height)
-            .background(hover ? Hive.card : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(hover ? Hive.ink2 : Hive.hair2, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hover = $0 }
-        .help("Neue Session in tmux starten (⌘N)")
-    }
-}
 
 /// Langsam pulsierender Rahmen für arbeitende Sessions; bei „Bewegung reduzieren“ ruhig.
 struct PulsingBorder: View {
