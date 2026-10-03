@@ -7,13 +7,17 @@ Design: `docs/superpowers/specs/2026-09-30-session-dashboard-design.md`
 Was die Master-Session `keeper` geändert hat (auch außerhalb des Repos): `docs/keeper-log.md`
 Gültige Session-Regeln für die globale CLAUDE.md: `docs/claude-md-session-status.md`
 
+Namen in Dokus, Tests und Beispielen sind ausgedacht: Projekte `lumen`, `orbit`, `fjord`,
+`kiosk` mit den Session-Kürzeln `lu`, `or`, `fj`, `ki`; „Mika“ steht für den Nutzer.
+Neue Dokus bitte ebenso schreiben, keine echten Namen, Pfade oder Ticketnummern.
+
 ## Start
 
 ```sh
 node server.js              # http://127.0.0.1:7777, PORT überschreibbar
 sh install.sh               # Symlinks nach ~/.claude, Hook, CLAUDE.md-Abschnitt
 sh install.sh --launchd     # zusätzlich als LaunchAgent (läuft nach Login immer)
-node --test                 # 60 Tests, keine Tokens
+node --test                 # alle Tests, keine Tokens
 ```
 
 Logs des LaunchAgents: `/tmp/hive.log`, `/tmp/hive.err`.

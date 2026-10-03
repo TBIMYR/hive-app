@@ -7,7 +7,7 @@ Führe genau einen Bash-Aufruf aus, sonst nichts:
 
     ~/.claude/bin/cc-task "<eine Zeile: was du gerade tust, mit Ticket/PR-Nummer falls vorhanden>" <state>
 
-`state` ist `working` (Auftrag läuft), `blocked` (kommt ohne Entscheidung oder Freigabe von Mika nicht weiter), `waiting` (eigene Arbeit fertig, wartet nur noch auf Rückmeldung von Menschen oder einer anderen Session) oder `done` (Auftrag abgeschlossen, wartet auf den nächsten).
+`state` ist `working` (Auftrag läuft), `blocked` (kommt ohne Entscheidung oder Freigabe des Nutzers nicht weiter), `waiting` (eigene Arbeit fertig, wartet nur noch auf Rückmeldung von Menschen oder einer anderen Session) oder `done` (Auftrag abgeschlossen, wartet auf den nächsten).
 
 Wurde ein Text als Argument übergeben, nimm ihn unverändert. Keine Rückfrage, keine Erklärung, keine weitere Ausgabe außer einer Zeile Bestätigung.
 

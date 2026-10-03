@@ -55,7 +55,7 @@ enum Tmux {
     }
 
     /// Öffnet eine Shell in einer neuen tmux-Session im Ordner und tippt `claude -n <name>` vor,
-    /// ohne Enter: Mika startet selbst und kann die Zeile vorher ändern (z. B. `codex`, `--resume`).
+    /// ohne Enter: man startet selbst und kann die Zeile vorher ändern (z. B. `codex`, `--resume`).
     /// `HIVE_SESSION` trägt den Namen, egal welcher Agent später läuft. Liefert eine Fehlermeldung oder nil.
     static func newSession(name: String, dir: String) -> String? {
         scrubServer()
