@@ -14,7 +14,7 @@ struct HandoverView: View {
                 if let text {
                     ForEach(Array(Self.blocks(text).enumerated()), id: \.offset) { _, b in row(b) }
                 } else if loaded {
-                    Text("Kein Handover vorhanden.").foregroundStyle(Hive.muted)
+                    Text("No handover.").foregroundStyle(Hive.muted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

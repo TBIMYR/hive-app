@@ -68,7 +68,7 @@ enum Tmux {
     static func newSession(name: String, dir: String) -> String? {
         scrubServer()
         let r = run(["new-session", "-d", "-s", name, "-c", dir, "-e", "HIVE_SESSION=\(name)"])
-        guard r.status == 0 else { return r.output.isEmpty ? "tmux-Fehler \(r.status)" : r.output }
+        guard r.status == 0 else { return r.output.isEmpty ? "tmux error \(r.status)" : r.output }
         // erst tippen, wenn die Shell ihre Startdateien gelesen hat
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.8) {
             _ = run(["send-keys", "-t", target(name), "-l", "claude -n \(name)"])
@@ -122,7 +122,7 @@ enum Tmux {
     }
 
     private static func run(_ args: [String]) -> (status: Int32, output: String) {
-        guard let path else { return (-1, "tmux nicht installiert") }
+        guard let path else { return (-1, "tmux not installed") }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: path)
         p.arguments = serverArgs + args

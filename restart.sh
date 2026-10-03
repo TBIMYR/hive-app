@@ -29,6 +29,7 @@ cat > "$new/Contents/Info.plist" <<EOF
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>$id</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleName</key><string>$title</string>
   <key>CFBundleExecutable</key><string>HiveApp</string>
   <key>CFBundlePackageType</key><string>APPL</string>

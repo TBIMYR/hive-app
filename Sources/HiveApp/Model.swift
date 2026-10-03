@@ -144,8 +144,8 @@ final class StateStore: ObservableObject {
 
     /// Springt in den iTerm-Tab der Session. Liefert eine Fehlermeldung oder nil.
     func focusInITerm(_ s: Session) async -> String? {
-        guard let pid = s.pid else { return "keine PID" }
-        if s.kind == "bg" { return "Hintergrund-Session ohne Fenster" }
+        guard let pid = s.pid else { return "No PID" }
+        if s.kind == "bg" { return "Background session without a window" }
         return await Task.detached { Focus.focus(pid: pid) }.value
     }
 

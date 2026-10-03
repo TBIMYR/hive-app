@@ -35,9 +35,9 @@ public enum Focus {
 
     /// nil = Tab ist vorn, sonst der Grund.
     public static func focus(pid: Int) -> String? {
-        guard let tty = tty(of: pid) else { return "Session hat kein Terminal" }
+        guard let tty = tty(of: pid) else { return "Session has no terminal" }
         let r = Shell.run("/usr/bin/osascript", ["-e", script, tty])
-        if r.status != 0 { return r.err.isEmpty ? "osascript-Fehler \(r.status)" : r.err }
-        return r.out.trimmingCharacters(in: .whitespacesAndNewlines) == "ok" ? nil : "kein iTerm-Tab mit \(tty)"
+        if r.status != 0 { return r.err.isEmpty ? "osascript error \(r.status)" : r.err }
+        return r.out.trimmingCharacters(in: .whitespacesAndNewlines) == "ok" ? nil : "No iTerm tab with \(tty)"
     }
 }

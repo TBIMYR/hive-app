@@ -53,9 +53,9 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { newPreset = NewSessionPreset() } label: { Label("Neue Session", systemImage: "plus") }
+                Button { newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
                     .disabled(Tmux.path == nil)
-                    .help("Neue Session in tmux starten (⌘N)")
+                    .help("Start a new session in tmux (⌘N)")
                     .keyboardShortcut("n")
             }
         }

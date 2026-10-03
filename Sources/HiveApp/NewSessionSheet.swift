@@ -67,16 +67,16 @@ struct NewSessionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Neue Session").font(.headline)
+            Text("New Session").font(.headline)
             Form {
-                TextField("Name", text: $name, prompt: Text("z. B. al.04"))
+                TextField("Name", text: $name, prompt: Text("e.g. al.04"))
                     .onChange(of: name) { _, n in
                         // Ordner aus dem Präfix ableiten, solange keiner bewusst gewählt wurde
                         if !dirChosen, let d = SessionNaming.dir(for: n, in: store.sessions) { dir = d }
                     }
-                LabeledContent("Ordner") {
+                LabeledContent("Folder") {
                     HStack {
-                        Menu(dir.isEmpty ? "Projekt wählen" : (dir as NSString).abbreviatingWithTildeInPath) {
+                        Menu(dir.isEmpty ? "Choose project" : (dir as NSString).abbreviatingWithTildeInPath) {
                             ForEach(SessionNaming.projects(in: store.sessions), id: \.dir) { p in
                                 Button("\(p.label)  –  \((p.dir as NSString).abbreviatingWithTildeInPath)") {
                                     dir = p.dir
@@ -84,20 +84,20 @@ struct NewSessionSheet: View {
                                 }
                             }
                             Divider()
-                            Button("Anderer Ordner …", action: chooseFolder)
+                            Button("Other folder …", action: chooseFolder)
                         }
                         .fixedSize()
                     }
                 }
             }
-            Text("Öffnet ein Terminal in diesem Ordner. `claude -n \(trimmedName.isEmpty ? "<name>" : trimmedName)` steht schon in der Eingabezeile: Enter drücken oder vorher ändern, z. B. zu `codex`.")
+            Text("Opens a terminal in this folder. `claude -n \(trimmedName.isEmpty ? "<name>" : trimmedName)` is already on the command line: press Enter, or change it first, e.g. to `codex`.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let error { Text(error).foregroundStyle(.red).font(.callout) }
             HStack {
                 Spacer()
-                Button("Abbrechen") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Terminal öffnen", action: start).keyboardShortcut(.defaultAction)
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Open Terminal", action: start).keyboardShortcut(.defaultAction)
                     .disabled(trimmedName.isEmpty || dir.isEmpty)
             }
         }
@@ -120,14 +120,14 @@ struct NewSessionSheet: View {
         let n = trimmedName
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else {
-            error = "Ordner gibt es nicht: \(dir)"
+            error = "Folder does not exist: \(dir)"
             return
         }
         if store.sessions.contains(where: { $0.name == n && $0.alive == true }) {
-            error = "Eine Session \(n) läuft schon"
+            error = "A session \(n) is already running"
             return
         }
-        if Tmux.hasSession(n) { error = "tmux-Session \(n) läuft schon"; return }
+        if Tmux.hasSession(n) { error = "tmux session \(n) is already running"; return }
         if let e = Tmux.newSession(name: n, dir: dir) { error = e; return }
         onCreated(n)
         dismiss()

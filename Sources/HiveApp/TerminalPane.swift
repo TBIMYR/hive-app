@@ -25,15 +25,15 @@ struct TerminalPane: View {
                                 .font(.system(size: 12, weight: .medium))
                         }
                         .buttonStyle(.bordered).controlSize(.small)
-                        .help(showHandover ? "Zurück zum Terminal" : "Handover dieser Session lesen")
+                        .help(showHandover ? "Back to the terminal" : "Read this session's handover")
                     }
                 }
                 .padding(.horizontal, 14).frame(height: 40)
                 Rectangle().fill(Hive.hair).frame(height: 1)
                 content(for: s)
             } else {
-                ContentUnavailableView("Keine Session gewählt", systemImage: "terminal",
-                                       description: Text("Links eine Karte anklicken."))
+                ContentUnavailableView("No session selected", systemImage: "terminal",
+                                       description: Text("Click a session on the left."))
                     .frame(maxHeight: .infinity)
             }
         }
@@ -46,7 +46,7 @@ struct TerminalPane: View {
         if showHandover && s.hasHandover == true {
             HandoverView(name: s.name)
         } else if Tmux.path == nil {
-            ContentUnavailableView("tmux fehlt", systemImage: "exclamationmark.triangle",
+            ContentUnavailableView("tmux missing", systemImage: "exclamationmark.triangle",
                                    description: Text("brew install tmux"))
                 .frame(maxHeight: .infinity)
         } else if let t = store.tmux(s) {
@@ -54,10 +54,10 @@ struct TerminalPane: View {
                 .padding(.horizontal, 28).padding(.top, 6)
         } else if s.alive == true {
             VStack(spacing: 12) {
-                ContentUnavailableView("Läuft in iTerm", systemImage: "macwindow",
-                                       description: Text("Diese Session hat keine tmux-Session. Neue Sessions über das Plus in der Werkzeugleiste oder ⌘N starten."))
+                ContentUnavailableView("Runs in iTerm", systemImage: "macwindow",
+                                       description: Text("This session has no tmux session. Start new sessions with the plus in the toolbar or ⌘N."))
                 if s.kind != "bg" {
-                    Button("In iTerm zeigen") {
+                    Button("Show in iTerm") {
                         Task { message = await store.focusInITerm(s) ?? "→ iTerm" }
                     }
                 }
@@ -68,7 +68,7 @@ struct TerminalPane: View {
             HandoverView(name: s.name)
         } else {
             ContentUnavailableView("Offline", systemImage: "moon.zzz",
-                                   description: Text("Kein Terminal und kein Handover."))
+                                   description: Text("No terminal and no handover."))
                 .frame(maxHeight: .infinity)
         }
     }

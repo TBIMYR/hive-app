@@ -58,7 +58,7 @@ func dur(_ iso: String?, now: Date = Date()) -> String {
 
 func ago(_ iso: String?, now: Date = Date()) -> String {
     let d = dur(iso, now: now)
-    return d.isEmpty ? "" : (d == "<1 min" ? "gerade eben" : "vor \(d)")
+    return d.isEmpty ? "" : (d == "<1 min" ? "just now" : "\(d) ago")
 }
 
 private let isoFrac: ISO8601DateFormatter = {

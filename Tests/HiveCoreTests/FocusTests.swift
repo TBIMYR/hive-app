@@ -3,7 +3,7 @@ import Testing
 
 @Test func unbekannterProzessHatKeinTerminal() {
     #expect(Focus.tty(of: 999_999) == nil)
-    #expect(Focus.focus(pid: 999_999) == "Session hat kein Terminal")
+    #expect(Focus.focus(pid: 999_999) == "Session has no terminal")
 }
 
 @Test func shellLiefertAusgabeUndStatus() {

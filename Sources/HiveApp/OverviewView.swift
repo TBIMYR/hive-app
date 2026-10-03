@@ -9,13 +9,13 @@ struct OverviewView: View {
     @State private var showOffline = false
 
     private static let sections: [(rank: Int, title: String, color: Color)] = [
-        (0, "Braucht dich", Hive.need), (1, "Arbeitet", Hive.busy), (2, "Bereit", Hive.idle), (3, "Offline", Hive.off),
+        (0, "Needs you", Hive.need), (1, "Working", Hive.busy), (2, "Ready", Hive.idle), (3, "Offline", Hive.off),
     ]
 
     var body: some View {
         Group {
             if let error = store.error, store.sessions.isEmpty {
-                ContentUnavailableView("Keine Sessions lesbar", systemImage: "hexagon", description: Text(error))
+                ContentUnavailableView("No sessions readable", systemImage: "hexagon", description: Text(error))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 board
@@ -58,7 +58,7 @@ struct OverviewView: View {
                     .onTapGesture { selected = s.name }
                     .contextMenu {
                         if let next = SessionNaming.nextName(in: store.sessions.filter { $0.groupKey == s.groupKey }) {
-                            Button("\(next) im selben Projekt starten") {
+                            Button("Start \(next) in the same project") {
                                 newPreset = NewSessionPreset(name: next, dir: s.cwd)
                             }
                         }
@@ -173,7 +173,7 @@ struct Tile: View {
             }
 
             // Aufgabe
-            Text(session.task?.text ?? "Keine Aufgaben-Zeile")
+            Text(session.task?.text ?? "No task line")
                 .font(.system(size: 13.5, weight: .medium))
                 .foregroundStyle(session.task?.text == nil ? Hive.muted : Hive.ink)
                 .lineLimit(2, reservesSpace: true)
@@ -199,10 +199,10 @@ struct Tile: View {
                 Spacer(minLength: 6)
                 if !session.errors.isEmpty {
                     Image(systemName: "exclamationmark.triangle")
-                        .help("Lesefehler: " + session.errors.joined(separator: "\n"))
+                        .help("Read error: " + session.errors.joined(separator: "\n"))
                 }
                 if inTmux {
-                    Image(systemName: "terminal").help("Läuft in der App")
+                    Image(systemName: "terminal").help("Runs in the app")
                 } else if session.alive == true && session.kind != "bg" {
                     Text("iTerm").fixedSize()
                 }

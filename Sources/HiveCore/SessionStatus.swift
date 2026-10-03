@@ -23,28 +23,28 @@ public struct SessionStatus: Equatable, Sendable {
         case tmuxCommand.map(Self.isShell) == true && s.alive != true:
             self.init(2, "shell", "Shell")
         case tmuxCommand?.hasPrefix("claude") == true && s.alive != true:
-            let text = "Start-Abfrage im Terminal beantworten"
-            self.init(0, "need", "wartet beim Start", why: text, reason: text, waitsAtStart: true)
+            let text = "Answer the start prompt in the terminal"
+            self.init(0, "need", "waiting at start", why: text, reason: text, waitsAtStart: true)
         case tmuxCommand != nil && s.alive != true:
             self.init(2, "agent", tmuxCommand!)
         case s.status == "offline":
             self.init(3, "off", "offline")
         case s.status == "waiting":
-            let text = s.waitingFor ?? "Eingabe nötig"
-            self.init(0, "need", "wartet auf dich", why: text, reason: text)
+            let text = s.waitingFor ?? "Input needed"
+            self.init(0, "need", "waiting for you", why: text, reason: text)
         case s.status == "busy":
             // wer gerade arbeitet, ist nicht blockiert, auch wenn die Aufgaben-Zeile noch „blocked“ sagt
-            self.init(1, "busy", "arbeitet")
+            self.init(1, "busy", "working")
         case state == "blocked":
             let line = s.task?.text.trimmingCharacters(in: .whitespaces) ?? ""
-            self.init(0, "block", "blockiert", why: "Blockiert – braucht eine Entscheidung",
-                      reason: line.isEmpty ? "braucht eine Entscheidung" : line)
+            self.init(0, "block", "blocked", why: "Blocked – needs a decision",
+                      reason: line.isEmpty ? "needs a decision" : line)
         case state == "waiting":
-            self.init(2, "wait", "wartet auf Rückmeldung")
+            self.init(2, "wait", "waiting for reply")
         case s.status == "shell":
             self.init(2, "shell", "Shell")
         default:
-            self.init(2, "idle", "bereit")
+            self.init(2, "idle", "ready")
         }
     }
 
