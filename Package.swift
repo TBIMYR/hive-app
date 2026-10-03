@@ -15,6 +15,8 @@ let package = Package(
             name: "HiveApp",
             dependencies: ["HiveCore", .product(name: "SwiftTerm", package: "SwiftTerm")]
         ),
+        // Gibt den Zustand wie GET /api/state aus, für den Vergleich mit dem Node-Server
+        .executableTarget(name: "hive-state", dependencies: ["HiveCore"]),
         .testTarget(name: "HiveCoreTests", dependencies: ["HiveCore"], resources: [.copy("Fixtures")]),
     ]
 )
