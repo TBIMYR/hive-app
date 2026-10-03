@@ -45,6 +45,7 @@ struct OverviewView: View {
             }
             .padding(.horizontal, 26).padding(.top, 22).padding(.bottom, 60)
         }
+        .scrollIndicators(.hidden)
         // Höhe der normalen Karten an die Karte „Neue Session“ weitergeben (LazyVGrid streckt nicht)
         .onPreferenceChange(TileHeightKey.self) { h in if h > 0 { tileHeight = h } }
     }

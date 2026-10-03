@@ -80,6 +80,7 @@ struct TmuxTerminal: NSViewRepresentable {
             ? NSFont.systemFont(ofSize: 13)
             : NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
         applyColors(view)
+        hideScroller(view)
         view.startProcess(executable: Tmux.path!,
                           args: Tmux.attachArgs(name),
                           environment: Tmux.environmentList(),
@@ -90,6 +91,12 @@ struct TmuxTerminal: NSViewRepresentable {
 
     func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
         applyColors(nsView)
+        hideScroller(nsView)
+    }
+
+    // Den Verlauf hält tmux, SwiftTerms eigener Scroller bleibt leer; er ist privat, darum über die Unteransichten
+    private func hideScroller(_ view: LocalProcessTerminalView) {
+        view.subviews.compactMap { $0 as? NSScroller }.forEach { $0.isHidden = true }
     }
 
     static func dismantleNSView(_ nsView: LocalProcessTerminalView, coordinator: ()) {
