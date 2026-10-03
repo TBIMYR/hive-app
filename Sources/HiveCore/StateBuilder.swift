@@ -24,6 +24,8 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public let cwd: String?
     public let pid: Int?
     public let kind: String?
+    /// tmux-Pane laut Register („%13“); die App findet darüber die tmux-Session, auch nach /rename
+    public let tmuxPane: String?
     public let alive: Bool
     public let status: String
     public let waitingFor: String?
@@ -41,7 +43,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public var id: String { pid.map { "\(name)|\($0)" } ?? name }
 
     public init(name: String, project: String = "", group: String, isPm: Bool = false, cwd: String? = nil,
-                pid: Int? = nil, kind: String? = nil, alive: Bool = false, status: String = "offline",
+                pid: Int? = nil, kind: String? = nil, tmuxPane: String? = nil, alive: Bool = false, status: String = "offline",
                 waitingFor: String? = nil, statusUpdatedAt: String? = nil, branch: String? = nil,
                 lastAssistant: Said? = nil, lastUser: Said? = nil, task: TaskLine? = nil,
                 hasHandover: Bool = false, errors: [String] = []) {
@@ -52,6 +54,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
         self.cwd = cwd
         self.pid = pid
         self.kind = kind
+        self.tmuxPane = tmuxPane
         self.alive = alive
         self.status = status
         self.waitingFor = waitingFor
@@ -98,7 +101,7 @@ public enum StateBuilder {
             let status = e.alive ? e.status : "offline"
             sessions.append(Session(
                 name: e.name, project: project, group: Project.groupKey(e.name, project: project),
-                isPm: Project.isPm(e.name), cwd: e.cwd, pid: e.pid, kind: e.kind, alive: e.alive, status: status,
+                isPm: Project.isPm(e.name), cwd: e.cwd, pid: e.pid, kind: e.kind, tmuxPane: e.tmuxPane, alive: e.alive, status: status,
                 waitingFor: e.waitingFor, statusUpdatedAt: e.statusUpdatedAt, branch: tail.branch,
                 lastAssistant: clip(tail.lastAssistant), lastUser: clip(tail.lastUser),
                 task: taskOf(h, status: status, now: now), hasHandover: h != nil,

@@ -18,7 +18,7 @@ struct TerminalPane: View {
                     if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
                     StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
                     // Umschalter Terminal ↔ Handover, nur wenn es etwas zu zeigen gibt und die Session läuft
-                    if s.hasHandover == true && store.tmuxNames.contains(s.name) {
+                    if s.hasHandover == true && store.tmux(s) != nil {
                         Button { showHandover.toggle() } label: {
                             Label(showHandover ? "Terminal" : "Handover",
                                   systemImage: showHandover ? "terminal" : "doc.text")
@@ -49,8 +49,8 @@ struct TerminalPane: View {
             ContentUnavailableView("tmux fehlt", systemImage: "exclamationmark.triangle",
                                    description: Text("brew install tmux"))
                 .frame(maxHeight: .infinity)
-        } else if store.tmuxNames.contains(s.name) {
-            TmuxTerminal(name: s.name).id(s.name)
+        } else if let t = store.tmux(s) {
+            TmuxTerminal(name: t).id(t)
                 .padding(.horizontal, 28).padding(.top, 6)
         } else if s.alive == true {
             VStack(spacing: 12) {

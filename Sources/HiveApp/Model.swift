@@ -69,9 +69,10 @@ final class StateStore: ObservableObject {
     @Published private(set) var error: String?
     /// Sekundentakt für „vor x min“, auch wenn sich die Daten nicht ändern
     @Published private(set) var now = Date()
-    /// Laufende tmux-Sessions → Befehl vorn (einmal je Abfrage geholt)
-    @Published private(set) var tmuxPanes: [String: String] = [:]
-    var tmuxNames: Set<String> { Set(tmuxPanes.keys) }
+    /// Laufende tmux-Sessions mit Befehl vorn und Pane-IDs (einmal je Abfrage geholt)
+    @Published private(set) var tmuxPanes = Tmux.Panes()
+    /// Session-`id` → ihre tmux-Session (siehe TmuxMatch)
+    @Published private(set) var tmuxOf: [String: String] = [:]
 
     private var timer: Timer?
     private var watcher: Watcher?
@@ -104,18 +105,28 @@ final class StateStore: ObservableObject {
             if state.sessions != sessions { sessions = state.sessions }
             error = state.sessions.isEmpty && !state.errors.isEmpty ? state.errors.joined(separator: "\n") : nil
             if panes != tmuxPanes { tmuxPanes = panes }
+            let match = TmuxMatch.resolve(sessions, tmuxSessions: Set(panes.commands.keys), sessionOfPane: panes.sessionOfPane)
+            if match != tmuxOf { tmuxOf = match }
             now = Date()
         } while again
         refreshing = false
     }
 
     /// Status mit Blick auf tmux (siehe Status.init).
-    func status(_ s: Session) -> Status { Status(s, tmuxCommand: tmuxPanes[s.name]) }
+    func status(_ s: Session) -> Status { Status(s, tmuxCommand: tmux(s).flatMap { tmuxPanes.commands[$0] }) }
+
+    /// tmux-Session dieser Session im hive-Server, nil = keine.
+    /// Karten, die nur aus tmux stammen (displaySessions), tragen den tmux-Namen selbst.
+    func tmux(_ s: Session) -> String? {
+        if let t = tmuxOf[s.id] { return t }
+        let isExtra = s.pid == nil && !s.hasHandover && !sessions.contains { $0.id == s.id }
+        return isExtra && tmuxPanes.commands[s.name] != nil ? s.name : nil
+    }
 
     /// Sessions aus hive plus tmux-Sessions, die hive noch nicht kennt (kein Register, kein Handover).
     var displaySessions: [Session] {
-        let known = Set(sessions.map(\.name))
-        let extra = tmuxNames.subtracting(known).sorted().map { name in
+        let known = Set(sessions.map(\.name)).union(tmuxOf.values)
+        let extra = Set(tmuxPanes.commands.keys).subtracting(known).sorted().map { name in
             Session(name: name, group: SessionNaming.prefix(name) ?? name, isPm: name.hasSuffix(".pm"))
         }
         return sessions + extra

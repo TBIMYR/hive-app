@@ -38,16 +38,24 @@ enum Tmux {
 
     static func attachArgs(_ name: String) -> [String] { serverArgs + ["attach-session", "-t", target(name)] }
 
-    /// Laufende tmux-Sessions mit dem Befehl, der gerade vorn läuft („claude.exe“, „zsh“, „codex“ …).
-    static func panes() -> [String: String] {
-        let r = run(["list-panes", "-a", "-F", "#{session_name}\t#{pane_current_command}"])
-        guard r.status == 0 else { return [:] }   // kein tmux-Server = keine Sessions
-        var m: [String: String] = [:]
+    struct Panes: Equatable {
+        /// tmux-Session → Befehl, der gerade vorn läuft („claude.exe“, „zsh“, „codex“ …)
+        var commands: [String: String] = [:]
+        /// Pane-ID („%13“) → tmux-Session, für die Zuordnung über das Register
+        var sessionOfPane: [String: String] = [:]
+    }
+
+    static func panes() -> Panes {
+        let r = run(["list-panes", "-a", "-F", "#{session_name}\t#{pane_id}\t#{pane_current_command}"])
+        guard r.status == 0 else { return Panes() }   // kein tmux-Server = keine Sessions
+        var p = Panes()
         for line in r.output.split(separator: "\n") {
-            let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
-            if let name = parts.first, m[name] == nil { m[name] = parts.count > 1 ? parts[1] : "" }
+            let parts = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 3 else { continue }
+            if p.commands[parts[0]] == nil { p.commands[parts[0]] = parts[2] }
+            p.sessionOfPane[parts[1]] = parts[0]
         }
-        return m
+        return p
     }
 
     static func hasSession(_ name: String) -> Bool {

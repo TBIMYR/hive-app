@@ -8,6 +8,8 @@ public struct RegistryEntry: Equatable, Sendable {
     public let status: String
     public let waitingFor: String?
     public let kind: String?
+    /// tmux-Pane, in der Claude läuft („%13“), unabhängig von Session- und tmux-Namen
+    public let tmuxPane: String?
     public let startedAt: Double
     public let statusUpdatedAt: String?
     public let alive: Bool
@@ -17,6 +19,12 @@ public struct RegistryEntry: Equatable, Sendable {
 public enum Registry {
     public static func isAlive(_ pid: Int) -> Bool {
         kill(pid_t(truncatingIfNeeded: pid), 0) == 0 || errno == EPERM
+    }
+
+    /// "keeper.01:@13.%13" → "%13". Die Pane-ID bleibt, wenn Session oder tmux umbenannt werden.
+    public static func paneOf(_ tmux: String?) -> String? {
+        guard let tmux, let r = tmux.range(of: #"%\d+$"#, options: .regularExpression) else { return nil }
+        return String(tmux[r])
     }
 
     public static func read(_ dir: String, isAlive: (Int) -> Bool = Registry.isAlive) -> (entries: [RegistryEntry], errors: [String]) {
@@ -40,6 +48,7 @@ public enum Registry {
                     status: string(j["status"]) ?? "unknown",
                     waitingFor: string(j["waitingFor"]),
                     kind: string(j["kind"]),
+                    tmuxPane: paneOf(string(j["tmux"])),
                     startedAt: number(j["startedAt"]) ?? 0,
                     statusUpdatedAt: number(updated).map { isoString(ms: $0) },
                     alive: isAlive(pid)

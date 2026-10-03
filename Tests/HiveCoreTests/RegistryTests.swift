@@ -29,6 +29,14 @@ private func entry(pid: Int, _ r: (entries: [RegistryEntry], errors: [String])) 
     #expect(entry(pid: 101, r)?.waitingFor == "input needed")
 }
 
+@Test func tmuxPaneAusDemFeldTmux() {
+    let r = read()
+    #expect(entry(pid: 100, r)?.tmuxPane == "%1")
+    #expect(entry(pid: 101, r)?.tmuxPane == nil)
+    #expect(Registry.paneOf("keeper.01:@13.%13") == "%13")
+    #expect(Registry.paneOf("kaputt") == nil)
+}
+
 @Test func statusUpdatedAtFaelltAufUpdatedAtZurueck() {
     #expect(entry(pid: 103, read())?.statusUpdatedAt == "1970-01-01T00:00:09.000Z")
 }

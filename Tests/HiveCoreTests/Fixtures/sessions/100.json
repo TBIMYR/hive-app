@@ -1,1 +1,1 @@
-{"pid":100,"sessionId":"sid-100","cwd":"/Users/dev/Development/alpha","startedAt":1000,"name":"al.pm","nameSource":"user","kind":"interactive","status":"idle","updatedAt":5000,"statusUpdatedAt":5000}
+{"pid":100,"sessionId":"sid-100","cwd":"/Users/dev/Development/alpha","startedAt":1000,"name":"al.pm","nameSource":"user","kind":"interactive","status":"idle","updatedAt":5000,"statusUpdatedAt":5000,"tmux":"al.pm:@1.%1"}

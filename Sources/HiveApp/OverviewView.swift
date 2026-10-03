@@ -54,7 +54,7 @@ struct OverviewView: View {
                   alignment: .leading, spacing: 18) {
             ForEach(items, id: \.0.id) { s, k in
                 Tile(session: s, status: k, label: labels[s.groupKey] ?? s.groupKey,
-                     color: store.color(for: s.groupKey), inTmux: store.tmuxNames.contains(s.name),
+                     color: store.color(for: s.groupKey), inTmux: store.tmux(s) != nil,
                      isSelected: s.name == selected, now: store.now)
                     .background(GeometryReader { g in Color.clear.preference(key: TileHeightKey.self, value: g.size.height) })
                     .onTapGesture { selected = s.name }
