@@ -100,7 +100,7 @@ final class StateStore: ObservableObject {
     func status(_ s: Session) -> Status { Status(s, tmuxCommand: tmux(s).flatMap { tmuxPanes.commands[$0] }) }
 
     /// Sessions mit Rang 0 nach Name, für Mitteilungen und Dock-Zahl. Bei doppelten Namen
-    /// (toter und lebender Eintrag) gewinnt der erste.
+    /// zählt der erste Eintrag mit Rang 0 (ein toter Eintrag verdeckt den lebenden nicht).
     var needs: [String: AttentionTracker.Need] {
         var m: [String: AttentionTracker.Need] = [:]
         for s in displaySessions where m[s.name] == nil {

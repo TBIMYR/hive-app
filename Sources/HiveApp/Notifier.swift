@@ -22,6 +22,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func start() {
         guard let center else { return }
         center.delegate = self
+        // Mitteilungen aus dem vorigen Lauf kennt der Tracker nicht mehr; die Dock-Zahl stimmt ohnehin sofort
+        center.removeAllDeliveredNotifications()
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
