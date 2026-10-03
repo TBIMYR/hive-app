@@ -5,6 +5,7 @@ struct TerminalPane: View {
     @EnvironmentObject private var store: StateStore
     let session: Session?
     @State private var message: String?
+    @State private var showHandover = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,6 +16,16 @@ struct TerminalPane: View {
                     Spacer(minLength: 4)
                     if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
                     StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
+                    // Umschalter Terminal ↔ Handover, nur wenn es etwas zu zeigen gibt und die Session läuft
+                    if s.hasHandover == true && store.tmuxNames.contains(s.name) {
+                        Button { showHandover.toggle() } label: {
+                            Label(showHandover ? "Terminal" : "Handover",
+                                  systemImage: showHandover ? "terminal" : "doc.text")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .buttonStyle(.bordered).controlSize(.small)
+                        .help(showHandover ? "Zurück zum Terminal" : "Handover dieser Session lesen")
+                    }
                 }
                 .padding(.horizontal, 14).frame(height: 40)
                 Rectangle().fill(Hive.hair).frame(height: 1)
@@ -26,12 +37,14 @@ struct TerminalPane: View {
             }
         }
         .background(Hive.card)
-        .onChange(of: session?.name) { message = nil }
+        .onChange(of: session?.name) { message = nil; showHandover = false }
     }
 
     @ViewBuilder
     private func content(for s: Session) -> some View {
-        if Tmux.path == nil {
+        if showHandover && s.hasHandover == true {
+            HandoverView(name: s.name)
+        } else if Tmux.path == nil {
             ContentUnavailableView("tmux fehlt", systemImage: "exclamationmark.triangle",
                                    description: Text("brew install tmux"))
                 .frame(maxHeight: .infinity)
@@ -49,9 +62,12 @@ struct TerminalPane: View {
                 }
             }
             .frame(maxHeight: .infinity)
+        } else if s.hasHandover == true {
+            // offline: nur das Handover ist noch da, also gleich zeigen
+            HandoverView(name: s.name)
         } else {
             ContentUnavailableView("Offline", systemImage: "moon.zzz",
-                                   description: Text("Nur das Handover ist noch da."))
+                                   description: Text("Kein Terminal und kein Handover."))
                 .frame(maxHeight: .infinity)
         }
     }

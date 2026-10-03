@@ -162,6 +162,16 @@ final class StateStore: ObservableObject {
         return Color(nsColor: NSColor(hex: Hive.palette[i % Hive.palette.count]))
     }
 
+    /// Handover der Session ohne Frontmatter, wie in der Seitenleiste des Dashboards. nil, wenn keins da ist.
+    func handover(_ name: String) async -> String? {
+        guard let (data, res) = try? await URLSession.shared.data(from: hiveURL.appending(path: "api/handover/\(name)")),
+              (res as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        let text = String(decoding: data, as: UTF8.self)
+        guard text.hasPrefix("---\n"), let end = text.range(of: "\n---\n", range: text.index(text.startIndex, offsetBy: 4)..<text.endIndex)
+        else { return text }
+        return String(text[end.upperBound...])
+    }
+
     /// Springt wie das Dashboard in den iTerm-Tab der Session. Liefert eine Fehlermeldung oder nil.
     func focusInITerm(_ s: Session) async -> String? {
         guard let pid = s.pid else { return "keine PID" }

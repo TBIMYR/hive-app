@@ -18,12 +18,13 @@ swift run HiveApp --select lu.04   # mit vorgewählter Session
 - Kachel anklicken → rechts das Terminal, wenn die Session in tmux läuft.
 - Sessions, die noch in iTerm laufen, zeigen „In iTerm zeigen“ (springt wie das Dashboard).
 - „Neue Session“ startet `claude -n <name>` in tmux (ohne tmux-Statusleiste).
+- Rechts oben „Handover“ schaltet zwischen Terminal und Handover der Session um; offline zeigt die App das Handover direkt.
 - Trennlinie zwischen links und rechts ist ziehbar. Fenster schließen beendet keine Session.
 - Von außen: `tmux attach -t '=<name>:'` (Doppelpunkt nötig, sonst liest tmux `.01` als Pane).
 
 ## Grenzen
 
-Keine Live-Zeilen in den Kacheln, kein Handover, keine Tastenkürzel, kein App-Bundle, keine Tests.
+Keine Live-Zeilen in den Kacheln, keine Tastenkürzel, kein App-Bundle, keine Tests.
 
 ## Befund
 
