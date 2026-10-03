@@ -151,6 +151,31 @@ struct AddTile: View {
     }
 }
 
+/// Langsam pulsierender Rahmen für arbeitende Sessions; bei „Bewegung reduzieren“ ruhig.
+struct PulsingBorder: View {
+    let color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if reduceMotion {
+            shape(opacity: 0.6)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
+                // 2,4 s pro Atemzug, Deckkraft 0,2 … 0,85
+                let t = ctx.date.timeIntervalSinceReferenceDate
+                let phase = (sin(t * 2 * .pi / 2.4) + 1) / 2
+                shape(opacity: 0.2 + 0.65 * phase)
+            }
+        }
+    }
+
+    private func shape(opacity: Double) -> some View {
+        RoundedRectangle(cornerRadius: 12)
+            .strokeBorder(color.opacity(opacity), lineWidth: 2)
+            .allowsHitTesting(false)
+    }
+}
+
 struct Token: View {
     let text: String
     let color: Color
@@ -259,6 +284,7 @@ struct Tile: View {
                 .strokeBorder(isSelected ? Hive.ink : (status.rank == 0 ? status.color.opacity(0.5) : (isPm ? color.opacity(0.35) : Hive.hair)),
                               lineWidth: isSelected ? 2 : 1)
         )
+        .overlay { if status.rank == 1 && !isSelected { PulsingBorder(color: status.color) } }
         .opacity(status.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
     }
