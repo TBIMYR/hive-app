@@ -35,7 +35,7 @@ public enum Handover {
         for f in files where f.hasSuffix(".md") {
             var e = HandoverEntry(name: String(f.dropLast(3)))
             do {
-                let fields = parseFrontmatter(try String(contentsOfFile: "\(dir)/\(f)", encoding: .utf8)).fields
+                let fields = parseFrontmatter(try readUTF8("\(dir)/\(f)")).fields
                 e.task = fields["task"].nonEmpty
                 e.state = fields["state"].nonEmpty
                 e.updatedAt = fields["updated"].nonEmpty
@@ -53,7 +53,12 @@ public enum Handover {
     public static func body(_ name: String, dir: String = defaultDir) -> String? {
         guard !name.isEmpty, !name.contains(".."),
               name.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }),
-              let text = try? String(contentsOfFile: "\(dir)/\(name).md", encoding: .utf8) else { return nil }
+              let text = try? readUTF8("\(dir)/\(name).md") else { return nil }
         return parseFrontmatter(text).body
+    }
+
+    /// Wie readFileSync(…, 'utf8') in Node: kaputte Bytes werden U+FFFD, statt die ganze Datei zu verwerfen.
+    private static func readUTF8(_ path: String) throws -> String {
+        String(decoding: try Data(contentsOf: URL(fileURLWithPath: path)), as: UTF8.self)
     }
 }

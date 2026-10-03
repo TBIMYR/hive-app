@@ -27,8 +27,9 @@ public enum Registry {
             do {
                 let data = try Data(contentsOf: URL(fileURLWithPath: "\(dir)/\(f)"))
                 guard let j = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let pidValue = number(j["pid"]) else { continue }
-                let pid = Int(pidValue)
+                      let pidValue = number(j["pid"]),
+                      // Int(Double) stürzt bei 1e20 oder NaN ab; solche Einträge sind keine Prozesse
+                      let pid = Int(exactly: pidValue.rounded(.towardZero)) else { continue }
                 // JS: j.statusUpdatedAt ?? j.updatedAt
                 let updated = j["statusUpdatedAt"].flatMap { $0 is NSNull ? nil : $0 } ?? j["updatedAt"]
                 entries.append(RegistryEntry(

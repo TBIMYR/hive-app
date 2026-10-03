@@ -36,7 +36,9 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     /// Lesefehler zu dieser Session (Handover), für einen Hinweis in der Karte
     public let errors: [String]
 
-    public var id: String { name }
+    /// Eindeutig auch dann, wenn ein toter Register-Eintrag und eine lebende Session denselben Namen tragen
+    /// (das Register benennt nur lebende Duplikate um). Für die Auswahl in der App weiter `name` nehmen.
+    public var id: String { pid.map { "\(name)|\($0)" } ?? name }
 
     public init(name: String, project: String = "", group: String, isPm: Bool = false, cwd: String? = nil,
                 pid: Int? = nil, kind: String? = nil, alive: Bool = false, status: String = "offline",
