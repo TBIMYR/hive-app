@@ -89,13 +89,14 @@ struct NewSessionSheet: View {
                     }
                 }
             }
-            Text("Claude startet in diesem Ordner (Repo, CLAUDE.md, Berechtigungen).")
+            Text("Öffnet ein Terminal in diesem Ordner. `claude -n \(trimmedName.isEmpty ? "<name>" : trimmedName)` steht schon in der Eingabezeile: Enter drücken oder vorher ändern, z. B. zu `codex`.")
                 .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             if let error { Text(error).foregroundStyle(.red).font(.callout) }
             HStack {
                 Spacer()
                 Button("Abbrechen") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Starten", action: start).keyboardShortcut(.defaultAction)
+                Button("Terminal öffnen", action: start).keyboardShortcut(.defaultAction)
                     .disabled(trimmedName.isEmpty || dir.isEmpty)
             }
         }

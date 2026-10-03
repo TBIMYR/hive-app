@@ -38,22 +38,38 @@ enum Tmux {
 
     static func attachArgs(_ name: String) -> [String] { serverArgs + ["attach-session", "-t", target(name)] }
 
-    static func listSessions() -> Set<String> {
-        let r = run(["list-sessions", "-F", "#{session_name}"])
-        guard r.status == 0 else { return [] }   // kein tmux-Server = keine Sessions
-        return Set(r.output.split(separator: "\n").map(String.init))
+    /// Laufende tmux-Sessions mit dem Befehl, der gerade vorn läuft („claude.exe“, „zsh“, „codex“ …).
+    static func panes() -> [String: String] {
+        let r = run(["list-panes", "-a", "-F", "#{session_name}\t#{pane_current_command}"])
+        guard r.status == 0 else { return [:] }   // kein tmux-Server = keine Sessions
+        var m: [String: String] = [:]
+        for line in r.output.split(separator: "\n") {
+            let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
+            if let name = parts.first, m[name] == nil { m[name] = parts.count > 1 ? parts[1] : "" }
+        }
+        return m
     }
 
     static func hasSession(_ name: String) -> Bool {
         run(["has-session", "-t", target(name)]).status == 0
     }
 
-    /// Startet `claude -n <name>` in einer neuen tmux-Session. Liefert eine Fehlermeldung oder nil.
+    /// Öffnet eine Shell in einer neuen tmux-Session im Ordner und tippt `claude -n <name>` vor,
+    /// ohne Enter: Mika startet selbst und kann die Zeile vorher ändern (z. B. `codex`, `--resume`).
+    /// `HIVE_SESSION` trägt den Namen, egal welcher Agent später läuft. Liefert eine Fehlermeldung oder nil.
     static func newSession(name: String, dir: String) -> String? {
-        guard let claude = claudePath else { return "claude nicht gefunden" }
         scrubServer()
-        let r = run(["new-session", "-d", "-s", name, "-c", dir, claude, "-n", name])
-        return r.status == 0 ? nil : (r.output.isEmpty ? "tmux-Fehler \(r.status)" : r.output)
+        let r = run(["new-session", "-d", "-s", name, "-c", dir, "-e", "HIVE_SESSION=\(name)"])
+        guard r.status == 0 else { return r.output.isEmpty ? "tmux-Fehler \(r.status)" : r.output }
+        // erst tippen, wenn die Shell ihre Startdateien gelesen hat
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.8) {
+            _ = run(["send-keys", "-t", target(name), "-l", "claude -n \(name)"])
+        }
+        return nil
+    }
+
+    static func isShell(_ command: String) -> Bool {
+        ["zsh", "bash", "fish", "sh", "-zsh", "-bash", "login"].contains(command)
     }
 
     /// Variablen einer Claude-Session, die nie in neue Sessions durchsickern dürfen
@@ -86,7 +102,6 @@ enum Tmux {
 
     // Aus dem Dock gestartet erbt die App keinen Login-PATH; den holen wir einmal aus zsh.
     private static let loginPath: String? = shell("print -r -- $PATH")
-    private static let claudePath: String? = shell("command -v claude")
 
     private static func shell(_ cmd: String) -> String? {
         let p = Process()

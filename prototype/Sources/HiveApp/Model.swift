@@ -54,13 +54,18 @@ struct Status {
     let solid: Bool
     let why: String?
 
-    /// `inTmux`: Session läuft im hive-tmux-Server. Steht sie dann nicht (lebend) im Register,
-    /// hängt Claude noch vor dem Start, meist an der Vertrauensabfrage für einen neuen Ordner.
-    init(_ s: Session, inTmux: Bool = false) {
+    /// `tmuxCommand`: was in der tmux-Session vorn läuft (nil = nicht im hive-tmux-Server).
+    /// Steht die Session nicht (lebend) im Claude-Register, entscheidet dieser Befehl:
+    /// Shell → „Shell“, Claude → hängt vor dem Start (meist Vertrauensabfrage), sonst anderer Agent.
+    init(_ s: Session, tmuxCommand: String? = nil) {
         let state = s.task?.state
         switch true {
-        case inTmux && s.alive != true:
+        case tmuxCommand.map(Tmux.isShell) == true && s.alive != true:
+            self.init(2, "shell", "Shell", Hive.shell, false)
+        case tmuxCommand?.hasPrefix("claude") == true && s.alive != true:
             self.init(0, "need", "wartet beim Start", Hive.need, true, why: "Start-Abfrage im Terminal beantworten")
+        case tmuxCommand != nil && s.alive != true:
+            self.init(2, "agent", tmuxCommand!, Hive.ink2, false)
         case s.status == "offline":
             self.init(3, "off", "offline", Hive.off, false)
         case s.status == "waiting":
@@ -95,8 +100,9 @@ final class StateStore: ObservableObject {
     @Published private(set) var error: String?
     /// Sekundentakt für „vor x min“, auch wenn sich die Daten nicht ändern
     @Published private(set) var now = Date()
-    /// Namen der laufenden tmux-Sessions (einmal je Abfrage geholt)
-    @Published private(set) var tmuxNames: Set<String> = []
+    /// Laufende tmux-Sessions → Befehl vorn (einmal je Abfrage geholt)
+    @Published private(set) var tmuxPanes: [String: String] = [:]
+    var tmuxNames: Set<String> { Set(tmuxPanes.keys) }
 
     /// Nach dem Anlegen sofort neu laden, statt bis zu 2 s zu warten.
     func refreshSoon() { Task { await refresh() } }
@@ -117,8 +123,8 @@ final class StateStore: ObservableObject {
             let payload = try JSONDecoder().decode(Payload.self, from: data)
             if payload.sessions != sessions { sessions = payload.sessions }
             error = nil
-            let names = await Task.detached { Tmux.listSessions() }.value
-            if names != tmuxNames { tmuxNames = names }
+            let panes = await Task.detached { Tmux.panes() }.value
+            if panes != tmuxPanes { tmuxPanes = panes }
         } catch {
             self.error = "hive nicht erreichbar (\(hiveURL.absoluteString)): \(error.localizedDescription)"
         }
@@ -126,7 +132,7 @@ final class StateStore: ObservableObject {
     }
 
     /// Status mit Blick auf tmux (siehe Status.init).
-    func status(_ s: Session) -> Status { Status(s, inTmux: tmuxNames.contains(s.name)) }
+    func status(_ s: Session) -> Status { Status(s, tmuxCommand: tmuxPanes[s.name]) }
 
     /// Sessions aus hive plus tmux-Sessions, die hive noch nicht kennt (kein Register, kein Handover).
     var displaySessions: [Session] {
