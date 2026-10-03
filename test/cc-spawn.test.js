@@ -22,8 +22,21 @@ const run = (home, args) => spawnSync('sh', [BIN, ...args], {
 test('baut den Startbefehl mit Verzeichnis, Name und optionalem Auftrag', () => {
   const home = setup();
   const dir = fs.realpathSync(os.tmpdir());
-  assert.equal(run(home, ['lu.01', dir]).stdout, `cd ${dir} && claude -n lu.01\n`);
-  assert.equal(run(home, ['lu.01', dir, 'mach X']).stdout, `cd ${dir} && claude -n lu.01 mach X\n`);
+  assert.equal(run(home, ['lu.01', dir]).stdout, `[iterm] cd ${dir} && claude -n lu.01\n`);
+  assert.equal(run(home, ['lu.01', dir, 'mach X']).stdout, `[iterm] cd ${dir} && claude -n lu.01 mach X\n`);
+});
+
+test('Ziel: hive, wenn der Aufrufer im tmux-Server der App läuft, oder per CC_SPAWN_TARGET', () => {
+  const home = setup();
+  const dir = fs.realpathSync(os.tmpdir());
+  const r = (env) => spawnSync('sh', [BIN, 'lu.01', dir], {
+    encoding: 'utf8',
+    env: { PATH: process.env.PATH, HOME: os.homedir(), CC_HOME: home, CC_SPAWN_DRYRUN: '1', ...env },
+  });
+  assert.match(r({ TMUX: '/private/tmp/tmux-501/hive,123,0' }).stdout, /^\[hive\]/);
+  assert.match(r({ TMUX: '/private/tmp/tmux-501/default,123,0' }).stdout, /^\[iterm\]/);
+  assert.match(r({ CC_SPAWN_TARGET: 'hive' }).stdout, /^\[hive\]/);
+  assert.equal(r({ CC_SPAWN_TARGET: 'quatsch' }).status, 2);
 });
 
 test('lehnt ab, wenn der Name schon läuft; tote Einträge zählen nicht', () => {

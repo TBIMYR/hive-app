@@ -3,9 +3,11 @@
 #
 #   cc-spawn NAME DIR ["ERSTER AUFTRAG"]
 #
-# Öffnet im vordersten iTerm-Fenster einen neuen Tab (oder ein neues Fenster) und führt dort
-# `cd DIR && claude -n NAME ["AUFTRAG"]` aus. Der Start-Hook lädt das Handover zu NAME.
-# Lehnt ab, wenn unter NAME schon eine Session läuft.
+# Startet `claude -n NAME ["AUFTRAG"]` in DIR, entweder
+#   - hive: als Session im tmux-Server der hive-App (`tmux -L hive`), sichtbar in der App, oder
+#   - iterm: in einem neuen Tab des vordersten iTerm-Fensters.
+# Ziel: CC_SPAWN_TARGET=hive|iterm; ohne Angabe hive, wenn der Aufrufer selbst in hive läuft, sonst iterm.
+# Der Start-Hook lädt das Handover zu NAME. Lehnt ab, wenn unter NAME schon eine Session läuft.
 # Umgebung: CC_HOME (Standard ~/.claude), CC_SPAWN_DRYRUN=1 gibt den Befehl nur aus.
 set -eu
 
@@ -36,10 +38,46 @@ for f in "$home"/sessions/*.json; do
   fi
 done
 
+target="${CC_SPAWN_TARGET:-}"
+if [ -z "$target" ]; then
+  # $TMUX = "<socket>,<pid>,<n>"; der Socket der App heißt .../hive
+  case "${TMUX%%,*}" in */hive) target=hive ;; *) target=iterm ;; esac
+fi
+case "$target" in hive|iterm) ;; *) echo "cc-spawn: CC_SPAWN_TARGET muss hive oder iterm sein" >&2; exit 2 ;; esac
+
 if [ "${CC_SPAWN_DRYRUN:-}" = "1" ]; then
-  printf 'cd %s && claude -n %s' "$dir" "$name"
+  printf '[%s] cd %s && claude -n %s' "$target" "$dir" "$name"
   [ -z "$prompt" ] || printf ' %s' "$prompt"
   printf '\n'
+  exit 0
+fi
+
+if [ "$target" = "hive" ]; then
+  tmux_bin=$(command -v tmux || echo /opt/homebrew/bin/tmux)
+  conf="$HOME/Library/Application Support/hive/tmux.conf"
+  # Variablen der aufrufenden Claude-Session dürfen nicht in die neue Session durchsickern
+  # (sonst hält sie sich für deren Kind: Session-ID, Nachrichten-Socket …), siehe Tmux.swift.
+  unset_args=""
+  for k in $(env | sed -nE 's/^(CLAUDE[A-Za-z0-9_]*|AI_AGENT|TMUX|TMUX_PANE)=.*/\1/p'); do
+    unset_args="$unset_args -u $k"
+  done
+  ht() {
+    if [ -f "$conf" ]; then
+      env $unset_args "$tmux_bin" -L hive -f "$conf" "$@"
+    else
+      env $unset_args "$tmux_bin" -L hive "$@"
+    fi
+  }
+  for k in $(ht show-environment -g 2>/dev/null | sed -nE 's/^(CLAUDE[A-Za-z0-9_]*|AI_AGENT|TMUX|TMUX_PANE)=.*/\1/p'); do
+    ht set-environment -g -u "$k"
+  done
+  claude_bin=$(command -v claude || echo claude)
+  if [ -n "$prompt" ]; then
+    ht new-session -d -s "$name" -c "$dir" "$claude_bin" -n "$name" "$prompt"
+  else
+    ht new-session -d -s "$name" -c "$dir" "$claude_bin" -n "$name"
+  fi
+  echo "cc-spawn: $name gestartet in $dir (hive)"
   exit 0
 fi
 

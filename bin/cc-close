@@ -3,8 +3,9 @@
 #
 #   cc-close [--force] NAME
 #
-# Tippt `/exit` in den iTerm-Tab der Session (gefunden über ihr Terminal), wartet auf das Ende
-# des Prozesses und schließt den Tab. Ohne --force abgelehnt, wenn die Session gerade arbeitet
+# Tippt `/exit` in die Session (gefunden über ihr Terminal: tmux-Pane im Server der hive-App bzw.
+# im Standard-Server, sonst iTerm-Tab), wartet auf das Ende des Prozesses und schließt
+# die tmux-Session bzw. den Tab. Ohne --force abgelehnt, wenn die Session gerade arbeitet
 # oder kein Handover hat. Die eigene Session lässt sich nicht schließen.
 # Umgebung: CC_HOME (Standard ~/.claude), CLAUDE_PID, CC_CLOSE_DRYRUN=1 prüft nur.
 set -eu
@@ -59,6 +60,34 @@ if [ "${CC_CLOSE_DRYRUN:-}" = "1" ]; then
   exit 0
 fi
 
+waitexit() {
+  i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    i=$((i + 1))
+    [ "$i" -le 30 ] || return 1
+    sleep 0.5
+  done
+}
+
+# Läuft die Session in tmux (Server der hive-App oder Standard-Server)? Dann über tmux beenden.
+tmux_bin=$(command -v tmux || true)
+if [ -n "$tmux_bin" ]; then
+  for server in hive default; do
+    sess=$(env -u TMUX "$tmux_bin" -L "$server" list-panes -a -F '#{pane_tty} #{session_name}' 2>/dev/null \
+      | awk -v t="$tty" '$1 == t {print $2; exit}')
+    [ -n "$sess" ] || continue
+    env -u TMUX "$tmux_bin" -L "$server" send-keys -t "=$sess:" -l "/exit"
+    env -u TMUX "$tmux_bin" -L "$server" send-keys -t "=$sess:" Enter
+    if ! waitexit; then
+      echo "cc-close: '$name' hat sich nach 15 s nicht beendet; tmux-Session bleibt" >&2
+      exit 1
+    fi
+    env -u TMUX "$tmux_bin" -L "$server" kill-session -t "=$sess:" 2>/dev/null || true
+    echo "cc-close: $name beendet (tmux $server)"
+    exit 0
+  done
+fi
+
 itermdo() {
   osascript - "$tty" "$1" <<'EOF'
 on run argv
@@ -89,14 +118,9 @@ if [ "$(itermdo exit)" != "ok" ]; then
   echo "cc-close: kein iTerm-Tab mit $tty gefunden" >&2
   exit 1
 fi
-i=0
-while kill -0 "$pid" 2>/dev/null; do
-  i=$((i + 1))
-  if [ "$i" -gt 30 ]; then
-    echo "cc-close: '$name' hat sich nach 15 s nicht beendet; Tab bleibt offen" >&2
-    exit 1
-  fi
-  sleep 0.5
-done
+if ! waitexit; then
+  echo "cc-close: '$name' hat sich nach 15 s nicht beendet; Tab bleibt offen" >&2
+  exit 1
+fi
 itermdo close >/dev/null || true
 echo "cc-close: $name beendet"
