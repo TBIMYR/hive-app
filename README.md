@@ -9,7 +9,8 @@ Gültige Session-Regeln für die globale CLAUDE.md: `docs/claude-md-session-stat
 
 Namen in Dokus, Tests und Beispielen sind ausgedacht: Projekte `lumen`, `orbit`, `fjord`,
 `kiosk` mit den Session-Kürzeln `lu`, `or`, `fj`, `ki`; „Mika“ steht für den Nutzer.
-Neue Dokus bitte ebenso schreiben, keine echten Namen, Pfade oder Ticketnummern.
+Neue Dokus bitte ebenso schreiben, keine echten Namen oder Ticketnummern. Pfade in Befehlen
+mit `~/` (z. B. `git -C ~/Development/hive-app …`), dann laufen sie bei jedem.
 
 ## Start
 
