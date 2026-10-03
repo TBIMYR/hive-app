@@ -27,35 +27,26 @@ struct OverviewView: View {
     private var board: some View {
         let labels = store.labels
         let all = store.sessions.map { ($0, Status($0)) }
+        // PMs stehen immer oben (Mika spricht sie von sich aus an); darunter nur Worker nach Dringlichkeit
+        let pms = all.filter { $0.0.isPm == true && $0.1.rank != 3 }
+            .sorted { (labels[$0.0.groupKey] ?? "").localizedCompare(labels[$1.0.groupKey] ?? "") == .orderedAscending }
+        let workers = all.filter { !($0.0.isPm == true && $0.1.rank != 3) }
+        let addRank = workers.map(\.1.rank).filter { $0 != 3 }.min()
         return ScrollView {
             VStack(alignment: .leading, spacing: 34) {
+                if !pms.isEmpty {
+                    VStack(alignment: .leading, spacing: 14) {
+                        sectionHeader("Projektleitung", pms.count, Hive.ink, collapsible: false)
+                        grid(pms, labels: labels, add: addRank == nil)
+                    }
+                }
                 ForEach(Self.sections, id: \.rank) { sec in
-                    let items = sorted(all.filter { $0.1.rank == sec.rank }, rank: sec.rank, labels: labels)
+                    let items = sorted(workers.filter { $0.1.rank == sec.rank }, rank: sec.rank, labels: labels)
                     if !items.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             sectionHeader(sec.title, items.count, sec.color, collapsible: sec.rank == 3)
                             if sec.rank != 3 || showOffline {
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18, alignment: .top)],
-                                          alignment: .leading, spacing: 18) {
-                                    ForEach(items, id: \.0.name) { s, k in
-                                        Tile(session: s, status: k, label: labels[s.groupKey] ?? s.groupKey,
-                                             color: store.color(for: s.groupKey), inTmux: store.tmuxNames.contains(s.name),
-                                             isSelected: s.name == selected, now: store.now)
-                                            .background(GeometryReader { g in Color.clear.preference(key: TileHeightKey.self, value: g.size.height) })
-                                            .onTapGesture { selected = s.name }
-                                            .contextMenu {
-                                                if let next = SessionNaming.nextName(in: store.sessions.filter { $0.groupKey == s.groupKey }) {
-                                                    Button("\(next) im selben Projekt starten") {
-                                                        newPreset = NewSessionPreset(name: next, dir: s.cwd)
-                                                    }
-                                                }
-                                            }
-                                    }
-                                    // Neue Session als letzte Karte im ersten Abschnitt
-                                    if sec.rank == firstRank(all) && Tmux.path != nil {
-                                        AddTile(height: tileHeight) { newPreset = NewSessionPreset() }
-                                    }
-                                }
+                                grid(items, labels: labels, add: sec.rank == addRank)
                             }
                         }
                     }
@@ -67,8 +58,28 @@ struct OverviewView: View {
         .onPreferenceChange(TileHeightKey.self) { h in if h > 0 { tileHeight = h } }
     }
 
-    private func firstRank(_ all: [(Session, Status)]) -> Int {
-        all.map(\.1.rank).filter { $0 != 3 }.min() ?? 3
+    private func grid(_ items: [(Session, Status)], labels: [String: String], add: Bool) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18, alignment: .top)],
+                  alignment: .leading, spacing: 18) {
+            ForEach(items, id: \.0.name) { s, k in
+                Tile(session: s, status: k, label: labels[s.groupKey] ?? s.groupKey,
+                     color: store.color(for: s.groupKey), inTmux: store.tmuxNames.contains(s.name),
+                     isSelected: s.name == selected, now: store.now)
+                    .background(GeometryReader { g in Color.clear.preference(key: TileHeightKey.self, value: g.size.height) })
+                    .onTapGesture { selected = s.name }
+                    .contextMenu {
+                        if let next = SessionNaming.nextName(in: store.sessions.filter { $0.groupKey == s.groupKey }) {
+                            Button("\(next) im selben Projekt starten") {
+                                newPreset = NewSessionPreset(name: next, dir: s.cwd)
+                            }
+                        }
+                    }
+            }
+            // Neue Session als letzte Karte im ersten Worker-Abschnitt
+            if add && Tmux.path != nil {
+                AddTile(height: tileHeight) { newPreset = NewSessionPreset() }
+            }
+        }
     }
 
     private func sectionHeader(_ title: String, _ n: Int, _ color: Color, collapsible: Bool) -> some View {
@@ -185,14 +196,14 @@ struct Tile: View {
     let isSelected: Bool
     let now: Date
 
+    private var isPm: Bool { session.isPm == true }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Name und Status
             HStack(spacing: 7) {
-                Text(session.name).font(.hiveMono(15, .semibold)).lineLimit(1).fixedSize()
-                if session.isPm == true {
-                    Text("PM").font(.system(size: 10, weight: .bold)).foregroundStyle(Hive.muted).fixedSize()
-                }
+                if isPm { Token(text: session.abbr, color: color) }
+                Text(session.name).font(.hiveMono(isPm ? 16 : 15, .semibold)).lineLimit(1).fixedSize()
                 Spacer(minLength: 8)
                 StatusLabel(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
                     .layoutPriority(-1)
@@ -240,12 +251,12 @@ struct Tile: View {
         }
         .padding(.horizontal, 20).padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(status.rank == 0 ? status.color.opacity(0.06) : Color.clear)
+        .background(status.rank == 0 ? status.color.opacity(0.06) : (isPm ? color.opacity(0.07) : Color.clear))
         .background(Hive.card)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isSelected ? Hive.ink : (status.rank == 0 ? status.color.opacity(0.5) : Hive.hair),
+                .strokeBorder(isSelected ? Hive.ink : (status.rank == 0 ? status.color.opacity(0.5) : (isPm ? color.opacity(0.35) : Hive.hair)),
                               lineWidth: isSelected ? 2 : 1)
         )
         .opacity(status.rank == 3 ? 0.55 : 1)
