@@ -6,6 +6,7 @@ struct OverviewView: View {
     @Binding var selected: String?
     @Binding var newPreset: NewSessionPreset?
     @State private var showOffline = false
+    @State private var tileHeight: CGFloat = 150
 
     private static let sections: [(rank: Int, title: String, color: Color)] = [
         (0, "Braucht dich", Hive.need), (1, "Arbeitet", Hive.busy), (2, "Bereit", Hive.idle), (3, "Offline", Hive.off),
@@ -40,6 +41,7 @@ struct OverviewView: View {
                                         Tile(session: s, status: k, label: labels[s.groupKey] ?? s.groupKey,
                                              color: store.color(for: s.groupKey), inTmux: store.tmuxNames.contains(s.name),
                                              isSelected: s.name == selected, now: store.now)
+                                            .background(GeometryReader { g in Color.clear.preference(key: TileHeightKey.self, value: g.size.height) })
                                             .onTapGesture { selected = s.name }
                                             .contextMenu {
                                                 if let next = SessionNaming.nextName(in: store.sessions.filter { $0.groupKey == s.groupKey }) {
@@ -51,7 +53,7 @@ struct OverviewView: View {
                                     }
                                     // Neue Session als letzte Karte im ersten Abschnitt
                                     if sec.rank == firstRank(all) && Tmux.path != nil {
-                                        AddTile { newPreset = NewSessionPreset() }
+                                        AddTile(height: tileHeight) { newPreset = NewSessionPreset() }
                                     }
                                 }
                             }
@@ -61,6 +63,8 @@ struct OverviewView: View {
             }
             .padding(.horizontal, 26).padding(.top, 22).padding(.bottom, 60)
         }
+        // Höhe der normalen Karten an die Karte „Neue Session“ weitergeben (LazyVGrid streckt nicht)
+        .onPreferenceChange(TileHeightKey.self) { h in if h > 0 { tileHeight = h } }
     }
 
     private func firstRank(_ all: [(Session, Status)]) -> Int {
@@ -99,8 +103,18 @@ struct OverviewView: View {
 
 // MARK: Bausteine
 
+/// Höhe einer Karte ohne Hinweiszeile (kleinster gemessener Wert), für die Karte „Neue Session“.
+struct TileHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        let n = nextValue()
+        if n > 0 { value = value == 0 ? n : min(value, n) }
+    }
+}
+
 /// Gestrichelte Karte „Neue Session“ im Raster.
 struct AddTile: View {
+    var height: CGFloat = 150
     let action: () -> Void
     @State private var hover = false
 
@@ -111,7 +125,7 @@ struct AddTile: View {
                 Text("Neue Session").font(.system(size: 13, weight: .medium))
             }
             .foregroundStyle(hover ? Hive.ink : Hive.muted)
-            .frame(maxWidth: .infinity, minHeight: 150)
+            .frame(maxWidth: .infinity, minHeight: height)
             .background(hover ? Hive.card : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
