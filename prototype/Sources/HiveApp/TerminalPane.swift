@@ -78,7 +78,7 @@ struct TmuxTerminal: NSViewRepresentable {
         // Zeichen, „C l a u d e“); zum Nachsehen: HIVE_TERM_FONT=system
         view.font = ProcessInfo.processInfo.environment["HIVE_TERM_FONT"] == "system"
             ? NSFont.systemFont(ofSize: 13)
-            : NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+            : NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
         applyColors(view)
         view.startProcess(executable: Tmux.path!,
                           args: Tmux.attachArgs(name),

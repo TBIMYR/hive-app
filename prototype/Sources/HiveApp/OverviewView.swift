@@ -27,15 +27,15 @@ struct OverviewView: View {
         let labels = store.labels
         let all = store.sessions.map { ($0, Status($0)) }
         return ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 34) {
                 ForEach(Self.sections, id: \.rank) { sec in
                     let items = sorted(all.filter { $0.1.rank == sec.rank }, rank: sec.rank, labels: labels)
                     if !items.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 14) {
                             sectionHeader(sec.title, items.count, sec.color, collapsible: sec.rank == 3)
                             if sec.rank != 3 || showOffline {
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 12, alignment: .top)],
-                                          alignment: .leading, spacing: 12) {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18, alignment: .top)],
+                                          alignment: .leading, spacing: 18) {
                                     ForEach(items, id: \.0.name) { s, k in
                                         Tile(session: s, status: k, label: labels[s.groupKey] ?? s.groupKey,
                                              color: store.color(for: s.groupKey), inTmux: store.tmuxNames.contains(s.name),
@@ -49,14 +49,22 @@ struct OverviewView: View {
                                                 }
                                             }
                                     }
+                                    // Neue Session als letzte Karte im ersten Abschnitt
+                                    if sec.rank == firstRank(all) && Tmux.path != nil {
+                                        AddTile { newPreset = NewSessionPreset() }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-            .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 60)
+            .padding(.horizontal, 26).padding(.top, 22).padding(.bottom, 60)
         }
+    }
+
+    private func firstRank(_ all: [(Session, Status)]) -> Int {
+        all.map(\.1.rank).filter { $0 != 3 }.min() ?? 3
     }
 
     private func sectionHeader(_ title: String, _ n: Int, _ color: Color, collapsible: Bool) -> some View {
@@ -90,6 +98,33 @@ struct OverviewView: View {
 }
 
 // MARK: Bausteine
+
+/// Gestrichelte Karte „Neue Session“ im Raster.
+struct AddTile: View {
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: "plus").font(.system(size: 22, weight: .medium))
+                Text("Neue Session").font(.system(size: 13, weight: .medium))
+            }
+            .foregroundStyle(hover ? Hive.ink : Hive.muted)
+            .frame(maxWidth: .infinity, minHeight: 150)
+            .background(hover ? Hive.card : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(hover ? Hive.ink2 : Hive.hair2, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help("Neue Session in tmux starten (⌘N)")
+    }
+}
 
 struct Token: View {
     let text: String
@@ -137,7 +172,7 @@ struct Tile: View {
     let now: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             // Name und Status
             HStack(spacing: 7) {
                 Text(session.name).font(.hiveMono(15, .semibold)).lineLimit(1).fixedSize()
@@ -163,7 +198,7 @@ struct Tile: View {
             Text(plain(session.lastAssistant?.text) ?? AttributedString(" "))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Hive.ink2)
-                .lineLimit(2, reservesSpace: true)
+                .lineSpacing(3).lineLimit(2, reservesSpace: true)
 
             // Meta: Projekt · Branch · Zeit, rechts wo die Session läuft
             HStack(spacing: 6) {
@@ -187,15 +222,15 @@ struct Tile: View {
             .lineLimit(1)
             .font(.system(size: 11.5))
             .foregroundStyle(Hive.muted)
-            .padding(.top, 2)
+            .padding(.top, 4)
         }
-        .padding(14)
+        .padding(.horizontal, 20).padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(status.rank == 0 ? status.color.opacity(0.06) : Color.clear)
         .background(Hive.card)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(isSelected ? Hive.ink : (status.rank == 0 ? status.color.opacity(0.5) : Hive.hair),
                               lineWidth: isSelected ? 2 : 1)
         )
