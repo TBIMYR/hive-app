@@ -58,8 +58,6 @@ function createServer({ claudeHome = path.join(os.homedir(), '.claude'), isAlive
         return await handleFocus(req, res, url.pathname.slice('/api/focus/'.length), { claudeHome, isAlive, focusPid });
       }
       if (url.pathname === '/') {
-        // Diagnose: wer öffnet die Seite wann (landet in /tmp/hive.log)
-        console.log(`${new Date().toISOString()} GET / ua="${req.headers['user-agent'] || ''}" referer="${req.headers.referer || ''}"`);
         return send(res, 200, 'text/html; charset=utf-8', fs.readFileSync(INDEX));
       }
       if (ICONS[url.pathname]) {
