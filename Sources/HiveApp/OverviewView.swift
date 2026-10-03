@@ -16,7 +16,7 @@ struct OverviewView: View {
     var body: some View {
         Group {
             if let error = store.error, store.sessions.isEmpty {
-                ContentUnavailableView("hive läuft nicht", systemImage: "hexagon", description: Text(error))
+                ContentUnavailableView("Keine Sessions lesbar", systemImage: "hexagon", description: Text(error))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 board
