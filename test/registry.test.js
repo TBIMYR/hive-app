@@ -67,3 +67,15 @@ test('fehlendes Verzeichnis → leer, kein Fehler', () => {
   const r = readRegistry('/nonexistent/dir', { isAlive: allAlive });
   assert.deepEqual(r.entries, []);
 });
+
+test('Fenster mit übergebenem Gespräch (parkedJobId): eine Session mit dem Status der Hintergrund-Session', () => {
+  const r = readRegistry(path.join(__dirname, 'fixtures', 'sessions-parked'), { isAlive: allAlive });
+  assert.equal(r.entries.length, 1);
+  const e = r.entries[0];
+  assert.equal(e.name, 'x.01');
+  assert.equal(e.pid, 105);
+  assert.equal(e.tmuxPane, '%5');
+  assert.equal(e.status, 'waiting');
+  assert.equal(e.waitingFor, 'input needed');
+  assert.equal(e.statusUpdatedAt, new Date(2000).toISOString());
+});
