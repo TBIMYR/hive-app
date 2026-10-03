@@ -95,20 +95,20 @@ struct OverviewView: View {
         let items = SessionOrder.sorted(store.unpinnedSessions.map(item), session: { $0.session },
                                         status: { $0.status.core }, labels: labels)
         return VStack(alignment: .leading, spacing: 0) {
-            ViewSwitcher(mode: $mode)
-            .padding(.horizontal, 26).padding(.top, 16).padding(.bottom, 14)
-
-            if !pins.isEmpty {
-                PinBar(items: pins, dragging: $dragging)
-                    .padding(.horizontal, 26).padding(.bottom, 14)
-                Rectangle().fill(Hive.hair).frame(height: 1).padding(.horizontal, 26)
+            // Kopfzeile: Umschalter links, Pins rechts auf gleicher Höhe
+            HStack(alignment: .top, spacing: 24) {
+                ViewSwitcher(mode: $mode).fixedSize()
+                if !pins.isEmpty {
+                    PinBar(items: pins, dragging: $dragging)
+                }
             }
+            .padding(.horizontal, 26).padding(.top, 16).padding(.bottom, 4)
 
             ScrollView {
                 content(items)
                     .padding(.horizontal, 26).padding(.top, 20).padding(.bottom, 60)
             }
-            .scrollIndicators(.hidden)
+            .scrollIndicators(.never)
         }
     }
 

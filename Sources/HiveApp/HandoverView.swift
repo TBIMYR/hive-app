@@ -21,7 +21,7 @@ struct HandoverView: View {
             .padding(.horizontal, 28).padding(.vertical, 18)
             .textSelection(.enabled)
         }
-        .scrollIndicators(.hidden)
+        .scrollIndicators(.never)
         .task(id: name) {
             loaded = false
             text = await store.handover(name)

@@ -43,18 +43,49 @@ struct HiveApp: App {
 
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
+    /// Breite des Terminals in Punkten, per Ziehen an der Grenze geändert; 0 = Standard (⅓ des Fensters)
+    @AppStorage("terminalWidth") private var terminalWidth: Double = 0
+    @State private var dragStart: Double?
+
+    private static let minTerminal: Double = 340
+    private static let minOverview: Double = 420
+
+    /// Breite des Terminals für die Fensterbreite, begrenzt und auf ganze Punkte gerundet
+    /// (sonst liegt das Terminal zwischen zwei Pixeln und der Text wird unscharf).
+    private func width(for total: Double, wanted: Double) -> Double {
+        let w = wanted > 0 ? wanted : total / 3
+        return min(max(w, Self.minTerminal), max(Self.minTerminal, total - Self.minOverview)).rounded()
+    }
 
     var body: some View {
-        // Übersicht ⅔, Terminal fest ⅓ (wie besprochen; die Übersicht soll Platz behalten)
         GeometryReader { geo in
+            let total = Double(geo.size.width)
+            let w = width(for: total, wanted: terminalWidth)
             HStack(spacing: 0) {
                 OverviewView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                Rectangle().fill(Hive.hair2).frame(width: 1)
                 TerminalPane(session: store.displaySessions.first { $0.name == store.selected })
-                    // ganze Punkte: sonst liegt das Terminal zwischen zwei Pixeln und der Text wird unscharf
-                    .frame(width: max(340, (geo.size.width / 3).rounded()))
+                    .frame(width: w)
                     .frame(maxHeight: .infinity)
+            }
+            // unsichtbarer Griff auf der Grenze: Ziehen ändert die Breite des Terminals
+            .overlay(alignment: .topLeading) {
+                Color.clear
+                    .frame(width: 9).frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .offset(x: total - w - 4.5)
+                    .onHover { inside in
+                        if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 1)
+                            .onChanged { v in
+                                let start = dragStart ?? w
+                                dragStart = start
+                                terminalWidth = width(for: total, wanted: start - Double(v.translation.width))
+                            }
+                            .onEnded { _ in dragStart = nil }
+                    )
             }
         }
         .toolbar {

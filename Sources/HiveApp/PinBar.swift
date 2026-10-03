@@ -9,7 +9,7 @@ struct PinBar: View {
     @Binding var dragging: String?
 
     var body: some View {
-        FlowLayout(spacing: 10, lineSpacing: 10) {
+        FlowLayout(spacing: 10, lineSpacing: 10, trailing: true) {
             Text("Pinned")
                 .textCase(.uppercase).kerning(0.6)
                 .font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted)
@@ -25,7 +25,7 @@ struct PinBar: View {
                     .onDrop(of: [.text], delegate: PinDropDelegate(target: it.name, store: store, dragging: $dragging))
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -84,6 +84,8 @@ struct PinDropDelegate: DropDelegate {
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 8
+    /// Zeilen rechtsbündig statt linksbündig
+    var trailing = false
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         arrange(maxWidth: proposal.width ?? .infinity, subviews: subviews).size
@@ -102,7 +104,12 @@ struct FlowLayout: Layout {
         var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, width: CGFloat = 0
         var rowStart = 0
         func finishRow(_ end: Int) {
-            for i in rowStart..<end { offsets[i].y += (rowHeight - sizes[i].height) / 2 }
+            // rechtsbündig: die Zeile um den freien Platz nach rechts schieben
+            let shift = trailing && maxWidth.isFinite ? max(0, maxWidth - (x - spacing)) : 0
+            for i in rowStart..<end {
+                offsets[i].y += (rowHeight - sizes[i].height) / 2
+                offsets[i].x += shift
+            }
         }
         for (i, size) in sizes.enumerated() {
             if x > 0 && x + size.width > maxWidth {
