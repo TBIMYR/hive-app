@@ -43,6 +43,8 @@ Ziel: Mika arbeitet täglich in der App statt mit Dashboard und iTerm.
      eigenen Benachrichtigungs-Mechanismus (noch zu prüfen).
    - Die App setzt `HIVE_SESSION=<name>` in jeder Session. `cc-task` sollte den Namen künftig daraus
      lesen können.
+   **Neu (03.10.), kommt direkt nach den Mitteilungen:** Sessions oben anpinnen, gepinnte Sessions
+   gern reduziert dargestellt; allgemein mehrere Ansichten. Eigener Entwurf mit Mika.
 7. **Robustheit.** Wenn Register oder Gesprächsprotokoll unerwartet aussehen, zeigt die App das
    sichtbar an (statt still falsch). Wo möglich `claude agents --json` als zweite Quelle.
 
