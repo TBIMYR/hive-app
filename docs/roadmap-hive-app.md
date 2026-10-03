@@ -27,7 +27,12 @@ Ziel: Mika arbeitet täglich in der App statt mit Dashboard und iTerm.
    App und `cc-spawn`/`cc-close` nutzen dieselben Regeln (Server `hive`, gefilterte Umgebung).
 4. **Terminal-Grundlagen.** ⌘1–9 und ↑↓ zum Wechseln, ⌘+/− für die Schriftgröße. Den Befund zu
    Markieren und Kopieren unter tmux aus dem Alltagstest einarbeiten.
-5. **Robustheit.** Wenn Register oder Gesprächsprotokoll unerwartet aussehen, zeigt die App das
+5. **Dialoge in der Karte.** Freigabe- und Start-Abfragen per `tmux capture-pane -e` erkennen, Frage
+   und Optionen in der Karte als normalen Text mit Knöpfen zeigen. Erst Mikas Klick tippt die
+   Antwort per `send-keys`, es gibt keine automatischen Antworten. Solange das Terminal den Fokus
+   hat, sind die Knöpfe gesperrt (sonst kollidiert es mit der eigenen Eingabe). Das Erkennen am
+   Text ist anfällig: Unbekannte Dialoge fallen auf „wartet auf dich“ zurück.
+6. **Robustheit.** Wenn Register oder Gesprächsprotokoll unerwartet aussehen, zeigt die App das
    sichtbar an (statt still falsch). Wo möglich `claude agents --json` als zweite Quelle.
 
 ## Etappe 2: Vollständige App (1–2 Wochen)
@@ -36,6 +41,9 @@ Ziel: Mika arbeitet täglich in der App statt mit Dashboard und iTerm.
 - Suche und Filter, Einstellungsfenster (Entwicklungsordner, Pfade, Schrift, Layout der PMs).
 - Xcode-Projekt mit App-Bundle, Waben-Icon, Menüleiste, Fensterzustand merken.
 - Entscheidung SwiftTerm oder libghostty, falls das Terminal im Alltag nicht reicht.
+- **Terminal-Darstellung:** ANSI-Palette (16 Farben) an die hive-Farben anpassen, Markierungsfarbe
+  (tmux `mode-style`), Innenabstand. Optional Claude-Theme „nur ANSI-Farben“, damit die Palette das
+  ganze Farbbild bestimmt. Zeilenabstand in SwiftTerm prüfen.
 
 ## Etappe 3: Open Source (2–3 Wochen)
 
@@ -48,9 +56,14 @@ Ziel: Mika arbeitet täglich in der App statt mit Dashboard und iTerm.
   Screenshots, CI-Build, Tests.
 - Signieren und Notarisieren (Apple-Developer-Account, 99 $/Jahr), automatische Updates (Sparkle).
 
+## Entschieden
+
+- PM-Darstellung: kein eigener Abschnitt. PMs stehen bei den Karten nach Status und heben sich durch
+  Projektfarbe und Kürzel ab (03.10., `4349150`).
+- Chat-Ansicht statt Terminal: verworfen. Fließtext gibt es nur außerhalb des Terminals (Karten, Dialoge).
+
 ## Offene Entscheidungen
 
-- PM-Darstellung: eigener Abschnitt „Projektleitung“ oder PMs zuerst in den Status-Abschnitten.
 - Web-Dashboard: nach Etappe 1 abschalten, weiterführen (dann gemeinsame Logik?) oder als
   Fernansicht behalten.
 - Eigenes Repo schon ab Etappe 1 oder erst ab Etappe 3.
