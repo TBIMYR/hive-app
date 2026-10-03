@@ -198,19 +198,31 @@ struct Token: View {
 struct StatusPill: View {
     let status: Status
     var since: String = ""
+    /// true: Text darf bei Platzmangel gekürzt werden (Dauer zuerst weg, dann „…“)
+    var compressible = false
 
     var body: some View {
-        HStack(spacing: 6) {
+        let pill = HStack(spacing: 6) {
             Circle().fill(status.solid ? Color.white : status.color).frame(width: 7, height: 7)
-            Text(status.label).font(.system(size: 12, weight: .bold))
-            if !since.isEmpty { Text(since).font(.system(size: 12)).opacity(0.8).monospacedDigit() }
+            Text(status.label).font(.system(size: 12, weight: .bold)).truncationMode(.tail)
+            if !since.isEmpty {
+                Text(since).font(.system(size: 12)).opacity(0.8).monospacedDigit().fixedSize().layoutPriority(-1)
+            }
         }
         .lineLimit(1)
         .foregroundStyle(status.solid ? Color.white : Hive.ink2)
         .padding(.horizontal, 10).frame(height: 26)
         .background(status.solid ? status.color : Hive.soft)
         .clipShape(Capsule())
-        .fixedSize()
+        if compressible {
+            ViewThatFits(in: .horizontal) {
+                pill.fixedSize()
+                StatusPill(status: status).fixedSize()   // ohne Dauer
+                pill.frame(minWidth: 60)                 // notfalls gekürzt
+            }
+        } else {
+            pill.fixedSize()
+        }
     }
 }
 
@@ -237,13 +249,16 @@ struct Tile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Kopf
+            // Kürzel, Name und Marken behalten ihre Breite; bei Platzmangel kürzt nur die Pille
             HStack(spacing: 9) {
-                Token(text: session.abbr, color: color)
-                Text(session.name).font(.hiveMono(17, .bold)).tracking(-0.3).lineLimit(1)
-                if session.isPm == true { tag("PM", Hive.ink) }
-                if session.kind == "bg" { tag("bg", Hive.block) }
-                Spacer(minLength: 4)
-                StatusPill(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
+                Token(text: session.abbr, color: color).fixedSize()
+                Text(session.name).font(.hiveMono(17, .bold)).tracking(-0.3).lineLimit(1).fixedSize()
+                if session.isPm == true { tag("PM", Hive.ink).fixedSize() }
+                if session.kind == "bg" { tag("bg", Hive.block).fixedSize() }
+                Spacer(minLength: 6)
+                StatusPill(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "",
+                           compressible: true)
+                    .layoutPriority(-1)
             }
             .padding(.horizontal, 16).padding(.top, 13)
             HStack(spacing: 5) {
@@ -284,7 +299,7 @@ struct Tile: View {
                 if session.alive == true {
                     VStack(alignment: .leading, spacing: 3) {
                         label("Zuletzt")
-                        Text(session.lastAssistant?.text ?? "keine Antwort im sichtbaren Verlauf")
+                        Text(plain(session.lastAssistant?.text) ?? AttributedString("keine Antwort im sichtbaren Verlauf"))
                             .font(.system(size: 13)).lineSpacing(2)
                             .foregroundStyle(session.lastAssistant == nil ? Hive.muted : Hive.ink2)
                             .italic(session.lastAssistant == nil)
@@ -319,6 +334,13 @@ struct Tile: View {
         )
         .opacity(status.rank == 3 ? 0.5 : 1)
         .contentShape(Rectangle())
+    }
+
+    /// Markdown der Antwort (fett, Code …) als formatierter Text statt mit Sternchen.
+    private func plain(_ s: String?) -> AttributedString? {
+        guard let s else { return nil }
+        let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        return (try? AttributedString(markdown: s, options: opts)) ?? AttributedString(s)
     }
 
     private func tag(_ t: String, _ c: Color) -> some View {
