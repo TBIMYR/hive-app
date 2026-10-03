@@ -31,7 +31,8 @@ struct OverviewView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 34) {
                 ForEach(Self.sections, id: \.rank) { sec in
-                    let items = sorted(all.filter { $0.1.rank == sec.rank }, rank: sec.rank, labels: labels)
+                    let items = SessionOrder.sorted(all.filter { $0.1.rank == sec.rank },
+                                                    session: { $0.0 }, status: { $0.1.core }, labels: labels)
                     if !items.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             sectionHeader(sec.title, items.count, sec.color, collapsible: sec.rank == 3)
@@ -79,20 +80,6 @@ struct OverviewView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { if collapsible { showOffline.toggle() } }
-    }
-
-    /// Reihenfolge wie im Dashboard: „Braucht dich“ nach Wartezeit, sonst Rückmeldung zuerst, dann Projekt, PM, Name.
-    private func sorted(_ items: [(Session, Status)], rank: Int, labels: [String: String]) -> [(Session, Status)] {
-        items.sorted { a, b in
-            if rank == 0 {
-                return (a.0.statusUpdatedAt.flatMap(parseISO) ?? .distantPast) < (b.0.statusUpdatedAt.flatMap(parseISO) ?? .distantPast)
-            }
-            if (a.1.cls == "wait") != (b.1.cls == "wait") { return a.1.cls == "wait" }
-            let la = labels[a.0.groupKey] ?? "", lb = labels[b.0.groupKey] ?? ""
-            if la != lb { return la.localizedCompare(lb) == .orderedAscending }
-            if (a.0.isPm == true) != (b.0.isPm == true) { return a.0.isPm == true }
-            return a.0.name < b.0.name
-        }
     }
 }
 

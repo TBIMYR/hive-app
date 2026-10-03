@@ -3,9 +3,6 @@ import HiveCore
 import SwiftUI
 
 extension Session {
-    /// Gruppenschlüssel wie im Dashboard (hive gruppiert nach Namensanfang).
-    var groupKey: String { group.isEmpty ? name : group }
-
     /// Projektkürzel wie abbr() im Dashboard.
     var abbr: String {
         if let i = name.firstIndex(of: "."), i != name.startIndex { return String(name[..<i]) }
