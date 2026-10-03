@@ -26,6 +26,11 @@ test('Felder werden übernommen, waitingFor optional', () => {
   assert.equal(w.waitingFor, 'input needed');
 });
 
+test('Vorrats-Prozesse (spare) sind keine Sessions', () => {
+  const r = readRegistry(DIR, { isAlive: allAlive });
+  assert.equal(r.entries.find(e => e.pid === 104), undefined);
+});
+
 test('tmuxPane: Pane-ID aus dem Feld tmux, sonst null', () => {
   const r = readRegistry(DIR, { isAlive: allAlive });
   assert.equal(r.entries.find(e => e.pid === 100).tmuxPane, '%1');
