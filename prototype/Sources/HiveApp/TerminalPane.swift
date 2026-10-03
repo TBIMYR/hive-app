@@ -9,21 +9,23 @@ struct TerminalPane: View {
     var body: some View {
         VStack(spacing: 0) {
             if let s = session {
-                HStack(spacing: 8) {
-                    Text(s.name).font(.system(.headline, design: .monospaced))
-                    StatusPill(status: Status(s))
-                    Spacer()
-                    if let msg = message { Text(msg).font(.caption).foregroundStyle(.secondary) }
+                HStack(spacing: 9) {
+                    Token(text: s.abbr, color: store.color(for: s.groupKey), large: false)
+                    Text(s.name).font(.hiveMono(15, .bold))
+                    Spacer(minLength: 4)
+                    if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
+                    StatusPill(status: Status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
                 }
-                .padding(.horizontal, 12).padding(.vertical, 9)
-                Divider()
+                .padding(.horizontal, 14).frame(height: 60)
+                Rectangle().fill(Hive.hair).frame(height: 1)
                 content(for: s)
             } else {
                 ContentUnavailableView("Keine Session gewählt", systemImage: "terminal",
-                                       description: Text("Links eine Kachel anklicken."))
+                                       description: Text("Links eine Karte anklicken."))
+                    .frame(maxHeight: .infinity)
             }
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Hive.card)
         .onChange(of: session?.name) { message = nil }
     }
 
@@ -32,12 +34,14 @@ struct TerminalPane: View {
         if Tmux.path == nil {
             ContentUnavailableView("tmux fehlt", systemImage: "exclamationmark.triangle",
                                    description: Text("brew install tmux"))
-        } else if Tmux.hasSession(s.name) {
+                .frame(maxHeight: .infinity)
+        } else if store.tmuxNames.contains(s.name) {
             TmuxTerminal(name: s.name).id(s.name)
+                .padding(.leading, 10).padding(.top, 6)
         } else if s.alive == true {
             VStack(spacing: 12) {
                 ContentUnavailableView("Läuft in iTerm", systemImage: "macwindow",
-                                       description: Text("Diese Session hat keine tmux-Session. Neue Sessions über „Neue Session“ starten."))
+                                       description: Text("Diese Session hat keine tmux-Session. Neue Sessions über „Neue Session“ oder das + am Projekt starten."))
                 if s.kind != "bg" {
                     Button("In iTerm zeigen") {
                         Task { message = await store.focusInITerm(s) ?? "→ iTerm" }
@@ -48,6 +52,7 @@ struct TerminalPane: View {
         } else {
             ContentUnavailableView("Offline", systemImage: "moon.zzz",
                                    description: Text("Nur das Handover ist noch da."))
+                .frame(maxHeight: .infinity)
         }
     }
 }
@@ -55,10 +60,22 @@ struct TerminalPane: View {
 /// SwiftTerm-Terminal, das sich per `tmux attach` an die Session hängt.
 struct TmuxTerminal: NSViewRepresentable {
     let name: String
+    @Environment(\.colorScheme) private var scheme
+
+    // Gleiche Töne wie die Karten im hive-Dashboard (--card / --ink).
+    // SwiftTerm übernimmt Farben beim Setzen fest, darum bei jedem Wechsel des Modus neu setzen.
+    private func applyColors(_ view: LocalProcessTerminalView) {
+        let dark = scheme == .dark
+        view.nativeBackgroundColor = NSColor(hex: dark ? 0x141414 : 0xFFFFFF)
+        view.nativeForegroundColor = NSColor(hex: dark ? 0xF5F5F4 : 0x0B0B0B)
+        view.caretColor = NSColor(hex: dark ? 0xF5F5F4 : 0x0B0B0B)
+        view.selectedTextBackgroundColor = .selectedTextBackgroundColor
+    }
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         let view = LocalProcessTerminalView(frame: .zero)
         view.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        applyColors(view)
         view.startProcess(executable: Tmux.path!,
                           args: ["attach-session", "-t", Tmux.target(name)],
                           environment: Tmux.environmentList(),
@@ -67,7 +84,9 @@ struct TmuxTerminal: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {}
+    func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
+        applyColors(nsView)
+    }
 
     static func dismantleNSView(_ nsView: LocalProcessTerminalView, coordinator: ()) {
         // beendet nur den attach-Prozess; die tmux-Session läuft weiter

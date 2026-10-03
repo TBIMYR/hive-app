@@ -36,11 +36,16 @@ struct ContentView: View {
     }()
 
     var body: some View {
-        HSplitView {
-            OverviewView(selected: $selected)
-                .frame(minWidth: 420, idealWidth: 960, maxWidth: .infinity, maxHeight: .infinity)
-            TerminalPane(session: store.sessions.first { $0.name == selected })
-                .frame(minWidth: 360, idealWidth: 480, maxWidth: .infinity, maxHeight: .infinity)
+        // Übersicht ⅔, Terminal fest ⅓ (wie besprochen; die Übersicht soll Platz behalten)
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                OverviewView(selected: $selected)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Rectangle().fill(Hive.ink).frame(width: 1)
+                TerminalPane(session: store.sessions.first { $0.name == selected })
+                    .frame(width: max(340, geo.size.width / 3))
+                    .frame(maxHeight: .infinity)
+            }
         }
     }
 }
