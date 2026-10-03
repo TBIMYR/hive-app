@@ -76,10 +76,6 @@ enum Tmux {
         return nil
     }
 
-    static func isShell(_ command: String) -> Bool {
-        ["zsh", "bash", "fish", "sh", "-zsh", "-bash", "login"].contains(command)
-    }
-
     /// Variablen einer Claude-Session, die nie in neue Sessions durchsickern dürfen
     /// (sonst hält sich die neue Session für ein Kind der startenden: Session-ID, Nachrichten-Socket …).
     static func isInherited(_ key: String) -> Bool {

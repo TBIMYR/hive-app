@@ -14,52 +14,26 @@ extension Session {
     }
 }
 
-/// Gleiche Reihenfolge wie classify() in public/index.html.
+/// Einordnung aus HiveCore (SessionStatus) plus Farbe für die Karte.
 struct Status {
-    let rank: Int
-    let cls: String
-    let label: String
+    let core: SessionStatus
     let color: Color
     let solid: Bool
-    let why: String?
 
-    /// `tmuxCommand`: was in der tmux-Session vorn läuft (nil = nicht im hive-tmux-Server).
-    /// Steht die Session nicht (lebend) im Claude-Register, entscheidet dieser Befehl:
-    /// Shell → „Shell“, Claude → hängt vor dem Start (meist Vertrauensabfrage), sonst anderer Agent.
+    var rank: Int { core.rank }
+    var cls: String { core.cls }
+    var label: String { core.label }
+    var why: String? { core.why }
+
+    private static let look: [String: (Color, Bool)] = [
+        "need": (Hive.need, true), "block": (Hive.block, true), "busy": (Hive.busy, true),
+        "wait": (Hive.wait, true), "shell": (Hive.shell, false), "agent": (Hive.ink2, false),
+        "off": (Hive.off, false), "idle": (Hive.idle, false),
+    ]
+
     init(_ s: Session, tmuxCommand: String? = nil) {
-        let state = s.task?.state
-        switch true {
-        case tmuxCommand.map(Tmux.isShell) == true && s.alive != true:
-            self.init(2, "shell", "Shell", Hive.shell, false)
-        case tmuxCommand?.hasPrefix("claude") == true && s.alive != true:
-            self.init(0, "need", "wartet beim Start", Hive.need, true, why: "Start-Abfrage im Terminal beantworten")
-        case tmuxCommand != nil && s.alive != true:
-            self.init(2, "agent", tmuxCommand!, Hive.ink2, false)
-        case s.status == "offline":
-            self.init(3, "off", "offline", Hive.off, false)
-        case s.status == "waiting":
-            self.init(0, "need", "wartet auf dich", Hive.need, true, why: s.waitingFor ?? "Eingabe nötig")
-        case s.status == "busy":
-            // wer gerade arbeitet, ist nicht blockiert, auch wenn die Aufgaben-Zeile noch „blocked“ sagt
-            self.init(1, "busy", "arbeitet", Hive.busy, true)
-        case state == "blocked":
-            self.init(0, "block", "blockiert", Hive.block, true, why: "Blockiert – braucht eine Entscheidung")
-        case state == "waiting":
-            self.init(2, "wait", "wartet auf Rückmeldung", Hive.wait, true)
-        case s.status == "shell":
-            self.init(2, "shell", "Shell", Hive.shell, false)
-        default:
-            self.init(2, "idle", "bereit", Hive.idle, false)
-        }
-    }
-
-    private init(_ rank: Int, _ cls: String, _ label: String, _ color: Color, _ solid: Bool, why: String? = nil) {
-        self.rank = rank
-        self.cls = cls
-        self.label = label
-        self.color = color
-        self.solid = solid
-        self.why = why
+        core = SessionStatus(s, tmuxCommand: tmuxCommand)
+        (color, solid) = Self.look[core.cls] ?? (Hive.idle, false)
     }
 }
 
