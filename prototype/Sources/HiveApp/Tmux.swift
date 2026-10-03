@@ -7,6 +7,37 @@ enum Tmux {
     /// tmux deutet ".01" in "lu.01" sonst als Pane; "=name:" trifft genau die Session.
     static func target(_ name: String) -> String { "=\(name):" }
 
+    /// Eigener Server nur für die App (`tmux -L hive`), damit ihre Einstellungen nicht mit
+    /// einem selbst gestarteten tmux kollidieren. `-f` gilt nur beim Start des Servers.
+    static let socket = "hive"
+
+    static let config = """
+    # von der hive-App geschrieben, wird bei jedem Start überschrieben
+    set -g status off                       # verdeckt sonst die unterste Zeile von Claude Code
+    set -g mouse on                         # Mausrad blättert im Verlauf statt in der Eingabe-Historie
+    set -sg escape-time 0                   # Esc sofort an Claude durchreichen
+    set -g history-limit 50000
+    set -g default-terminal "tmux-256color"
+    set -as terminal-features ",xterm-256color:RGB"   # True Color statt 256 Farben
+    set -s extended-keys on                 # Shift+Enter u. a. unterscheidbar
+    set -g focus-events on
+    set -s set-clipboard on                 # Kopieren per OSC 52 ins System
+    set -g aggressive-resize on             # Größe folgt dem gerade angezeigten Terminal
+    """
+
+    static let configPath: String = {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "hive")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appending(path: "tmux.conf")
+        try? config.write(to: file, atomically: true, encoding: .utf8)
+        return file.path
+    }()
+
+    static var serverArgs: [String] { ["-L", socket, "-f", configPath] }
+
+    static func attachArgs(_ name: String) -> [String] { serverArgs + ["attach-session", "-t", target(name)] }
+
     static func listSessions() -> Set<String> {
         let r = run(["list-sessions", "-F", "#{session_name}"])
         guard r.status == 0 else { return [] }   // kein tmux-Server = keine Sessions
@@ -21,9 +52,7 @@ enum Tmux {
     static func newSession(name: String, dir: String) -> String? {
         guard let claude = claudePath else { return "claude nicht gefunden" }
         scrubServer()
-        // ohne Statusleiste: sie verdeckt sonst die unterste Zeile von Claude Code
-        let r = run(["new-session", "-d", "-s", name, "-c", dir, claude, "-n", name,
-                     ";", "set-option", "-t", target(name), "status", "off"])
+        let r = run(["new-session", "-d", "-s", name, "-c", dir, claude, "-n", name])
         return r.status == 0 ? nil : (r.output.isEmpty ? "tmux-Fehler \(r.status)" : r.output)
     }
 
@@ -77,7 +106,7 @@ enum Tmux {
         guard let path else { return (-1, "tmux nicht installiert") }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: path)
-        p.arguments = args
+        p.arguments = serverArgs + args
         p.environment = environment()
         let out = Pipe()
         p.standardOutput = out

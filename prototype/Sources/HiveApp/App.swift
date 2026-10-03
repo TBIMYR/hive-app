@@ -35,16 +35,32 @@ struct ContentView: View {
         return args[i + 1]
     }()
 
+    @State private var newPreset: NewSessionPreset?
+
     var body: some View {
         // Übersicht ⅔, Terminal fest ⅓ (wie besprochen; die Übersicht soll Platz behalten)
         GeometryReader { geo in
             HStack(spacing: 0) {
-                OverviewView(selected: $selected)
+                OverviewView(selected: $selected, newPreset: $newPreset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                Rectangle().fill(Hive.ink).frame(width: 1)
+                Rectangle().fill(Hive.hair2).frame(width: 1)
                 TerminalPane(session: store.sessions.first { $0.name == selected })
                     .frame(width: max(340, geo.size.width / 3))
                     .frame(maxHeight: .infinity)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { newPreset = NewSessionPreset() } label: { Label("Neue Session", systemImage: "plus") }
+                    .disabled(Tmux.path == nil)
+                    .help("Neue Session in tmux starten (⌘N)")
+                    .keyboardShortcut("n")
+            }
+        }
+        .sheet(item: $newPreset) { preset in
+            NewSessionSheet(preset: preset) { name in
+                selected = name
+                store.refreshSoon()
             }
         }
     }

@@ -9,14 +9,14 @@ struct TerminalPane: View {
     var body: some View {
         VStack(spacing: 0) {
             if let s = session {
-                HStack(spacing: 9) {
-                    Token(text: s.abbr, color: store.color(for: s.groupKey), large: false)
-                    Text(s.name).font(.hiveMono(15, .bold))
+                HStack(spacing: 8) {
+                    Circle().fill(store.color(for: s.groupKey)).frame(width: 8, height: 8)
+                    Text(s.name).font(.hiveMono(14, .semibold))
                     Spacer(minLength: 4)
                     if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
-                    StatusPill(status: Status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
+                    StatusLabel(status: Status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
                 }
-                .padding(.horizontal, 14).frame(height: 60)
+                .padding(.horizontal, 14).frame(height: 40)
                 Rectangle().fill(Hive.hair).frame(height: 1)
                 content(for: s)
             } else {
@@ -74,10 +74,14 @@ struct TmuxTerminal: NSViewRepresentable {
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         let view = LocalProcessTerminalView(frame: .zero)
-        view.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        // Proportionalschrift geht im Terminal-Raster nicht (jede Zelle so breit wie das breiteste
+        // Zeichen, „C l a u d e“); zum Nachsehen: HIVE_TERM_FONT=system
+        view.font = ProcessInfo.processInfo.environment["HIVE_TERM_FONT"] == "system"
+            ? NSFont.systemFont(ofSize: 13)
+            : NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         applyColors(view)
         view.startProcess(executable: Tmux.path!,
-                          args: ["attach-session", "-t", Tmux.target(name)],
+                          args: Tmux.attachArgs(name),
                           environment: Tmux.environmentList(),
                           execName: "tmux")
         DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
