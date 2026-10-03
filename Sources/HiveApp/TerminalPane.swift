@@ -39,6 +39,8 @@ struct TerminalPane: View {
         }
         .background(Hive.card)
         .onChange(of: session?.name) { message = nil; showHandover = false }
+        // Sprung-Taste: Handover zu, damit das Terminal den Fokus bekommen kann
+        .onChange(of: store.focusRequest) { showHandover = false }
     }
 
     @ViewBuilder
@@ -50,7 +52,7 @@ struct TerminalPane: View {
                                    description: Text("brew install tmux"))
                 .frame(maxHeight: .infinity)
         } else if let t = store.tmux(s) {
-            TmuxTerminal(name: t).id(t)
+            TmuxTerminal(name: t, focusRequest: store.focusRequest).id(t)
                 .padding(.horizontal, 28).padding(.top, 6)
         } else if s.alive == true {
             VStack(spacing: 12) {
@@ -74,14 +76,40 @@ struct TerminalPane: View {
     }
 }
 
+/// SwiftTerm-Terminal, das sich eine Fokus-Anfrage merkt, bis es in einem Fenster hängt. Nach einem
+/// Session-Wechsel entsteht die View wegen `.id` neu und hat beim ersten updateNSView noch kein Fenster.
+final class HiveTerminalView: LocalProcessTerminalView {
+    var wantsFocus = false
+
+    func takeFocusIfWanted() {
+        guard wantsFocus, let window else { return }
+        wantsFocus = false
+        window.makeFirstResponder(self)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        takeFocusIfWanted()
+    }
+}
+
 /// SwiftTerm-Terminal, das sich per `tmux attach` an die Session hängt.
 struct TmuxTerminal: NSViewRepresentable {
     let name: String
+    /// Zähler aus dem Store; ändert er sich, holt sich das Terminal den Fokus
+    let focusRequest: Int
     @Environment(\.colorScheme) private var scheme
+
+    final class Coordinator {
+        /// zuletzt bediente Fokus-Anfrage
+        var focusSeen = 0
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     // Gleiche Töne wie die Karten im hive-Dashboard (--card / --ink).
     // SwiftTerm übernimmt Farben beim Setzen fest, darum bei jedem Wechsel des Modus neu setzen.
-    private func applyColors(_ view: LocalProcessTerminalView) {
+    private func applyColors(_ view: HiveTerminalView) {
         let dark = scheme == .dark
         view.nativeBackgroundColor = NSColor(hex: dark ? 0x141414 : 0xFFFFFF)
         view.nativeForegroundColor = NSColor(hex: dark ? 0xF5F5F4 : 0x0B0B0B)
@@ -89,8 +117,8 @@ struct TmuxTerminal: NSViewRepresentable {
         view.selectedTextBackgroundColor = .selectedTextBackgroundColor
     }
 
-    func makeNSView(context: Context) -> LocalProcessTerminalView {
-        let view = LocalProcessTerminalView(frame: .zero)
+    func makeNSView(context: Context) -> HiveTerminalView {
+        let view = HiveTerminalView(frame: .zero)
         // Proportionalschrift geht im Terminal-Raster nicht (jede Zelle so breit wie das breiteste
         // Zeichen, „C l a u d e“); zum Nachsehen: HIVE_TERM_FONT=system
         // Sonst wie ein übliches iTerm-Profil: MesloLGS NF 13 (Fett/Kursiv aus den Schnitten der Familie),
@@ -106,21 +134,28 @@ struct TmuxTerminal: NSViewRepresentable {
                           args: Tmux.attachArgs(name),
                           environment: Tmux.environmentList(),
                           execName: "tmux")
-        DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
+        // ein neues Terminal bekommt immer den Fokus (wie bisher), sobald es im Fenster hängt
+        context.coordinator.focusSeen = focusRequest
+        view.wantsFocus = true
         return view
     }
 
-    func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
+    func updateNSView(_ nsView: HiveTerminalView, context: Context) {
         applyColors(nsView)
         hideScroller(nsView)
+        if context.coordinator.focusSeen != focusRequest {
+            context.coordinator.focusSeen = focusRequest
+            nsView.wantsFocus = true
+        }
+        nsView.takeFocusIfWanted()
     }
 
     // Den Verlauf hält tmux, SwiftTerms eigener Scroller bleibt leer; er ist privat, darum über die Unteransichten
-    private func hideScroller(_ view: LocalProcessTerminalView) {
+    private func hideScroller(_ view: HiveTerminalView) {
         view.subviews.compactMap { $0 as? NSScroller }.forEach { $0.isHidden = true }
     }
 
-    static func dismantleNSView(_ nsView: LocalProcessTerminalView, coordinator: ()) {
+    static func dismantleNSView(_ nsView: HiveTerminalView, coordinator: Coordinator) {
         // beendet nur den attach-Prozess; die tmux-Session läuft weiter
         nsView.terminate()
     }

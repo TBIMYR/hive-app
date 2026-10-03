@@ -31,6 +31,13 @@ struct HiveApp: App {
                 .frame(minWidth: 900, minHeight: 560)
         }
         .defaultSize(width: 1440, height: 860)
+        .commands {
+            // ⌘H nur in hive: ersetzt „Hide hive“ (dazu fallen „Hide Others“ und „Show All“ weg)
+            CommandGroup(replacing: .appVisibility) {
+                Button("Jump to Waiting Session") { delegate.store.jumpToWaiting() }
+                    .keyboardShortcut("h")
+            }
+        }
     }
 }
 

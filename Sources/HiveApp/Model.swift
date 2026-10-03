@@ -56,6 +56,8 @@ final class StateStore: ObservableObject {
     @Published private(set) var pinned: [String] = UserDefaults.standard.stringArray(forKey: "pinned") ?? []
     /// Vorbelegung für den Dialog „New Session“ (nil = zu)
     @Published var newPreset: NewSessionPreset?
+    /// Jede Erhöhung bittet das Terminal der Auswahl um den Tastaturfokus (siehe TmuxTerminal)
+    @Published private(set) var focusRequest = 0
 
     private var timer: Timer?
     private var watcher: Watcher?
@@ -110,6 +112,20 @@ final class StateStore: ObservableObject {
             m[s.name] = AttentionTracker.Need(reason: st.reason ?? st.label, confirmAfter: st.waitsAtStart ? 3 : 0)
         }
         return m
+    }
+
+    /// Sprung-Taste ⌘H: zur am längsten wartenden Session, Cursor ins Terminal; jeder weitere Druck zur nächsten.
+    func jumpToWaiting() {
+        let waiting = displaySessions.map { ($0, status($0)) }.filter { $0.1.rank == 0 }
+        var seen = Set<String>()
+        let names = SessionOrder.sorted(waiting, session: { $0.0 }, status: { $0.1.core }, labels: labels)
+            .map(\.0.name).filter { seen.insert($0).inserted }
+        guard !names.isEmpty else { return }
+        // ohne tmux-Terminal (z. B. iTerm) gibt es keinen Fokus zu holen: dann gleich weiter zur nächsten
+        let hasTerminal = displaySessions.contains { $0.name == selected && tmux($0) != nil }
+        let focused = NSApp.keyWindow?.firstResponder is HiveTerminalView || !hasTerminal
+        selected = SessionOrder.nextWaiting(candidates: names, selected: selected, terminalFocused: focused)
+        focusRequest += 1
     }
 
     /// tmux-Session dieser Session im hive-Server, nil = keine.
