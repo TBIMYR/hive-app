@@ -7,6 +7,7 @@ import HiveCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Der Store gehört dem AppDelegate, damit der Mitteilungs-Delegate schon vor dem ersten Fenster steht.
     let store = StateStore()
+    let todos = TodoStore()
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         store.notifier.start()
@@ -23,11 +24,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct HiveApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+    @AppStorage("todoVisible") private var todoVisible = false
 
     var body: some Scene {
         WindowGroup("Hive") {
             ContentView()
                 .environmentObject(delegate.store)
+                .environmentObject(delegate.todos)
                 .frame(minWidth: 900, minHeight: 560)
         }
         .defaultSize(width: 1440, height: 860)
@@ -37,6 +40,11 @@ struct HiveApp: App {
                 Button("Jump to Waiting Session") { delegate.store.jumpToWaiting() }
                     .keyboardShortcut("h")
             }
+            // im Menü View, mit Häkchen, solange die Karte sichtbar ist
+            CommandGroup(after: .toolbar) {
+                Toggle("Todo List", isOn: $todoVisible)
+                    .keyboardShortcut("t")
+            }
         }
     }
 }
@@ -45,6 +53,7 @@ struct ContentView: View {
     @EnvironmentObject private var store: StateStore
     /// Breite des Terminals in Punkten, per Ziehen an der Grenze geändert; 0 = Standard (⅓ des Fensters)
     @AppStorage("terminalWidth") private var terminalWidth: Double = 0
+    @AppStorage("todoVisible") private var todoVisible = false
     @State private var dragStart: Double?
 
     private static let minTerminal: Double = 340
@@ -110,11 +119,23 @@ struct ContentView: View {
                             .onEnded { _ in dragStart = nil }
                     )
             }
+            // schwebende Todo-Karte, standardmäßig oben rechts in der Übersicht
+            .overlay(alignment: .topLeading) {
+                if todoVisible {
+                    TodoPanel(bounds: geo.size,
+                              defaultOrigin: CGPoint(x: total - w - 300 - 26, y: 64),
+                              visible: $todoVisible)
+                }
+            }
         }
         // statt des Fenstertitels: Signet und Wortmarke links in der Titelleiste
         .onAppear { NSApp.windows.forEach { $0.titleVisibility = .hidden } }
         .toolbar {
             brand
+            ToolbarItem(placement: .automatic) {
+                Button { todoVisible.toggle() } label: { Label("Todo List", systemImage: "checklist") }
+                    .help(todoVisible ? "Hide the todo list (⌘T)" : "Show the todo list (⌘T)")
+            }
             ToolbarItem(placement: .automatic) {
                 Button { store.newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
                     .disabled(Tmux.path == nil)
