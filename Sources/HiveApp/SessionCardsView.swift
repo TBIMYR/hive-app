@@ -2,7 +2,7 @@ import SwiftUI
 import HiveCore
 
 /// Ansicht „Cards“: Favoriten zuerst (ohne Überschrift), darunter Abschnitte nach Dringlichkeit wie im Dashboard,
-/// große Karten mit letzter Antwort.
+/// große Karten mit dem Kasten „Now“ (letzter Arbeitsschritt, Frage oder letztes Ergebnis).
 struct SessionCardsView: View {
     @EnvironmentObject private var store: StateStore
     /// Favoriten, schon sortiert (SessionOrder), auch offline
@@ -39,7 +39,7 @@ struct SessionCardsView: View {
                 Tile(session: it.session, status: it.status, label: it.project, color: it.color,
                      inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now,
                      isFavorite: it.isFavorite,
-                     canReply: it.status.rank == 0 && store.tmux(it.session) != nil) { store.toggleFavorite(it.name) }
+                     canReply: it.status.rank == 0 && it.session.acceptsReply && store.tmux(it.session) != nil) { store.toggleFavorite(it.name) }
                     .onTapGesture { store.selected = it.name }
                     .contextMenu { SessionMenu(store: store, session: it.session) }
             }
@@ -56,7 +56,7 @@ struct Tile: View {
     let isSelected: Bool
     let now: Date
     let isFavorite: Bool
-    /// Antwortfeld unten (nur „braucht dich“ und in tmux)
+    /// Antwortfeld unten (nur „braucht dich“, in tmux und ohne offenen Auswahl-Dialog)
     var canReply = false
     let toggleFavorite: () -> Void
 
@@ -75,33 +75,30 @@ struct Tile: View {
                     .padding(.trailing, -4)
             }
 
-            if let why = status.why {
+            let line = NowLine(session, rank: status.rank)
+            // roter Grund nur, wenn der Kasten „Now“ nichts Besseres zeigt
+            if line == nil, let why = status.why {
                 Text(why).font(.system(size: 12.5, weight: .medium)).foregroundStyle(status.color).lineLimit(1)
             }
 
-            // Aufgabe
+            // Aufgabe: grau, wenn sie deutlich älter ist als die letzte Aktivität
+            let outdated = session.taskOutdated
             Text(session.task?.text ?? "No task line")
-                .font(.system(size: 13.5, weight: .medium))
-                .foregroundStyle(session.task?.text == nil ? Hive.muted : Hive.ink)
-                .lineLimit(2, reservesSpace: true)
+                .font(.system(size: 13.5, weight: session.task?.text == nil || outdated ? .medium : .semibold))
+                .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
+                .lineLimit(2)
 
-            // Letzte Antwort
-            Text(plain(session.lastAssistant?.text) ?? AttributedString(" "))
-                .font(.system(size: 12.5))
-                .foregroundStyle(Hive.ink2)
-                .lineSpacing(3).lineLimit(2, reservesSpace: true)
+            if let line { NowBox(line: line, loud: status.rank == 0, color: status.color, now: now) }
 
-            // Meta: Projekt · Branch · Zeit, rechts wo die Session läuft
+            if canReply { ReplyField(session: session) }
+
+            // Meta: Projekt · Branch, rechts wo die Session läuft
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 7, height: 7)
                 Text(label)
                 if let b = session.branch, b != "HEAD" {
                     Text("·")
                     Text(b).truncationMode(.middle)
-                }
-                if let when = session.lastAssistant?.at ?? session.task?.updatedAt {
-                    Text("·")
-                    Text(ago(when, now: now)).fixedSize()
                 }
                 Spacer(minLength: 6)
                 if !session.errors.isEmpty {
@@ -117,9 +114,7 @@ struct Tile: View {
             .lineLimit(1)
             .font(.system(size: 11.5))
             .foregroundStyle(Hive.muted)
-            .padding(.top, 4)
-
-            if canReply { ReplyField(session: session) }
+            .padding(.top, 2)
         }
         .padding(.horizontal, 20).padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -135,13 +130,75 @@ struct Tile: View {
         .opacity(status.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
     }
+}
 
-    /// Markdown der Antwort (fett, Code …) als formatierter Text statt mit Sternchen; Zeilenumbrüche raus.
-    private func plain(_ s: String?) -> AttributedString? {
-        guard let s, !s.isEmpty else { return nil }
-        let flat = s.replacingOccurrences(of: "\n", with: " ")
-        let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        return (try? AttributedString(markdown: flat, options: opts)) ?? AttributedString(flat)
+/// Kasten „Now“: arbeitend der letzte Arbeitsschritt, wartend Freigabe oder Frage, bereit der letzte Satz.
+struct NowBox: View {
+    let line: NowLine
+    /// „braucht dich“: weißer Grund mit feinem Rahmen in der Statusfarbe
+    let loud: Bool
+    let color: Color
+    let now: Date
+
+    private var icon: String {
+        switch line.kind {
+        case .working: "gearshape"
+        case .permission: "lock"
+        case .question, .choice: "questionmark.bubble"
+        case .done: "checkmark"
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Hive.ink2)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(line.text)
+                    .font(.system(size: 13, weight: line.kind == .permission ? .semibold : .regular))
+                    .foregroundStyle(Hive.ink)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                let since = line.kind == .working ? dur(line.at, now: now) : ""
+                if line.detail != nil || !since.isEmpty {
+                    HStack(spacing: 5) {
+                        if let d = line.detail { CodeChip(text: d) }
+                        if !since.isEmpty { Text(line.detail == nil ? since : "· \(since)").fixedSize() }
+                    }
+                    .font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(1)
+                }
+                if line.kind == .choice {
+                    ForEach(Array(line.options.enumerated()), id: \.offset) { i, o in
+                        Text("\(i + 1) · \(o)").lineLimit(1)
+                    }
+                    .font(.system(size: 12)).foregroundStyle(Hive.muted)
+                    Text("Answer in the terminal").font(.system(size: 12, weight: .medium)).foregroundStyle(Hive.ink2)
+                        .padding(.top, 2)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 11).padding(.vertical, 9)
+        .background(loud ? Hive.card : Hive.soft)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(loud ? color.opacity(0.2) : Color.clear, lineWidth: 1))
+    }
+}
+
+/// Befehl oder Pfad in Schreibmaschinenschrift auf grauem Grund.
+struct CodeChip: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.hiveMono(12))
+            .foregroundStyle(Hive.ink2)
+            .lineLimit(1).truncationMode(.middle)
+            .padding(.horizontal, 5).padding(.vertical, 1)
+            .background(Hive.hair)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
 

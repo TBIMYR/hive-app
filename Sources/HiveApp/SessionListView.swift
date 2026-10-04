@@ -80,17 +80,19 @@ struct SessionRow: View {
         let st = item.status
         let loud = st.rank == 0
         let task = item.session.task?.text
+        // arbeitend/wartend der Kasten „Now“ knapp statt der Aufgabe
+        let now = item.now?.text
         HStack(spacing: 14) {
             Circle().fill(st.color).frame(width: 9, height: 9).frame(width: 14)
             Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink)
                 .frame(width: nameWidth, alignment: .leading)
-            Text(loud ? [st.label, st.why].compactMap { $0 }.joined(separator: " · ") : st.label)
+            Text(loud && now == nil ? [st.label, st.why].compactMap { $0 }.joined(separator: " · ") : st.label)
                 .font(.system(size: 12.5, weight: loud ? .semibold : .regular))
                 .foregroundStyle(loud ? st.color : Hive.ink2)
                 .frame(width: 210, alignment: .leading)
             HStack(spacing: 6) {
                 Circle().fill(item.color).frame(width: 6, height: 6)
-                Text(task ?? "No task line").foregroundStyle(task == nil ? Hive.muted : Hive.ink2)
+                Text(now ?? task ?? "No task line").foregroundStyle(now == nil && task == nil ? Hive.muted : Hive.ink2)
             }
             .help(item.project)
             .frame(maxWidth: .infinity, alignment: .leading)

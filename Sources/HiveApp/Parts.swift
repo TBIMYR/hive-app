@@ -99,6 +99,10 @@ struct OverviewItem: Identifiable {
 
     var id: String { session.id }
     var name: String { session.name }
+
+    /// Kurzzeile für Tiles und List: arbeitend der Arbeitsschritt, wartend „Allow …?“ bzw. die Frage, sonst nil
+    /// (dann die Aufgabe).
+    var now: NowLine? { status.rank <= 1 ? NowLine(session, rank: status.rank) : nil }
 }
 
 /// Abschnittskopf: Punkt, Titel, Anzahl, Linie. Mit `expanded` einklappbar (Offline).

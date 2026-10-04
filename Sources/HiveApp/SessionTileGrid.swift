@@ -46,7 +46,8 @@ struct SmallTile: View {
         let st = item.status
         let loud = st.rank == 0
         let task = item.session.task?.text
-        // bei „braucht dich“ zuerst der Grund, dann die Aufgabe
+        let now = item.now
+        // arbeitend/wartend knapp der Inhalt von „Now“, sonst bei „braucht dich“ zuerst der Grund, dann die Aufgabe
         let text = loud ? [st.why, task].compactMap { $0 }.joined(separator: " – ") : (task ?? "No task line")
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 7) {
@@ -56,10 +57,21 @@ struct SmallTile: View {
                 StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)
             }
-            Text(text)
-                .font(.system(size: 13))
-                .foregroundStyle(!loud && task == nil ? Hive.muted : Hive.ink2)
-                .lineLimit(2, reservesSpace: true)
+            if let now {
+                // eine Zeile Text, darunter Befehl/Datei; zusammen so hoch wie zwei Zeilen Aufgabe
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(now.text)
+                        .font(.system(size: 13, weight: now.kind == .permission ? .semibold : .regular))
+                        .foregroundStyle(Hive.ink2)
+                    Text(now.detail ?? " ").font(.hiveMono(11.5)).foregroundStyle(Hive.muted).truncationMode(.middle)
+                }
+                .lineLimit(1)
+            } else {
+                Text(text)
+                    .font(.system(size: 13))
+                    .foregroundStyle(!loud && task == nil ? Hive.muted : Hive.ink2)
+                    .lineLimit(2, reservesSpace: true)
+            }
             Text(item.since.isEmpty ? item.project : "\(item.project) · \(item.since)")
                 .font(.system(size: 11.5)).foregroundStyle(Hive.muted).lineLimit(1)
         }
