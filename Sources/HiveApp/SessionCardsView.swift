@@ -274,13 +274,13 @@ struct AnswerButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .lineLimit(1)
+            .font(.system(size: 14, weight: .medium))
+            .lineLimit(2).multilineTextAlignment(.leading)
             .foregroundStyle(primary ? Hive.card : Hive.ink)
-            .padding(.horizontal, 10).padding(.vertical, 4)
+            .padding(.horizontal, 14).padding(.vertical, 9)
             .background(primary ? Hive.ink : Hive.card)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(primary ? Color.clear : Hive.hair2, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(primary ? Color.clear : Hive.hair2, lineWidth: 1))
             .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
             .contentShape(Rectangle())
     }
