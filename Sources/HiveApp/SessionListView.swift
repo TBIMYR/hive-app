@@ -18,26 +18,28 @@ struct SessionListView: View {
             + SessionTree.grouped(items.filter { $0.status.rank < 3 }, session: \.session)
         let offline = SessionTree.grouped(items.filter { $0.status.rank == 3 }, session: \.session)
         LazyVStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(top.enumerated()), id: \.element.item.id) { i, r in row(r, index: i, isFirst: i == 0 || top[i - 1].depth == 0) }
+            let topStripes = Self.groupStripes(top)
+            ForEach(Array(top.enumerated()), id: \.element.item.id) { i, r in row(r, striped: topStripes[i], isFirst: i == 0 || top[i - 1].depth == 0) }
             if !offline.isEmpty {
                 SectionHeader(title: "Offline", count: offline.count, color: Hive.off, expanded: $showOffline)
                     .padding(.top, 22).padding(.bottom, 8)
                 if showOffline {
-                    ForEach(Array(offline.enumerated()), id: \.element.item.id) { i, r in row(r, index: i, isFirst: i == 0 || offline[i - 1].depth == 0) }
+                    let offStripes = Self.groupStripes(offline)
+                    ForEach(Array(offline.enumerated()), id: \.element.item.id) { i, r in row(r, striped: offStripes[i], isFirst: i == 0 || offline[i - 1].depth == 0) }
                 }
             }
         }
     }
 
-    private func row(_ r: SessionTree.Row<OverviewItem>, index: Int, isFirst: Bool) -> some View {
+    private func row(_ r: SessionTree.Row<OverviewItem>, striped: Bool, isFirst: Bool) -> some View {
         let it = r.item
         let indent: CGFloat = r.depth > 0 ? Self.indent : 0
-        return SessionRow(item: it, isSelected: it.name == store.selected, striped: index.isMultiple(of: 2),
-                          nameWidth: SessionRow.nameWidth - indent) { store.toggleFavorite(it.name) }
+        return SessionRow(item: it, isSelected: it.name == store.selected, striped: striped,
+                          nameWidth: SessionRow.nameWidth - indent, indent: indent) { store.toggleFavorite(it.name) }
             .onTapGesture { store.selected = it.name }
             .contextMenu { SessionMenu(store: store, session: it.session) }
-            .padding(.leading, indent)
-            .background(alignment: .leading) {
+            // full-width row background, so the line sits on one surface per group
+            .overlay(alignment: .leading) {
                 if r.depth > 0 {
                     TreeLine(isFirst: isFirst, isLast: r.isLastInGroup).stroke(Hive.hair2, lineWidth: 1.5).frame(width: indent)
                 }
@@ -46,6 +48,16 @@ struct SessionListView: View {
 
     /// Indentation of workers under their PM
     static let indent: CGFloat = 28
+
+    /// Stripes alternate per group, not per row: a PM and its workers share one background, so the tree line
+    /// never runs across a differently colored row.
+    static func groupStripes(_ rows: [SessionTree.Row<OverviewItem>]) -> [Bool] {
+        var group = -1
+        return rows.map { r in
+            if r.depth == 0 { group += 1 }
+            return group.isMultiple(of: 2)
+        }
+    }
 }
 
 /// Vertical line under the PM's status dot that connects its workers: the first worker extends it up to just
@@ -74,6 +86,8 @@ struct SessionRow: View {
     /// Width of the name column; indented rows get it narrower by the indentation amount, so the remaining
     /// columns stay aligned
     var nameWidth: CGFloat = SessionRow.nameWidth
+    /// Indentation of the content (workers); the background still spans the full width
+    var indent: CGFloat = 0
     let toggleFavorite: () -> Void
 
     static let nameWidth: CGFloat = 140
@@ -108,6 +122,7 @@ struct SessionRow: View {
         }
         .font(.system(size: 13.5))
         .lineLimit(1).truncationMode(.tail)
+        .padding(.leading, indent)
         .padding(.horizontal, 14).padding(.vertical, 15)
         .background(loud ? st.color.opacity(0.06) : Color.clear)
         .background(loud || striped ? Hive.card : Color.clear)
