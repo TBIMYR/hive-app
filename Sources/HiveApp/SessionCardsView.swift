@@ -39,7 +39,10 @@ struct SessionCardsView: View {
                 Tile(session: it.session, status: it.status, label: it.project, color: it.color,
                      inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now,
                      isFavorite: it.isFavorite,
-                     canReply: it.status.rank == 0 && it.session.acceptsReply && store.tmux(it.session) != nil) { store.toggleFavorite(it.name) }
+                     canReply: it.status.rank == 0 && it.session.acceptsReply && store.tmux(it.session) != nil,
+                     canAnswer: it.status.rank == 0 && !it.status.core.waitsAtStart && store.tmux(it.session) != nil) {
+                    store.toggleFavorite(it.name)
+                }
                     .onTapGesture { store.selected = it.name }
                     .contextMenu { SessionMenu(store: store, session: it.session) }
             }
@@ -58,6 +61,8 @@ struct Tile: View {
     let isFavorite: Bool
     /// Antwortfeld unten (nur „braucht dich“, in tmux und ohne offenen Auswahl-Dialog)
     var canReply = false
+    /// Antwort-Knöpfe für Auswahlfrage oder Freigabe (nur „braucht dich“, in tmux, nicht beim Start)
+    var canAnswer = false
     let toggleFavorite: () -> Void
 
     private var isPm: Bool { session.isPm == true }
@@ -88,7 +93,10 @@ struct Tile: View {
                 .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
                 .lineLimit(2)
 
-            if let line { NowBox(line: line, loud: status.rank == 0, color: status.color, now: now) }
+            if let line {
+                NowBox(line: line, tint: status.rank == 0 ? status.color : (isPm ? color : nil), now: now,
+                       answerFor: canAnswer ? session : nil)
+            }
 
             if canReply { ReplyField(session: session) }
 
@@ -133,12 +141,14 @@ struct Tile: View {
 }
 
 /// Kasten „Now“: arbeitend der letzte Arbeitsschritt, wartend Freigabe oder Frage, bereit der letzte Satz.
+/// Heller, halb durchsichtiger Grund mit feinem Rand, damit er auch auf getönten Karten (PM, wartend) ruhig wirkt.
 struct NowBox: View {
     let line: NowLine
-    /// „braucht dich“: weißer Grund mit feinem Rahmen in der Statusfarbe
-    let loud: Bool
-    let color: Color
+    /// Tönung der Karte (Statusfarbe wartend, Projektfarbe bei PMs), nil = neutral
+    let tint: Color?
     let now: Date
+    /// Session, die per Knopf geantwortet werden kann; nil = keine Knöpfe
+    var answerFor: Session? = nil
 
     private var icon: String {
         switch line.kind {
@@ -147,6 +157,11 @@ struct NowBox: View {
         case .question, .choice: "questionmark.bubble"
         case .done: "checkmark"
         }
+    }
+
+    /// Knöpfe statt Liste: Freigabe oder eine einzelne Frage ohne Mehrfachauswahl
+    private var buttons: Bool {
+        answerFor != nil && (line.kind == .permission || (line.kind == .choice && line.singleChoice))
     }
 
     var body: some View {
@@ -169,7 +184,9 @@ struct NowBox: View {
                     }
                     .font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(1)
                 }
-                if line.kind == .choice {
+                if buttons, let s = answerFor {
+                    AnswerButtons(session: s, line: line).padding(.top, 4)
+                } else if line.kind == .choice {
                     ForEach(Array(line.options.enumerated()), id: \.offset) { i, o in
                         Text("\(i + 1) · \(o)").lineLimit(1)
                     }
@@ -181,9 +198,91 @@ struct NowBox: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 11).padding(.vertical, 9)
-        .background(loud ? Hive.card : Hive.soft)
+        .background(Hive.card.opacity(0.65))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(loud ? color.opacity(0.2) : Color.clear, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tint?.opacity(0.22) ?? Hive.hair, lineWidth: 1))
+    }
+}
+
+/// Antwort-Knöpfe im Kasten „Now“: je Option einer Auswahlfrage oder Allow/Always allow/Deny bei einer
+/// Freigabe. Ein Klick prüft den Bildschirm und tippt die Ziffer (Tmux.answer); nie automatisch.
+/// Gesperrt, solange in das Terminal dieser Session getippt wird.
+struct AnswerButtons: View {
+    @EnvironmentObject private var store: StateStore
+    @ObservedObject private var activity = TerminalActivity.shared
+    let session: Session
+    let line: NowLine
+    @State private var sending = false
+    @State private var note: String?
+    /// „Always allow“ steht auf dem Bildschirm (einmal gelesen, wenn die Freigabe erscheint)
+    @State private var hasAlways = false
+
+    private struct Choice: Identifiable {
+        let id: String
+        let answer: ScreenDialog.Answer
+        let primary: Bool
+    }
+
+    private var choices: [Choice] {
+        if line.kind == .permission {
+            var c = [Choice(id: "Allow", answer: .permission(.allow), primary: true)]
+            if hasAlways { c.append(Choice(id: "Always allow", answer: .permission(.alwaysAllow), primary: false)) }
+            c.append(Choice(id: "Deny", answer: .permission(.deny), primary: false))
+            return c
+        }
+        return line.options.map { Choice(id: $0, answer: .option($0), primary: false) }
+    }
+
+    private var typing: Bool { activity.typingIn != nil && activity.typingIn == store.tmux(session) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            FlowLayout(spacing: 6) {
+                ForEach(choices) { c in
+                    Button(c.id) { send(c.answer) }
+                        .buttonStyle(AnswerButtonStyle(primary: c.primary))
+                }
+            }
+            .disabled(sending || typing)
+            .help(typing ? "You are typing in this terminal – wait a moment" : "")
+            if let note {
+                Text(note).font(.system(size: 11.5)).foregroundStyle(Hive.need).lineLimit(2)
+            }
+        }
+        .task(id: line) {
+            note = nil
+            guard line.kind == .permission else { return }
+            hasAlways = await store.dialog(session)?.permission(.alwaysAllow) != nil
+        }
+    }
+
+    private func send(_ answer: ScreenDialog.Answer) {
+        guard !sending else { return }
+        sending = true
+        note = nil
+        Task {
+            note = await store.answer(answer, known: line.options, to: session)
+            sending = false
+        }
+    }
+}
+
+/// Kleiner Knopf im Hive-Stil: „Allow“ dunkel gefüllt, sonst hell mit Rand.
+struct AnswerButtonStyle: ButtonStyle {
+    let primary: Bool
+    @Environment(\.isEnabled) private var enabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .medium))
+            .lineLimit(1)
+            .foregroundStyle(primary ? Hive.card : Hive.ink)
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(primary ? Hive.ink : Hive.card)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(primary ? Color.clear : Hive.hair2, lineWidth: 1))
+            .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
+            .contentShape(Rectangle())
     }
 }
 

@@ -94,6 +94,36 @@ enum Tmux {
         return e.status == 0 ? nil : failure(e)
     }
 
+    /// Bildschirm der Session als Text, nil bei einem Fehler.
+    static func capture(_ name: String) -> String? {
+        let r = run(SessionControl.captureArgs(name))
+        return r.status == 0 ? r.output : nil
+    }
+
+    static let dialogChanged = "Dialog changed – answer in the terminal"
+
+    /// Antwort-Knopf: Dialog auf dem Bildschirm suchen, Ziffer der Option tippen; steht derselbe Dialog
+    /// danach noch da und ist die Option markiert, zusätzlich Enter. Findet sich die Option nicht oder
+    /// tippt gerade jemand in eine Freitext-Option, wird nichts gesendet. Blockiert kurz, nicht auf dem
+    /// Main Thread aufrufen. `known`: Optionen laut Protokoll. Liefert eine Meldung oder nil.
+    static func answer(_ answer: ScreenDialog.Answer, known: [String], in name: String) -> String? {
+        guard let before = capture(name).flatMap(ScreenDialog.parse), let option = before.pick(answer)
+        else { return dialogChanged }
+        if case .option = answer, before.selectionOutside(known) { return dialogChanged }
+        let r = run(SessionControl.keyArgs(String(option.number), into: name))
+        guard r.status == 0 else { return failure(r) }
+        Thread.sleep(forTimeInterval: 0.3)
+        // Dialog weg oder ein anderer: die Ziffer hat schon gewählt
+        guard let after = capture(name).flatMap(ScreenDialog.parse),
+              after.options.map(\.label) == before.options.map(\.label) else { return nil }
+        // gleiche Optionen, aber anderer Text darüber: womöglich schon die nächste Frage, kein Enter
+        guard after.sameDialog(as: before) else { return "Check the terminal" }
+        let marked = after.options.filter(\.selected)
+        guard marked.map(\.number) == [option.number] else { return dialogChanged }
+        let e = run(SessionControl.keyArgs("Enter", into: name))
+        return e.status == 0 ? nil : failure(e)
+    }
+
     /// Beendet die tmux-Session (genau diese). Liefert eine Fehlermeldung oder nil.
     static func kill(_ name: String) -> String? {
         let r = run(SessionControl.killArgs(name))

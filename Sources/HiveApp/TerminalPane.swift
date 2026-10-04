@@ -76,10 +76,46 @@ struct TerminalPane: View {
     }
 }
 
+/// In welches Terminal gerade getippt wird (tmux-Name, bis 3 s nach dem letzten Tastendruck).
+/// Antwort-Knöpfe dieser Session sind solange gesperrt, damit nichts mit eigener Eingabe kollidiert.
+@MainActor
+final class TerminalActivity: ObservableObject {
+    static let shared = TerminalActivity()
+    @Published private(set) var typingIn: String?
+    private var clear: DispatchWorkItem?
+
+    func typed(in name: String) {
+        if typingIn != name { typingIn = name }
+        clear?.cancel()
+        let w = DispatchWorkItem { [weak self] in self?.typingIn = nil }
+        clear = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: w)
+    }
+
+    /// Antworten des Terminals selbst (Fokus rein/raus, Geräte-Abfragen) sind kein Tippen.
+    nonisolated static func isTyping(_ data: ArraySlice<UInt8>) -> Bool {
+        let s = String(decoding: data, as: UTF8.self)
+        if s == "\u{1B}[I" || s == "\u{1B}[O" { return false }
+        if ["\u{1B}[?", "\u{1B}[>", "\u{1B}]", "\u{1B}P"].contains(where: s.hasPrefix) { return false }
+        // Cursor-Position „ESC [ 12;1 R“
+        return !(s.hasPrefix("\u{1B}[") && s.hasSuffix("R") && s.count > 4)
+    }
+}
+
 /// SwiftTerm-Terminal, das sich eine Fokus-Anfrage merkt, bis es in einem Fenster hängt. Nach einem
 /// Session-Wechsel entsteht die View wegen `.id` neu und hat beim ersten updateNSView noch kein Fenster.
 final class HiveTerminalView: LocalProcessTerminalView {
     var wantsFocus = false
+    /// tmux-Session, an der das Terminal hängt
+    var sessionName = ""
+
+    override func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        super.send(source: source, data: data)
+        if TerminalActivity.isTyping(data) {
+            let name = sessionName
+            Task { @MainActor in TerminalActivity.shared.typed(in: name) }
+        }
+    }
 
     func takeFocusIfWanted() {
         guard wantsFocus, let window else { return }
@@ -145,6 +181,7 @@ struct TmuxTerminal: NSViewRepresentable {
 
     func makeNSView(context: Context) -> HiveTerminalView {
         let view = HiveTerminalView(frame: .zero)
+        view.sessionName = name
         // Proportionalschrift geht im Terminal-Raster nicht (jede Zelle so breit wie das breiteste
         // Zeichen, „C l a u d e“); zum Nachsehen: HIVE_TERM_FONT=system
         // Sonst wie ein übliches iTerm-Profil: MesloLGS NF 13 (Fett/Kursiv aus den Schnitten der Familie),

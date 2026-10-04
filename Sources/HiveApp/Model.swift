@@ -206,6 +206,20 @@ final class StateStore: ObservableObject {
         return e
     }
 
+    /// Antwort-Knopf in der Karte (Auswahlfrage oder Freigabe). Liefert eine Meldung oder nil.
+    func answer(_ a: ScreenDialog.Answer, known: [String], to s: Session) async -> String? {
+        guard let t = tmux(s) else { return "Not running in Hive" }
+        let e = await Task.detached { Tmux.answer(a, known: known, in: t) }.value
+        refreshSoon()
+        return e
+    }
+
+    /// Dialog, der gerade auf dem Bildschirm der Session steht (nur lesen), nil = keiner.
+    func dialog(_ s: Session) async -> ScreenDialog? {
+        guard let t = tmux(s) else { return nil }
+        return await Task.detached { Tmux.capture(t).flatMap(ScreenDialog.parse) }.value
+    }
+
     /// Menü „Write Handover“: `/handover` + Enter.
     func writeHandover(_ s: Session) {
         guard let t = tmux(s) else { return }
