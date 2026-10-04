@@ -19,7 +19,7 @@ struct HandoverView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 28).padding(.vertical, 18)
+            .padding(.horizontal, 32).padding(.vertical, 26)
             .textSelection(.enabled)
         }
         .scrollIndicators(.never)
@@ -31,13 +31,13 @@ struct HandoverView: View {
     }
 }
 
-/// Ruhige Lese-Typografie für Handover: 13,5 pt Fließtext, großzügiger Zeilen- und Absatzabstand,
+/// Ruhige Lese-Typografie für Handover: 14 pt Fließtext, großzügiger Zeilen- und Absatzabstand,
 /// Farben aus `Hive` (hell/dunkel dynamisch).
 extension Theme {
     static let hive = Theme()
         .text {
             ForegroundColor(Hive.ink)
-            FontSize(13.5)
+            FontSize(14)
         }
         .code {
             FontFamilyVariant(.monospaced)
@@ -48,7 +48,7 @@ extension Theme {
         .link { ForegroundColor(Hive.shell) }
         .heading1 { c in
             c.label
-                .markdownMargin(top: 0, bottom: 14)
+                .markdownMargin(top: 0, bottom: 18)
                 .markdownTextStyle {
                     FontSize(20)
                     FontWeight(.bold)
@@ -56,7 +56,7 @@ extension Theme {
         }
         .heading2 { c in
             c.label
-                .markdownMargin(top: 22, bottom: 8)
+                .markdownMargin(top: 30, bottom: 12)
                 .markdownTextStyle {
                     FontSize(16)
                     FontWeight(.semibold)
@@ -64,7 +64,7 @@ extension Theme {
         }
         .heading3 { c in
             c.label
-                .markdownMargin(top: 16, bottom: 6)
+                .markdownMargin(top: 22, bottom: 8)
                 .markdownTextStyle {
                     FontSize(14)
                     FontWeight(.semibold)
@@ -72,7 +72,7 @@ extension Theme {
         }
         .heading4 { c in
             c.label
-                .markdownMargin(top: 12, bottom: 4)
+                .markdownMargin(top: 16, bottom: 6)
                 .markdownTextStyle {
                     FontSize(13.5)
                     FontWeight(.semibold)
@@ -82,14 +82,14 @@ extension Theme {
         .paragraph { c in
             c.label
                 .fixedSize(horizontal: false, vertical: true)
-                .lineSpacing(4.5)
-                .markdownMargin(top: 0, bottom: 10)
+                .lineSpacing(7)
+                .markdownMargin(top: 0, bottom: 14)
         }
         .list { c in
-            c.label.markdownMargin(top: 0, bottom: 10)
+            c.label.markdownMargin(top: 0, bottom: 14)
         }
         .listItem { c in
-            c.label.markdownMargin(top: 4)
+            c.label.markdownMargin(top: 7)
         }
         .bulletedListMarker { _ in
             Text("•")
