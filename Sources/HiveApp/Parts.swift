@@ -64,6 +64,26 @@ struct StatusLabel: View {
     }
 }
 
+/// Small hint for running background agents/shell commands: arrows + count, muted green. Nothing when count is 0.
+struct BackgroundBadge: View {
+    let count: Int
+
+    var body: some View {
+        if count > 0 {
+            let help = count == 1 ? "1 background task running" : "\(count) background tasks running"
+            HStack(spacing: 2) {
+                Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 10, weight: .semibold))
+                Text("\(count)").font(.system(size: 11.5, weight: .medium)).monospacedDigit()
+            }
+            .foregroundStyle(Hive.busy.opacity(0.8))
+            .fixedSize()
+            .help(help)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(help)
+        }
+    }
+}
+
 /// Star for favorites: filled in Hive.ink while a favorite, otherwise a gray outline. Always visible so nothing jumps around.
 /// As a button it intercepts the click; the session selection (onTapGesture below it) stays untouched.
 struct StarButton: View {

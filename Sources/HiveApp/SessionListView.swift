@@ -86,10 +86,13 @@ struct SessionRow: View {
             Circle().fill(st.color).frame(width: 9, height: 9).frame(width: 14)
             Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink)
                 .frame(width: nameWidth, alignment: .leading)
-            Text(loud && now == nil ? [st.label, st.why].compactMap { $0 }.joined(separator: " · ") : st.label)
-                .font(.system(size: 12.5, weight: loud ? .semibold : .regular))
-                .foregroundStyle(loud ? st.color : Hive.ink2)
-                .frame(width: 210, alignment: .leading)
+            HStack(spacing: 6) {
+                Text(loud && now == nil ? [st.label, st.why].compactMap { $0 }.joined(separator: " · ") : st.label)
+                    .font(.system(size: 12.5, weight: loud ? .semibold : .regular))
+                    .foregroundStyle(loud ? st.color : Hive.ink2)
+                BackgroundBadge(count: item.session.backgroundTasks)
+            }
+            .frame(width: 210, alignment: .leading)
             HStack(spacing: 6) {
                 Circle().fill(item.color).frame(width: 6, height: 6)
                 Text(now ?? task ?? "No task line").foregroundStyle(now == nil && task == nil ? Hive.muted : Hive.ink2)

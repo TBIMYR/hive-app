@@ -54,6 +54,7 @@ struct SmallTile: View {
                 Circle().fill(st.color).frame(width: 9, height: 9)
                 Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink).lineLimit(1)
                 Spacer(minLength: 4)
+                BackgroundBadge(count: item.session.backgroundTasks)
                 StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)
             }

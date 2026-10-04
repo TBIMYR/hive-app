@@ -76,6 +76,7 @@ struct Tile: View {
                 Spacer(minLength: 8)
                 StatusLabel(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
                     .layoutPriority(-1)
+                BackgroundBadge(count: session.backgroundTasks)
                 StarButton(isOn: isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)
             }
