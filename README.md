@@ -7,10 +7,7 @@ Design: `docs/specs/2026-09-30-session-dashboard-design.md`
 What the master session `keeper` changed (including outside the repo): `docs/keeper-log.md`
 Current session rules for the global CLAUDE.md: `docs/claude-md-session-status.md`
 
-Names in docs, tests and examples are made up: projects `lumen`, `orbit`, `fjord`,
-`kiosk` with the session prefixes `lu`, `or`, `fj`, `ki`; "Mika" stands for the user.
-Please write new docs the same way, no real names or ticket numbers. Use `~/` for paths in
-commands (e.g. `git -C ~/Development/hive-app …`) so they work for everyone.
+Names in examples are made up.
 
 ## Start
 
