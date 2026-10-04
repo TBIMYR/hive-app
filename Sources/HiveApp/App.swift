@@ -133,7 +133,7 @@ struct ContentView: View {
                 Color.clear
                     .frame(width: 9).frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
-                    .offset(x: total - w - 4.5)
+                    .offset(x: total - w + 6 - 4.5)  // centered on the left edge of the terminal card (leading padding 6)
                     .onHover { inside in
                         if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
                     }
