@@ -32,13 +32,22 @@ struct SessionCardsView: View {
         }
     }
 
-    private func grid(_ part: [OverviewItem]) -> some View {
+    private func grid(_ part: [OverviewItem]) -> some View { CardGrid(part: part) }
+}
+
+/// Grid of one section: all cards as tall as the tallest one (answer buttons, reply field, options).
+private struct CardGrid: View {
+    @EnvironmentObject private var store: StateStore
+    let part: [OverviewItem]
+    @State private var tallest: CGFloat = 0
+
+    var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18, alignment: .top)],
                   alignment: .leading, spacing: 18) {
             ForEach(part) { it in
                 Tile(session: it.session, status: it.status, label: it.project, color: it.color,
                      inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now,
-                     isFavorite: it.isFavorite,
+                     isFavorite: it.isFavorite, minBody: tallest,
                      canReply: it.status.rank == 0 && it.session.acceptsReply && store.tmux(it.session) != nil,
                      canAnswer: it.status.rank == 0 && !it.status.core.waitsAtStart && store.tmux(it.session) != nil) {
                     store.toggleFavorite(it.name)
@@ -47,6 +56,7 @@ struct SessionCardsView: View {
                     .contextMenu { SessionMenu(store: store, session: it.session) }
             }
         }
+        .onPreferenceChange(TallestKey.self) { tallest = $0 }
     }
 }
 
@@ -59,6 +69,8 @@ struct Tile: View {
     let isSelected: Bool
     let now: Date
     let isFavorite: Bool
+    /// Height of the tallest card body in the section (everything above the footer); this body grows to it
+    var minBody: CGFloat = 0
     /// Reply field at the bottom (only "needs you", in tmux, and without an open choice dialog)
     var canReply = false
     /// Answer buttons for a choice question or permission (only "needs you", in tmux, not at startup)
@@ -69,39 +81,47 @@ struct Tile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Name and status
-            HStack(spacing: 8) {
-                if isPm { Token(text: session.abbr, color: color) }
-                Text(session.name).font(.hiveMono(17, .medium)).foregroundStyle(Hive.ink).lineLimit(1).fixedSize()
-                Spacer(minLength: 8)
-                CardStatus(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
-                    .layoutPriority(-1)
-                BackgroundBadge(count: session.backgroundTasks)
-                StarButton(isOn: isFavorite, toggle: toggleFavorite)
-                    .padding(.trailing, -4)
+            VStack(alignment: .leading, spacing: 0) {
+                // Name and status
+                HStack(spacing: 8) {
+                    if isPm { Token(text: session.abbr, color: color) }
+                    Text(session.name).font(.hiveMono(17, .medium)).foregroundStyle(Hive.ink).lineLimit(1).fixedSize()
+                    Spacer(minLength: 8)
+                    CardStatus(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
+                        .layoutPriority(-1)
+                    BackgroundBadge(count: session.backgroundTasks)
+                    StarButton(isOn: isFavorite, toggle: toggleFavorite)
+                        .padding(.trailing, -4)
+                }
+
+                let line = NowLine(session, rank: status.rank)
+
+                // task: gray if it's noticeably older than the last activity
+                let outdated = session.taskOutdated
+                Text(session.task?.text ?? "No task line")
+                    .font(.system(size: 15, weight: session.task?.text == nil || outdated ? .medium : .semibold))
+                    .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
+                    .lineLimit(2, reservesSpace: true)
+                    .padding(.top, 14)
+
+                // always two lines high, so plain cards are equally tall; without a "Now" line the reason (if any)
+                // in the status color
+                Group {
+                    if let line {
+                        NowBox(line: line, now: now, answerFor: canAnswer ? session : nil)
+                    } else {
+                        NowSlot {
+                            if let why = status.why {
+                                Text(why).font(.system(size: 13, weight: .medium)).foregroundStyle(status.color).lineLimit(2)
+                            }
+                        }
+                    }
+                }
+                .padding(.top, 10)
+
+                if canReply { ReplyField(session: session).padding(.top, 12) }
             }
-
-            let line = NowLine(session, rank: status.rank)
-            // reason in the status color only if the "Now" line doesn't show anything better
-            if line == nil, let why = status.why {
-                Text(why).font(.system(size: 13, weight: .medium)).foregroundStyle(status.color).lineLimit(1)
-                    .padding(.top, 12)
-            }
-
-            // task: gray if it's noticeably older than the last activity
-            let outdated = session.taskOutdated
-            Text(session.task?.text ?? "No task line")
-                .font(.system(size: 15, weight: session.task?.text == nil || outdated ? .medium : .semibold))
-                .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
-                .lineLimit(2)
-                .padding(.top, line == nil && status.why != nil ? 8 : 14)
-
-            if let line {
-                NowBox(line: line, now: now, answerFor: canAnswer ? session : nil)
-                    .padding(.top, 10)
-            }
-
-            if canReply { ReplyField(session: session).padding(.top, 12) }
+            .matchTallest(minBody)
 
             // Meta: project · branch, on the right where the session runs
             HStack(spacing: 6) {
@@ -164,18 +184,24 @@ struct NowBox: View {
                 .foregroundStyle(Hive.muted)
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 4) {
-                Text(line.text)
-                    .font(.system(size: 13, weight: line.kind == .permission ? .semibold : .regular))
-                    .foregroundStyle(line.kind == .permission ? Hive.ink : Hive.ink2)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
                 let since = line.kind == .working ? dur(line.at, now: now) : ""
-                if line.detail != nil || !since.isEmpty {
-                    HStack(spacing: 5) {
-                        if let d = line.detail { CodeChip(text: d) }
-                        if !since.isEmpty { Text(line.detail == nil ? since : "· \(since)").fixedSize() }
+                let hasDetail = line.detail != nil || !since.isEmpty
+                // text and detail line take two lines; without a detail line the text may use both
+                NowSlot {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(line.text)
+                            .font(.system(size: 13, weight: line.kind == .permission ? .semibold : .regular))
+                            .foregroundStyle(line.kind == .permission ? Hive.ink : Hive.ink2)
+                            .lineLimit(hasDetail ? 1 : 2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if hasDetail {
+                            HStack(spacing: 5) {
+                                if let d = line.detail { CodeChip(text: d) }
+                                if !since.isEmpty { Text(line.detail == nil ? since : "· \(since)").fixedSize() }
+                            }
+                            .font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(1)
+                        }
                     }
-                    .font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(1)
                 }
                 if buttons, let s = answerFor {
                     AnswerButtons(session: s, line: line).padding(.top, 4)
@@ -190,6 +216,24 @@ struct NowBox: View {
             }
             Spacer(minLength: 0)
         }
+    }
+}
+
+/// Reserves the height of a "Now" line plus its detail line, so cards with less to say are just as tall.
+/// The content sits on top.
+struct NowSlot<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(" ").font(.system(size: 13))
+                CodeChip(text: " ").font(.system(size: 12))
+            }
+            .hidden()
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 

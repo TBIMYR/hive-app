@@ -124,6 +124,23 @@ extension View {
     }
 }
 
+// MARK: Equal heights in a grid
+
+/// Natural height of the tallest view in a grid that uses `matchTallest`.
+struct TallestKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+extension View {
+    /// Reports its natural height (measured before growing, so it can shrink again) and grows to `height`,
+    /// the tallest of its grid, with the content on top. The grid reads it with `onPreferenceChange(TallestKey.self)`.
+    func matchTallest(_ height: CGFloat) -> some View {
+        background { GeometryReader { g in Color.clear.preference(key: TallestKey.self, value: g.size.height) } }
+            .frame(minHeight: height, alignment: .topLeading)
+    }
+}
+
 /// Pill for running background agents/shell commands: green capsule, slowly turning arrows and the count.
 /// Nothing when count is 0. Respects "Reduce motion".
 struct BackgroundBadge: View {

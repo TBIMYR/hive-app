@@ -25,15 +25,25 @@ struct SessionTileGrid: View {
         }
     }
 
-    private func grid(_ part: [OverviewItem]) -> some View {
+    private func grid(_ part: [OverviewItem]) -> some View { TileGrid(part: part) }
+}
+
+/// Grid of tiles, all as tall as the tallest one.
+private struct TileGrid: View {
+    @EnvironmentObject private var store: StateStore
+    let part: [OverviewItem]
+    @State private var tallest: CGFloat = 0
+
+    var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 16, alignment: .top)],
                   alignment: .leading, spacing: 16) {
             ForEach(part) { it in
-                SmallTile(item: it, isSelected: it.name == store.selected) { store.toggleFavorite(it.name) }
+                SmallTile(item: it, isSelected: it.name == store.selected, minBody: tallest) { store.toggleFavorite(it.name) }
                     .onTapGesture { store.selected = it.name }
                     .contextMenu { SessionMenu(store: store, session: it.session) }
             }
         }
+        .onPreferenceChange(TallestKey.self) { tallest = $0 }
     }
 }
 
@@ -41,6 +51,8 @@ struct SessionTileGrid: View {
 struct SmallTile: View {
     let item: OverviewItem
     let isSelected: Bool
+    /// Height of the tallest middle part (Now or task) in the grid; this one grows to it
+    var minBody: CGFloat = 0
     let toggleFavorite: () -> Void
 
     var body: some View {
@@ -61,21 +73,24 @@ struct SmallTile: View {
                 StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)
             }
-            if let now {
-                // one line of text, below it command/file; together as tall as two lines of task
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(now.text)
-                        .font(.system(size: 13, weight: now.kind == .permission ? .semibold : .regular))
-                        .foregroundStyle(now.kind == .permission ? Hive.ink : Hive.ink2)
-                    Text(now.detail ?? " ").font(.hiveMono(11.5)).foregroundStyle(Hive.muted).truncationMode(.middle)
+            Group {
+                if let now {
+                    // one line of text, below it command/file; together as tall as two lines of task
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(now.text)
+                            .font(.system(size: 13, weight: now.kind == .permission ? .semibold : .regular))
+                            .foregroundStyle(now.kind == .permission ? Hive.ink : Hive.ink2)
+                        Text(now.detail ?? " ").font(.hiveMono(11.5)).foregroundStyle(Hive.muted).truncationMode(.middle)
+                    }
+                    .lineLimit(1)
+                } else {
+                    Text(text)
+                        .font(.system(size: 13))
+                        .foregroundStyle(!loud && task == nil ? Hive.muted : Hive.ink2)
+                        .lineLimit(2, reservesSpace: true)
                 }
-                .lineLimit(1)
-            } else {
-                Text(text)
-                    .font(.system(size: 13))
-                    .foregroundStyle(!loud && task == nil ? Hive.muted : Hive.ink2)
-                    .lineLimit(2, reservesSpace: true)
             }
+            .matchTallest(minBody)
             HStack(spacing: 6) {
                 Circle().fill(item.color).frame(width: 6, height: 6)
                 Text(item.since.isEmpty ? item.project : "\(item.project) · \(item.since)")
