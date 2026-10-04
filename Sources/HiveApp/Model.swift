@@ -60,6 +60,8 @@ final class StateStore: ObservableObject {
     @Published private(set) var focusRequest = 0
     /// Open confirmation for "Close…"/"Restart…"
     @Published var closeRequest: CloseRequest?
+    /// Open confirmation for "Force Quit…"
+    @Published var forceQuitRequest: ForceQuitRequest?
     /// Notice shown as an alert (e.g. session not finished after 15 s)
     @Published var notice: String?
     /// Incremented after a restart: the terminal attaches to the new tmux session of the same name
@@ -277,6 +279,42 @@ final class StateStore: ObservableObject {
             }
             await refresh()
         }
+    }
+
+    /// "Force Quit…" menu item: remember the process (PID + start time), then confirm.
+    func requestForceQuit(_ s: Session) {
+        guard let pid = s.pid else { return }
+        guard let started = ProcessControl.startTime(pid) else {
+            notice = "\(s.name) is no longer running."
+            refreshSoon()
+            return
+        }
+        forceQuitRequest = ForceQuitRequest(session: s, pid: pid, started: started)
+    }
+
+    /// Ends the process by PID (SIGTERM, then SIGKILL). Its terminal, if any, stays open.
+    func forceQuit(_ r: ForceQuitRequest) {
+        Task {
+            if let e = await ProcessControl.forceQuit(pid: r.pid, started: r.started) {
+                notice = "Could not force quit \(r.session.name): \(e)"
+            }
+            await refresh()
+        }
+    }
+}
+
+/// Confirmation for "Force Quit…" (ContentView shows the dialog).
+struct ForceQuitRequest: Identifiable {
+    let session: Session
+    let pid: Int
+    let started: Date
+
+    var id: String { session.id }
+    var title: String { "Force quit \(session.name)?" }
+    var message: String {
+        let what = "Ends the process (PID \(pid)) without /exit. Unsaved work in the session is lost."
+        let warnings = SessionControl.closeWarnings(session).map { $0 + "." }
+        return ([what] + warnings).joined(separator: "\n")
     }
 }
 

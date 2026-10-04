@@ -185,6 +185,15 @@ struct ContentView: View {
         } message: { r in
             Text(r.message)
         }
+        .alert(store.forceQuitRequest?.title ?? "",
+               isPresented: Binding(get: { store.forceQuitRequest != nil },
+                                    set: { if !$0 { store.forceQuitRequest = nil } }),
+               presenting: store.forceQuitRequest) { r in
+            Button("Force Quit", role: .destructive) { store.forceQuit(r) }
+            Button("Cancel", role: .cancel) {}
+        } message: { r in
+            Text(r.message)
+        }
         .alert("Hive",
                isPresented: Binding(get: { store.notice != nil }, set: { if !$0 { store.notice = nil } })) {
             Button("OK") {}

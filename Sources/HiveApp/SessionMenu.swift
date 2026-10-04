@@ -27,5 +27,8 @@ struct SessionMenu: View {
         }
         .disabled(!inHive)
         .help(help)
+        // by PID: also for iTerm and background sessions, or when /exit doesn't help
+        Button("Force Quit…") { store.requestForceQuit(session) }
+            .disabled(!session.alive || session.pid == nil)
     }
 }
