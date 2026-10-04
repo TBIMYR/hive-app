@@ -1,7 +1,8 @@
+import MarkdownUI
 import SwiftUI
 
 /// Handover einer Session lesen, wie die Seitenleiste im Dashboard.
-/// Einfaches Markdown: Überschriften, Aufzählungen (auch eingerückt), Absätze mit Inline-Formatierung.
+/// Rendert das Markdown (ohne Frontmatter, das schneidet `Handover.body` ab) mit MarkdownUI im Theme `.hive`.
 struct HandoverView: View {
     @EnvironmentObject private var store: StateStore
     let name: String
@@ -10,9 +11,9 @@ struct HandoverView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 6) {
+            Group {
                 if let text {
-                    ForEach(Array(Self.blocks(text).enumerated()), id: \.offset) { _, b in row(b) }
+                    Markdown(text).markdownTheme(.hive)
                 } else if loaded {
                     Text("No handover.").foregroundStyle(Hive.muted)
                 }
@@ -28,46 +29,130 @@ struct HandoverView: View {
             loaded = true
         }
     }
+}
 
-    private enum Block { case h(Int, String), bullet(Int, String), para(String), gap }
-
-    private static func blocks(_ text: String) -> [Block] {
-        var out: [Block] = []
-        for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
-            let line = String(raw)
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            let indent = (line.count - line.drop { $0 == " " }.count) / 2
-            if trimmed.isEmpty {
-                if case .gap = out.last {} else if !out.isEmpty { out.append(.gap) }
-            } else if trimmed.hasPrefix("### ") { out.append(.h(3, String(trimmed.dropFirst(4))))
-            } else if trimmed.hasPrefix("## ") { out.append(.h(2, String(trimmed.dropFirst(3))))
-            } else if trimmed.hasPrefix("# ") { out.append(.h(1, String(trimmed.dropFirst(2))))
-            } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-                out.append(.bullet(indent, String(trimmed.dropFirst(2))))
-            } else { out.append(.para(trimmed)) }
+/// Ruhige Lese-Typografie für Handover: 13,5 pt Fließtext, großzügiger Zeilen- und Absatzabstand,
+/// Farben aus `Hive` (hell/dunkel dynamisch).
+extension Theme {
+    static let hive = Theme()
+        .text {
+            ForegroundColor(Hive.ink)
+            FontSize(13.5)
         }
-        return out
-    }
-
-    @ViewBuilder
-    private func row(_ b: Block) -> some View {
-        switch b {
-        case .h(1, let t): Text(inline(t)).font(.system(size: 17, weight: .bold)).padding(.bottom, 4)
-        case .h(2, let t): Text(inline(t)).font(.system(size: 14, weight: .semibold)).padding(.top, 10)
-        case .h(_, let t): Text(inline(t)).font(.system(size: 13, weight: .semibold)).padding(.top, 6)
-        case .bullet(let level, let t):
-            HStack(alignment: .firstTextBaseline, spacing: 7) {
-                Text("•").foregroundStyle(Hive.muted)
-                Text(inline(t)).fixedSize(horizontal: false, vertical: true)
+        .code {
+            FontFamilyVariant(.monospaced)
+            FontSize(.em(0.88))
+            BackgroundColor(Hive.soft)
+        }
+        .strong { FontWeight(.semibold) }
+        .link { ForegroundColor(Hive.shell) }
+        .heading1 { c in
+            c.label
+                .markdownMargin(top: 0, bottom: 14)
+                .markdownTextStyle {
+                    FontSize(20)
+                    FontWeight(.bold)
+                }
+        }
+        .heading2 { c in
+            c.label
+                .markdownMargin(top: 22, bottom: 8)
+                .markdownTextStyle {
+                    FontSize(16)
+                    FontWeight(.semibold)
+                }
+        }
+        .heading3 { c in
+            c.label
+                .markdownMargin(top: 16, bottom: 6)
+                .markdownTextStyle {
+                    FontSize(14)
+                    FontWeight(.semibold)
+                }
+        }
+        .heading4 { c in
+            c.label
+                .markdownMargin(top: 12, bottom: 4)
+                .markdownTextStyle {
+                    FontSize(13.5)
+                    FontWeight(.semibold)
+                    ForegroundColor(Hive.ink2)
+                }
+        }
+        .paragraph { c in
+            c.label
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(4.5)
+                .markdownMargin(top: 0, bottom: 10)
+        }
+        .list { c in
+            c.label.markdownMargin(top: 0, bottom: 10)
+        }
+        .listItem { c in
+            c.label.markdownMargin(top: 4)
+        }
+        .bulletedListMarker { _ in
+            Text("•")
+                .foregroundStyle(Hive.muted)
+                .relativeFrame(minWidth: .em(1.2), alignment: .trailing)
+        }
+        .numberedListMarker { c in
+            Text("\(c.itemNumber).")
+                .monospacedDigit()
+                .foregroundStyle(Hive.muted)
+                .relativeFrame(minWidth: .em(1.6), alignment: .trailing)
+        }
+        .blockquote { c in
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(Hive.hair2)
+                    .frame(width: 3)
+                c.label
+                    .markdownTextStyle { ForegroundColor(Hive.ink2) }
+                    .padding(.leading, 12)
             }
-            .font(.system(size: 13)).padding(.leading, CGFloat(level) * 16)
-        case .para(let t): Text(inline(t)).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
-        case .gap: Color.clear.frame(height: 4)
+            .fixedSize(horizontal: false, vertical: true)
+            .markdownMargin(top: 0, bottom: 10)
         }
-    }
-
-    private func inline(_ s: String) -> AttributedString {
-        let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        return (try? AttributedString(markdown: s, options: opts)) ?? AttributedString(s)
-    }
+        .codeBlock { c in
+            ScrollView(.horizontal) {
+                c.label
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(3)
+                    .markdownTextStyle {
+                        FontFamilyVariant(.monospaced)
+                        FontSize(12)
+                    }
+                    .padding(12)
+            }
+            .scrollIndicators(.never)
+            .background(Hive.soft)
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Hive.hair, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .markdownMargin(top: 0, bottom: 12)
+        }
+        .table { c in
+            c.label
+                .fixedSize(horizontal: false, vertical: true)
+                .markdownTableBorderStyle(.init(color: Hive.hair))
+                .markdownTableBackgroundStyle(.alternatingRows(Color.clear, Hive.soft))
+                .markdownMargin(top: 0, bottom: 12)
+        }
+        .tableCell { c in
+            c.label
+                .markdownTextStyle {
+                    if c.row == 0 { FontWeight(.semibold) }
+                    FontSize(13)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(3)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+        }
+        .thematicBreak {
+            Rectangle()
+                .fill(Hive.hair)
+                .frame(height: 1)
+                .markdownMargin(top: 14, bottom: 14)
+        }
 }
