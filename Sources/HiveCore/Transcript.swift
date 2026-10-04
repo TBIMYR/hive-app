@@ -23,14 +23,21 @@ public struct WorkAction: Codable, Equatable, Sendable {
     public let pending: Bool
     /// AskUserQuestion: Beschriftungen der Optionen der ersten Frage
     public let options: [String]?
+    /// AskUserQuestion: Anzahl der Fragen
+    public let questionCount: Int?
+    /// AskUserQuestion: erste Frage mit Mehrfachauswahl
+    public let multiSelect: Bool?
 
-    public init(tool: String, text: String, detail: String?, at: String?, pending: Bool, options: [String]? = nil) {
+    public init(tool: String, text: String, detail: String?, at: String?, pending: Bool, options: [String]? = nil,
+                questionCount: Int? = nil, multiSelect: Bool? = nil) {
         self.tool = tool
         self.text = text
         self.detail = detail
         self.at = at
         self.pending = pending
         self.options = options
+        self.questionCount = questionCount
+        self.multiSelect = multiSelect
     }
 }
 
@@ -125,6 +132,8 @@ public enum Transcript {
         let text: String
         var detail: String? = nil
         var options: [String]? = nil
+        var questionCount: Int? = nil
+        var multiSelect: Bool? = nil
         switch tool {
         case "Bash":
             let cmd = str("command").map { $0.replacingOccurrences(of: home + "/", with: "~/") }
@@ -147,7 +156,10 @@ public enum Transcript {
         case "WebSearch":
             text = str("query").map { "Browsing " + clip($0, 60) } ?? tool
         case "AskUserQuestion":
-            let first = (input["questions"] as? [Any])?.first as? [String: Any]
+            let questions = input["questions"] as? [Any]
+            let first = questions?.first as? [String: Any]
+            questionCount = questions?.count
+            multiSelect = first?["multiSelect"] as? Bool
             text = (first?["question"] as? String).map(oneLine).nonEmpty.map { clip($0, maxSentence) } ?? tool
             options = (first?["options"] as? [Any])?.compactMap { o in
                 ((o as? [String: Any])?["label"] as? String).map(oneLine).nonEmpty.map { clip($0, 60) }
@@ -155,7 +167,8 @@ public enum Transcript {
         default:
             text = tool
         }
-        return WorkAction(tool: tool, text: text, detail: detail, at: at, pending: pending, options: options)
+        return WorkAction(tool: tool, text: text, detail: detail, at: at, pending: pending, options: options,
+                          questionCount: questionCount, multiSelect: multiSelect)
     }
 
     // MARK: letzter Satz

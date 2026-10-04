@@ -12,6 +12,12 @@ public enum SessionControl {
          ["send-keys", "-t", target(name), "Enter"]]
     }
 
+    /// Bildschirm der Session als Text (nur lesen).
+    public static func captureArgs(_ name: String) -> [String] { ["capture-pane", "-p", "-t", target(name)] }
+
+    /// Eine Taste schicken (Ziffer einer Option, „Enter“).
+    public static func keyArgs(_ key: String, into name: String) -> [String] { ["send-keys", "-t", target(name), key] }
+
     public static func killArgs(_ name: String) -> [String] { ["kill-session", "-t", target(name)] }
 
     /// Text aus dem Antwortfeld ohne Rand; nil = nichts schicken.

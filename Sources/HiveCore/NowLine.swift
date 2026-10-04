@@ -23,13 +23,16 @@ public struct NowLine: Equatable, Sendable {
     public let at: String?
     /// Optionen einer offenen AskUserQuestion (nur .choice)
     public let options: [String]
+    /// .choice mit genau einer Frage ohne Mehrfachauswahl: per Knopf beantwortbar
+    public let singleChoice: Bool
 
-    public init(kind: Kind, text: String, detail: String?, at: String?, options: [String] = []) {
+    public init(kind: Kind, text: String, detail: String?, at: String?, options: [String] = [], singleChoice: Bool = false) {
         self.kind = kind
         self.text = text
         self.detail = detail
         self.at = at
         self.options = options
+        self.singleChoice = singleChoice
     }
 
     /// `rank` aus SessionStatus (0 braucht dich, 1 arbeitet, sonst bereit/offline). nil = kein Kasten.
@@ -41,7 +44,9 @@ public struct NowLine: Equatable, Sendable {
             self.init(kind: .working, text: action.text, detail: action.detail, at: action.at)
         case 0:
             if let action, action.pending, action.tool == "AskUserQuestion" {
-                self.init(kind: .choice, text: action.text, detail: nil, at: nil, options: action.options ?? [])
+                let options = action.options ?? []
+                self.init(kind: .choice, text: action.text, detail: nil, at: nil, options: options,
+                          singleChoice: action.questionCount == 1 && action.multiSelect != true && !options.isEmpty)
             } else if action?.pending == true || s.waitsForPermission {
                 self.init(kind: .permission, text: action.map { "Allow \($0.tool)?" } ?? "Allow tool?",
                           detail: action?.detail, at: nil)

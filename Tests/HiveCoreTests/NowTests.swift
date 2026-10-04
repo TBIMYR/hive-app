@@ -216,3 +216,32 @@ private func task(_ at: String?) -> Session.TaskLine { .init(text: "Kalender", s
     #expect(!Session(name: "fj.01", group: "fj", task: task("2026-10-04T05:00:00Z")).taskOutdated)
     #expect(!Session(name: "fj.01", group: "fj", statusUpdatedAt: "2026-10-04T08:00:00Z", task: task(nil)).taskOutdated)
 }
+
+// MARK: Antwort-Knöpfe
+
+@Test func askUserQuestionMerktSichAnzahlDerFragenUndMultiSelect() throws {
+    let one = try #require(action(toolUse("AskUserQuestion", ["questions": [["question": "Push?", "multiSelect": false,
+                                                                           "options": [["label": "Yes"], ["label": "No"]]]]])))
+    #expect(one.questionCount == 1)
+    #expect(one.multiSelect == false)
+    let multi = try #require(action(toolUse("AskUserQuestion", ["questions": [["question": "Which?", "multiSelect": true,
+                                                                             "options": [["label": "A"], ["label": "B"]]]]])))
+    #expect(multi.multiSelect == true)
+    let two = try #require(action(toolUse("AskUserQuestion", ["questions": [["question": "A?", "options": [["label": "x"]]],
+                                                                           ["question": "B?", "options": [["label": "y"]]]]])))
+    #expect(two.questionCount == 2)
+}
+
+@Test func knoepfeNurBeiGenauEinerFrageOhneMultiSelect() {
+    func line(count: Int?, multi: Bool?) -> NowLine? {
+        let ask = WorkAction(tool: "AskUserQuestion", text: "Push?", detail: nil, at: nil, pending: true,
+                             options: ["Yes", "Later"], questionCount: count, multiSelect: multi)
+        return NowLine(Session(name: "or.01", group: "or", status: "waiting", lastAction: ask), rank: 0)
+    }
+    #expect(line(count: 1, multi: false)?.singleChoice == true)
+    #expect(line(count: 1, multi: nil)?.singleChoice == true)
+    #expect(line(count: 1, multi: true)?.singleChoice == false)
+    #expect(line(count: 2, multi: false)?.singleChoice == false)
+    // altes Protokoll ohne Anzahl: lieber keine Knöpfe
+    #expect(line(count: nil, multi: nil)?.singleChoice == false)
+}
