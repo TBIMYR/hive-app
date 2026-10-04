@@ -82,14 +82,14 @@ extension Theme {
         .paragraph { c in
             c.label
                 .fixedSize(horizontal: false, vertical: true)
-                .lineSpacing(7)
-                .markdownMargin(top: 0, bottom: 14)
+                .relativeLineSpacing(.em(0.65))
+                .markdownMargin(top: 0, bottom: 16)
         }
         .list { c in
             c.label.markdownMargin(top: 0, bottom: 14)
         }
         .listItem { c in
-            c.label.markdownMargin(top: 7)
+            c.label.markdownMargin(top: 10)
         }
         .bulletedListMarker { _ in
             Text("•")
