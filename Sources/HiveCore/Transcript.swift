@@ -68,6 +68,23 @@ public enum Transcript {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Like `readTail`, but follows `continued-in` lines: when a conversation moves to a background
+    /// session, the old transcript ends with `{"type":"continued-in","continuedInSessionId":…}` and the
+    /// registry may still point at it. Follows at most a few hops and only to files that exist.
+    public static func readTailFollowingContinuation(dir: String, sessionId: String, bytes: Int = defaultTailBytes) -> String {
+        var text = readTail("\(dir)/\(sessionId).jsonl", bytes: bytes)
+        for _ in 0..<5 {
+            guard let last = text.split(separator: "\n").last(where: { !$0.allSatisfy(\.isWhitespace) }),
+                  last.contains("\"continued-in\""),
+                  let obj = try? JSONSerialization.jsonObject(with: Data(last.utf8)) as? [String: Any],
+                  obj["type"] as? String == "continued-in",
+                  let next = obj["continuedInSessionId"] as? String,
+                  FileManager.default.fileExists(atPath: "\(dir)/\(next).jsonl") else { break }
+            text = readTail("\(dir)/\(next).jsonl", bytes: bytes)
+        }
+        return text
+    }
+
     public static func parseTail(_ text: String) -> Tail {
         var tail = Tail()
         // tool_results from more recent lines (already seen, since we read backwards)

@@ -128,7 +128,7 @@ public enum StateBuilder {
             var tail = Tail()
             var background = 0
             if let sid = e.sessionId, !e.cwd.isEmpty {
-                let text = Transcript.readTail("\(claudeHome)/projects/\(Project.slug(e.cwd))/\(sid).jsonl")
+                let text = Transcript.readTailFollowingContinuation(dir: "\(claudeHome)/projects/\(Project.slug(e.cwd))", sessionId: sid)
                 tail = Transcript.parseTail(text)
                 background = backgroundTasks(alive: e.alive, text: text, now: now)
             }

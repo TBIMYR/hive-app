@@ -33,3 +33,25 @@ private func full() throws -> String { try String(contentsOfFile: file, encoding
 @Test func missingFileYieldsEmptyString() {
     #expect(Transcript.readTail("/nonexistent.jsonl", bytes: 100) == "")
 }
+
+@Test func readTailFollowingContinuationJumpsToTheNewTranscript() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hive-cont-\(UUID().uuidString)").path
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(atPath: dir) }
+    try #"{"type":"user","message":{"role":"user","content":"old"}}\#n{"type":"continued-in","continuedInSessionId":"new"}\#n"#
+        .write(toFile: "\(dir)/old.jsonl", atomically: true, encoding: .utf8)
+    try #"{"type":"user","message":{"role":"user","content":"fresh"}}\#n"#
+        .write(toFile: "\(dir)/new.jsonl", atomically: true, encoding: .utf8)
+    #expect(Transcript.readTailFollowingContinuation(dir: dir, sessionId: "old").contains("fresh"))
+    // without a continuation the file itself is read
+    #expect(Transcript.readTailFollowingContinuation(dir: dir, sessionId: "new").contains("fresh"))
+}
+
+@Test func readTailFollowingContinuationStopsAtMissingFiles() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hive-cont-\(UUID().uuidString)").path
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(atPath: dir) }
+    try #"{"type":"user","message":{"role":"user","content":"old"}}\#n{"type":"continued-in","continuedInSessionId":"gone"}\#n"#
+        .write(toFile: "\(dir)/old.jsonl", atomically: true, encoding: .utf8)
+    #expect(Transcript.readTailFollowingContinuation(dir: dir, sessionId: "old").contains("old"))
+}
