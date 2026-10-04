@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The store belongs to the AppDelegate so the notification delegate is set up before the first window appears.
     let store = StateStore()
     let todos = TodoStore()
+    let usage = UsageStore()
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         store.notifier.start()
@@ -31,6 +32,7 @@ struct HiveApp: App {
             ContentView()
                 .environmentObject(delegate.store)
                 .environmentObject(delegate.todos)
+                .environmentObject(delegate.usage)
                 .frame(minWidth: 900, minHeight: 560)
         }
         .defaultSize(width: 1440, height: 860)
@@ -51,6 +53,7 @@ struct HiveApp: App {
 
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
+    @EnvironmentObject private var usage: UsageStore
     /// Width of the terminal in points, changed by dragging the divider; 0 = default (⅓ of the window)
     @AppStorage("terminalWidth") private var terminalWidth: Double = 0
     @AppStorage("todoVisible") private var todoVisible = false
@@ -101,14 +104,18 @@ struct ContentView: View {
             .keyboardShortcut("n")
     }
 
-    /// Todo and New Session at the right edge of the title bar; from macOS 26 a flexible spacer pushes them there
+    /// Plan usage, Todo and New Session at the right edge of the title bar; from macOS 26 a flexible spacer
+    /// pushes them there. Without usage data the usage item is left out.
     @ToolbarContentBuilder
     private var actions: some ToolbarContent {
+        let hasUsage = usage.current(now: store.now) != nil
         if #available(macOS 26, *) {
             ToolbarSpacer(.flexible)
+            if hasUsage { ToolbarItem(placement: .automatic) { UsageButton() } }
             ToolbarItem(placement: .automatic) { todoButton }
             ToolbarItem(placement: .automatic) { newSessionButton }
         } else {
+            if hasUsage { ToolbarItem(placement: .primaryAction) { UsageButton() } }
             ToolbarItem(placement: .primaryAction) { todoButton }
             ToolbarItem(placement: .primaryAction) { newSessionButton }
         }
