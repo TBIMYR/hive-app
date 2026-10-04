@@ -147,7 +147,7 @@ final class StateStore: ObservableObject {
 
     func isFavorite(_ name: String) -> Bool { favorites.contains(name) }
 
-    /// Herz oder Rechtsklick-Menü: Favorit an/aus, gespeichert unter `pinned`.
+    /// Stern oder Rechtsklick-Menü: Favorit an/aus, gespeichert unter `pinned`.
     func toggleFavorite(_ name: String) {
         favorites = Favorites.toggling(name, in: favorites)
         UserDefaults.standard.set(favorites, forKey: "pinned")

@@ -76,8 +76,8 @@ struct TodoPanel: View {
 
     @AppStorage("todoX") private var storedX: Double = -1
     @AppStorage("todoY") private var storedY: Double = -1
-    @AppStorage("todoW") private var storedW: Double = 300
-    @AppStorage("todoH") private var storedH: Double = 360
+    @AppStorage("todoW") private var storedW: Double = TodoPanel.defaultSize.width
+    @AppStorage("todoH") private var storedH: Double = TodoPanel.defaultSize.height
 
     @State private var dragStart: CGPoint?
     @State private var resizeStart: CGSize?
@@ -89,7 +89,9 @@ struct TodoPanel: View {
 
     private enum Field: Hashable { case add, item(Int) }
 
-    static let minSize = CGSize(width: 240, height: 180)
+    static let minSize = CGSize(width: 260, height: 220)
+    /// Größe beim ersten Öffnen und nach dem Zurücksetzen (Doppelklick auf die Kopfzeile)
+    static let defaultSize = CGSize(width: 380, height: 460)
 
     private var size: CGSize {
         CGSize(width: min(max(storedW, Self.minSize.width), max(Self.minSize.width, bounds.width)).rounded(),
@@ -113,7 +115,7 @@ struct TodoPanel: View {
                 VStack(spacing: 0) {
                     ForEach(todos.list.ordered) { row($0) }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 6)
             }
             .scrollIndicators(.never)
             addField
@@ -136,21 +138,23 @@ struct TodoPanel: View {
     // MARK: Teile
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 9) {
             Image(systemName: "line.3.horizontal")
-                .font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.hair2)
-            Text("Todo").font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.ink)
-            Text("\(todos.list.open.count) open").font(.system(size: 12)).foregroundStyle(Hive.muted).monospacedDigit()
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.hair2)
+            Text("Todo").font(.system(size: 14, weight: .semibold)).foregroundStyle(Hive.ink)
+            Text("\(todos.list.open.count) open").font(.system(size: 13)).foregroundStyle(Hive.muted).monospacedDigit()
             Spacer(minLength: 4)
             Button { visible = false } label: {
-                Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted)
-                    .frame(width: 20, height: 20).contentShape(Rectangle())
+                Image(systemName: "xmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
+                    .frame(width: 24, height: 24).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Hide (⌘T)")
         }
-        .padding(.leading, 14).padding(.trailing, 8).frame(height: 38)
+        .padding(.leading, 16).padding(.trailing, 10).frame(height: 44)
         .contentShape(Rectangle())
+        // Doppelklick: Standardgröße, mittig im Fenster
+        .onTapGesture(count: 2) { reset() }
         .gesture(
             DragGesture(minimumDistance: 1, coordinateSpace: .global)
                 .onChanged { v in
@@ -169,21 +173,21 @@ struct TodoPanel: View {
     }
 
     private func row(_ item: TodoList.Item) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 9) {
+        HStack(alignment: .firstTextBaseline, spacing: 11) {
             Button { todos.toggle(item.id) } label: { checkbox(item.done) }
                 .buttonStyle(.plain)
-                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
+                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
             if editing == item.id {
                 TextField("", text: $draft)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundStyle(Hive.ink)
                     .focused($focus, equals: .item(item.id))
                     .onSubmit { commit(); focus = nil }
                     .onExitCommand { editing = nil; focus = nil }
             } else {
                 Text(item.text)
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .strikethrough(item.done)
                     .foregroundStyle(item.done ? Hive.muted : Hive.ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,13 +196,13 @@ struct TodoPanel: View {
             }
             if hovered == item.id && editing != item.id {
                 Button { todos.remove(item.id) } label: {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Hive.muted)
+                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted)
                 }
                 .buttonStyle(.plain)
                 .help("Delete")
             }
         }
-        .padding(.horizontal, 14).padding(.vertical, 6)
+        .padding(.horizontal, 16).padding(.vertical, 11)
         .background(hovered == item.id ? Hive.bg : Color.clear)
         .onHover { inside in
             if inside { hovered = item.id } else if hovered == item.id { hovered = nil }
@@ -206,22 +210,22 @@ struct TodoPanel: View {
     }
 
     private func checkbox(_ done: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 4)
+        RoundedRectangle(cornerRadius: 5)
             .fill(done ? Hive.ink : Color.clear)
-            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(done ? Hive.ink : Hive.idle, lineWidth: 1.5))
+            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(done ? Hive.ink : Hive.idle, lineWidth: 1.5))
             .overlay {
                 if done {
-                    Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Hive.card)
+                    Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Hive.card)
                 }
             }
-            .frame(width: 15, height: 15)
+            .frame(width: 18, height: 18)
             .contentShape(Rectangle())
     }
 
     private var addField: some View {
         TextField("Add a todo…", text: $newText)
             .textFieldStyle(.plain)
-            .font(.system(size: 13))
+            .font(.system(size: 14))
             .focused($focus, equals: .add)
             .onSubmit {
                 todos.add(newText)
@@ -229,9 +233,10 @@ struct TodoPanel: View {
                 focus = .add   // bleibt für den nächsten Eintrag
             }
             .onExitCommand { focus = nil }
-            .padding(.horizontal, 10).padding(.vertical, 7)
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Hive.hair, lineWidth: 1))
-            .padding(.horizontal, 12).padding(.top, 6).padding(.bottom, 4)
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Hive.hair, lineWidth: 1))
+            .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 6)
     }
 
     private var footer: some View {
@@ -246,9 +251,9 @@ struct TodoPanel: View {
                 Button("Clear done") { todos.clearDone() }.buttonStyle(.plain)
             }
         }
-        .font(.system(size: 11.5))
+        .font(.system(size: 12.5))
         .foregroundStyle(Hive.muted)
-        .padding(.leading, 14).padding(.trailing, 20).padding(.top, 6).padding(.bottom, 10)
+        .padding(.leading, 16).padding(.trailing, 24).padding(.top, 8).padding(.bottom, 14)
     }
 
     private var resizeGrip: some View {
@@ -281,6 +286,15 @@ struct TodoPanel: View {
                     .onEnded { _ in resizeStart = nil }
             )
             .help("Resize")
+    }
+
+    /// Zurück auf Standardgröße, mittig im Fenster (gemerkte Werte werden überschrieben).
+    private func reset() {
+        let w = min(Self.defaultSize.width, max(Self.minSize.width, bounds.width))
+        let h = min(Self.defaultSize.height, max(Self.minSize.height, bounds.height))
+        storedW = Double(w); storedH = Double(h)
+        storedX = Double(max(0, (bounds.width - w) / 2)).rounded()
+        storedY = Double(max(0, (bounds.height - h) / 2)).rounded()
     }
 
     // MARK: Bearbeiten

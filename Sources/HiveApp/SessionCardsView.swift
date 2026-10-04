@@ -56,7 +56,6 @@ struct Tile: View {
     let now: Date
     let isFavorite: Bool
     let toggleFavorite: () -> Void
-    @State private var hover = false
 
     private var isPm: Bool { session.isPm == true }
 
@@ -67,9 +66,10 @@ struct Tile: View {
                 if isPm { Token(text: session.abbr, color: color) }
                 Text(session.name).font(.hiveMono(isPm ? 16 : 15, .semibold)).lineLimit(1).fixedSize()
                 Spacer(minLength: 8)
-                HeartButton(isOn: isFavorite, visible: hover, toggle: toggleFavorite)
                 StatusLabel(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
                     .layoutPriority(-1)
+                StarButton(isOn: isFavorite, toggle: toggleFavorite)
+                    .padding(.trailing, -4)
             }
 
             if let why = status.why {
@@ -124,12 +124,11 @@ struct Tile: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(isSelected ? Hive.ink : (status.rank == 0 ? status.color.opacity(0.5) : (isPm ? color.opacity(0.35) : Hive.hair)),
-                              lineWidth: isSelected ? 2 : 1)
+                              lineWidth: isSelected ? 3 : 1)
         )
         .overlay { if status.rank == 1 && !isSelected { PulsingBorder(color: status.color) } }
         .opacity(status.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
-        .onHover { hover = $0 }
     }
 
     /// Markdown der Antwort (fett, Code …) als formatierter Text statt mit Sternchen; Zeilenumbrüche raus.

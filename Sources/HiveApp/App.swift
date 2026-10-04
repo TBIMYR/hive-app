@@ -89,6 +89,31 @@ struct ContentView: View {
         }
     }
 
+    private var todoButton: some View {
+        Button { todoVisible.toggle() } label: { Label("Todo List", systemImage: "checklist") }
+            .help(todoVisible ? "Hide the todo list (⌘T)" : "Show the todo list (⌘T)")
+    }
+
+    private var newSessionButton: some View {
+        Button { store.newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
+            .disabled(Tmux.path == nil)
+            .help("Start a new session in tmux (⌘N)")
+            .keyboardShortcut("n")
+    }
+
+    /// Todo und Neue Session am rechten Rand der Titelleiste; ab macOS 26 schiebt ein flexibler Abstand sie dorthin
+    @ToolbarContentBuilder
+    private var actions: some ToolbarContent {
+        if #available(macOS 26, *) {
+            ToolbarSpacer(.flexible)
+            ToolbarItem(placement: .automatic) { todoButton }
+            ToolbarItem(placement: .automatic) { newSessionButton }
+        } else {
+            ToolbarItem(placement: .primaryAction) { todoButton }
+            ToolbarItem(placement: .primaryAction) { newSessionButton }
+        }
+    }
+
     var body: some View {
         GeometryReader { geo in
             let total = Double(geo.size.width)
@@ -123,7 +148,7 @@ struct ContentView: View {
             .overlay(alignment: .topLeading) {
                 if todoVisible {
                     TodoPanel(bounds: geo.size,
-                              defaultOrigin: CGPoint(x: total - w - 300 - 26, y: 64),
+                              defaultOrigin: CGPoint(x: total - w - TodoPanel.defaultSize.width - 26, y: 64),
                               visible: $todoVisible)
                 }
             }
@@ -132,16 +157,7 @@ struct ContentView: View {
         .onAppear { NSApp.windows.forEach { $0.titleVisibility = .hidden } }
         .toolbar {
             brand
-            ToolbarItem(placement: .automatic) {
-                Button { todoVisible.toggle() } label: { Label("Todo List", systemImage: "checklist") }
-                    .help(todoVisible ? "Hide the todo list (⌘T)" : "Show the todo list (⌘T)")
-            }
-            ToolbarItem(placement: .automatic) {
-                Button { store.newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
-                    .disabled(Tmux.path == nil)
-                    .help("Start a new session in tmux (⌘N)")
-                    .keyboardShortcut("n")
-            }
+            actions
         }
         .sheet(item: $store.newPreset) { preset in
             NewSessionSheet(preset: preset) { name in

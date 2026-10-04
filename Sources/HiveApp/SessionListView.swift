@@ -73,7 +73,6 @@ struct SessionRow: View {
     /// Spalten bündig bleiben
     var nameWidth: CGFloat = SessionRow.nameWidth
     let toggleFavorite: () -> Void
-    @State private var hover = false
 
     static let nameWidth: CGFloat = 140
 
@@ -97,7 +96,7 @@ struct SessionRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             Text(item.since).font(.system(size: 12)).foregroundStyle(Hive.muted).monospacedDigit()
                 .frame(width: 56, alignment: .trailing)
-            HeartButton(isOn: item.isFavorite, visible: hover, toggle: toggleFavorite)
+            StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                 .padding(.leading, -4)
         }
         .font(.system(size: 13.5))
@@ -106,9 +105,8 @@ struct SessionRow: View {
         .background(loud ? st.color.opacity(0.06) : Color.clear)
         .background(loud || striped ? Hive.card : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(isSelected ? Hive.ink : Color.clear, lineWidth: 2))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(isSelected ? Hive.ink : Color.clear, lineWidth: 3))
         .opacity(st.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
-        .onHover { hover = $0 }
     }
 }

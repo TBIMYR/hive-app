@@ -41,7 +41,6 @@ struct SmallTile: View {
     let item: OverviewItem
     let isSelected: Bool
     let toggleFavorite: () -> Void
-    @State private var hover = false
 
     var body: some View {
         let st = item.status
@@ -54,7 +53,8 @@ struct SmallTile: View {
                 Circle().fill(st.color).frame(width: 9, height: 9)
                 Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink).lineLimit(1)
                 Spacer(minLength: 4)
-                HeartButton(isOn: item.isFavorite, visible: hover, toggle: toggleFavorite)
+                StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
+                    .padding(.trailing, -4)
             }
             Text(text)
                 .font(.system(size: 13))
@@ -72,10 +72,9 @@ struct SmallTile: View {
             // arbeitend: ruhiger grünlicher Rahmen (kein Pulsieren, bei vielen Kacheln zu unruhig)
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(isSelected ? Hive.ink : (loud ? st.color.opacity(0.5) : (st.rank == 1 ? st.color.opacity(0.4) : Hive.hair)),
-                              lineWidth: isSelected ? 2 : 1)
+                              lineWidth: isSelected ? 3 : 1)
         )
         .opacity(st.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
-        .onHover { hover = $0 }
     }
 }
