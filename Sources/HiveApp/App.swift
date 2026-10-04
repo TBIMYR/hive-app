@@ -122,8 +122,11 @@ struct ContentView: View {
                 OverviewView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 TerminalPane(session: store.displaySessions.first { $0.name == store.selected })
+                    // whole points on all sides, otherwise the terminal text gets blurry
+                    .padding(.top, 8).padding(.bottom, 14).padding(.leading, 6).padding(.trailing, 14)
                     .frame(width: w)
                     .frame(maxHeight: .infinity)
+                    .background(Hive.bg)
             }
             // invisible handle on the divider: dragging changes the terminal's width
             .overlay(alignment: .topLeading) {

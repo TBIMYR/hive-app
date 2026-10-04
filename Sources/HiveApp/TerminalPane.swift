@@ -7,6 +7,7 @@ struct TerminalPane: View {
     let session: Session?
     @State private var message: String?
     @State private var showHandover = false
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,7 +38,13 @@ struct TerminalPane: View {
                     .frame(maxHeight: .infinity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // a large card like the session cards: white, rounded, soft shadow (hairline on dark)
         .background(Hive.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay { if scheme == .dark { RoundedRectangle(cornerRadius: 16).strokeBorder(Hive.hair, lineWidth: 1) } }
+        .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 1, y: 1)
+        .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 12, y: 6)
         .onChange(of: session?.name) { message = nil; showHandover = false }
         // jump key: close the handover so the terminal can get focus
         .onChange(of: store.focusRequest) { showHandover = false }
