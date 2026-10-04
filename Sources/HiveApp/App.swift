@@ -123,7 +123,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 TerminalPane(session: store.displaySessions.first { $0.name == store.selected })
                     // whole points on all sides, otherwise the terminal text gets blurry
-                    .padding(.top, 8).padding(.bottom, 14).padding(.leading, 6).padding(.trailing, 14)
+                    .padding(.vertical, Hive.margin).padding(.trailing, Hive.margin).padding(.leading, Hive.margin / 2)
                     .frame(width: w)
                     .frame(maxHeight: .infinity)
                     .background(Hive.bg)
@@ -133,7 +133,7 @@ struct ContentView: View {
                 Color.clear
                     .frame(width: 9).frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
-                    .offset(x: total - w + 6 - 4.5)  // centered on the left edge of the terminal card (leading padding 6)
+                    .offset(x: total - w + Hive.margin / 2 - 4.5)  // centered on the left edge of the terminal card
                     .onHover { inside in
                         if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
                     }

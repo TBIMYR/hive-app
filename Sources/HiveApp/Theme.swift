@@ -3,6 +3,9 @@ import SwiftUI
 
 /// Colors like the tokens in public/index.html (light / dark).
 enum Hive {
+    /// Outer margin on every side of the window content; overview and terminal share it (half each in between)
+    static let margin: CGFloat = 20
+
     private static func dyn(_ light: UInt32, _ dark: UInt32) -> Color {
         Color(nsColor: NSColor(name: nil) { app in
             app.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(hex: dark) : NSColor(hex: light)

@@ -94,11 +94,11 @@ struct OverviewView: View {
         let parts = Favorites.split(sorted, favorites: store.favorites, name: \.name)
         return VStack(alignment: .leading, spacing: 0) {
             ViewSwitcher(mode: $mode).fixedSize()
-                .padding(.horizontal, 26).padding(.top, 16).padding(.bottom, 4)
+                .padding(.leading, Hive.margin).padding(.trailing, Hive.margin / 2).padding(.top, Hive.margin).padding(.bottom, 4)
 
             ScrollView {
                 content(favorites: parts.favorites, rest: parts.rest)
-                    .padding(.horizontal, 26).padding(.top, 20).padding(.bottom, 60)
+                    .padding(.leading, Hive.margin).padding(.trailing, Hive.margin / 2).padding(.top, 20).padding(.bottom, 60)
             }
             .scrollIndicators(.never)
         }
