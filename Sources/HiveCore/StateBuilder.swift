@@ -34,6 +34,10 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public let lastAssistant: Said?
     public let lastUser: Said?
     public let task: TaskLine?
+    /// letzter Arbeitsschritt (letzter tool_use) für die Zeile „Now“; nicht im Node-Server
+    public let lastAction: WorkAction?
+    /// letzter Satz der letzten Antwort; nicht im Node-Server
+    public let lastSentence: String?
     public let hasHandover: Bool
     /// Lesefehler zu dieser Session (Handover), für einen Hinweis in der Karte
     public let errors: [String]
@@ -46,7 +50,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
                 pid: Int? = nil, kind: String? = nil, tmuxPane: String? = nil, alive: Bool = false, status: String = "offline",
                 waitingFor: String? = nil, statusUpdatedAt: String? = nil, branch: String? = nil,
                 lastAssistant: Said? = nil, lastUser: Said? = nil, task: TaskLine? = nil,
-                hasHandover: Bool = false, errors: [String] = []) {
+                lastAction: WorkAction? = nil, lastSentence: String? = nil, hasHandover: Bool = false, errors: [String] = []) {
         self.name = name
         self.project = project
         self.group = group
@@ -63,6 +67,8 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
         self.lastAssistant = lastAssistant
         self.lastUser = lastUser
         self.task = task
+        self.lastAction = lastAction
+        self.lastSentence = lastSentence
         self.hasHandover = hasHandover
         self.errors = errors
     }
@@ -104,7 +110,8 @@ public enum StateBuilder {
                 isPm: Project.isPm(e.name), cwd: e.cwd, pid: e.pid, kind: e.kind, tmuxPane: e.tmuxPane, alive: e.alive, status: status,
                 waitingFor: e.waitingFor, statusUpdatedAt: e.statusUpdatedAt, branch: tail.branch,
                 lastAssistant: clip(tail.lastAssistant), lastUser: clip(tail.lastUser),
-                task: taskOf(h, status: status, now: now), hasHandover: h != nil,
+                task: taskOf(h, status: status, now: now), lastAction: tail.lastAction, lastSentence: tail.lastSentence,
+                hasHandover: h != nil,
                 errors: h?.error.map { ["handover: \($0)"] } ?? []
             ))
             seen.insert(e.name)

@@ -26,6 +26,8 @@ private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.s
     #expect(pm.lastAssistant?.text == "Ich fange mit dem Layout an.")
     #expect(pm.lastUser?.text == "Bitte die Startseite umbauen")
     #expect(pm.branch == "feat/startseite")
+    #expect(pm.lastSentence == "Ich fange mit dem Layout an.")
+    #expect(pm.lastAction?.tool == "Bash")
     #expect(pm.project == "alpha")
     #expect(pm.group == "al")
     #expect(pm.isPm)
