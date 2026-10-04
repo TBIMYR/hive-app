@@ -98,8 +98,8 @@ private func scanner(_ dir: ProjectsDir) -> UsageScanner {
     #expect(stats.today.output == 245)
     #expect(stats.today.cacheRead == 51000)
     #expect(stats.today.input == 6)
-    #expect(stats.sessionsToday.map(\.name) == ["lu.01"])
-    #expect(stats.projectsToday.map(\.name) == ["lumen"])
+    #expect(stats.sessions(.today).map(\.name) == ["lu.01"])
+    #expect(stats.projects(.today).map(\.name) == ["lumen"])
 }
 
 @Test func aggregatesPerDayProjectAndSession() throws {
@@ -118,11 +118,13 @@ private func scanner(_ dir: ProjectsDir) -> UsageScanner {
     #expect(stats.today.output == 400)
     #expect(stats.last7Days.output == 410)
     #expect(stats.days.first?.tokens.output == 400)
-    #expect(stats.days.count == 7)
-    #expect(stats.days.map(\.tokens.output) == [400, 7, 0, 0, 0, 0, 3])
-    #expect(stats.projectsToday.map(\.name) == ["orbit", "lumen"])
+    #expect(stats.days.count == UsageStats.keptDays)
+    #expect(stats.days.prefix(7).map(\.tokens.output) == [400, 7, 0, 0, 0, 0, 3])
+    #expect(stats.days[7].tokens.output == 1000)
+    #expect(stats.last30Days.output == 1410)
+    #expect(stats.projects(.today).map(\.name) == ["orbit", "lumen"])
     // without a title: short session id
-    #expect(stats.sessionsToday.map(\.name) == ["sid-bbbb", "lu.01"])
+    #expect(stats.sessions(.today).map(\.name) == ["sid-bbbb", "lu.01"])
 }
 
 @Test func subagentTranscriptsCountForTheirSession() throws {
@@ -133,8 +135,8 @@ private func scanner(_ dir: ProjectsDir) -> UsageScanner {
     ])
     let stats = scanner(dir).scan(now: now)
     #expect(stats.today.output == 30)
-    #expect(stats.sessionsToday.map(\.name) == ["lu.pm"])
-    #expect(Set(stats.projectsToday.map(\.name)) == ["lumen", "kiosk"])
+    #expect(stats.sessions(.today).map(\.name) == ["lu.pm"])
+    #expect(Set(stats.projects(.today).map(\.name)) == ["lumen", "kiosk"])
 }
 
 @Test func symlinkedProjectFoldersAreNotFollowed() throws {
@@ -168,16 +170,19 @@ private func scanner(_ dir: ProjectsDir) -> UsageScanner {
 
 @Test func oldFilesAndRecordsAreLeftOut() throws {
     let dir = try ProjectsDir()
-    try dir.write("-Users-dev-Development-lumen/old.jsonl", [assistant(id: "m1", at: "2027-01-01T10:00:00Z", output: 10)])
-    try dir.touch("-Users-dev-Development-lumen/old.jsonl", parseISO("2027-01-01T10:00:00Z")!)
+    try dir.write("-Users-dev-Development-lumen/old.jsonl", [assistant(id: "m1", at: "2026-12-10T10:00:00Z", output: 10)])
+    try dir.touch("-Users-dev-Development-lumen/old.jsonl", parseISO("2026-12-10T10:00:00Z")!)
     try dir.write("-Users-dev-Development-lumen/new.jsonl", [
-        assistant(id: "m2", at: "2027-01-02T10:00:00Z", output: 20),   // older than 8 days, in a fresh file
+        assistant(id: "m2", at: "2026-12-12T10:00:00Z", output: 20),   // older than 31 days, in a fresh file
+        assistant(id: "m4", at: "2026-12-16T00:30:00Z", output: 40),   // day 31 (index 30): kept, not in 30 days
         assistant(id: "m3", output: 30),
     ])
     let s = scanner(dir)
     let stats = s.scan(now: now)
     #expect(stats.today.output == 30)
     #expect(stats.last7Days.output == 30)
+    #expect(stats.last30Days.output == 30)
+    #expect(stats.days.map(\.tokens.output).reduce(0, +) == 70)
     #expect(s.trackedFiles == 1)
 }
 
@@ -185,7 +190,53 @@ private func scanner(_ dir: ProjectsDir) -> UsageScanner {
     let s = UsageScanner(projectsDir: "/nonexistent/hive-usage", devRoot: dev, calendar: utc)
     let stats = s.scan(now: now)
     #expect(stats.today == TokenCounts())
-    #expect(stats.projectsToday.isEmpty)
+    #expect(stats.projects(.today).isEmpty)
+}
+
+private func rec(_ key: String, _ at: String, project: String = "lumen", session: String = "sid-a", output: Int) -> UsageRecord {
+    UsageRecord(key: key, at: parseISO(at)!, model: nil, project: project, sessionId: session,
+                tokens: TokenCounts(output: output))
+}
+
+@Test func projectsAndSessionsForEachPeriod() {
+    let records = [
+        rec("1", "2027-01-15T09:00:00Z", project: "lumen", output: 10),
+        rec("2", "2027-01-12T09:00:00Z", project: "orbit", session: "sid-b", output: 50),    // 3 days ago
+        rec("3", "2027-01-01T09:00:00Z", project: "fjord", session: "sid-c", output: 500),   // 14 days ago
+        rec("4", "2026-12-17T09:00:00Z", project: "fjord", session: "sid-c", output: 7),     // 29 days ago
+        rec("5", "2026-12-16T09:00:00Z", project: "kiosk", session: "sid-d", output: 9000),  // 30 days ago: out
+        rec("6", "2027-01-16T09:00:00Z", project: "kiosk", session: "sid-d", output: 9000),  // tomorrow: out
+    ]
+    let s = UsageStats.aggregate(records, titles: ["sid-a": "lu.01", "sid-c": "fj.02"], now: now, calendar: utc)
+    #expect(s.tokens(.today).output == 10)
+    #expect(s.tokens(.week).output == 60)
+    #expect(s.tokens(.month).output == 567)
+    #expect(s.projects(.today).map(\.name) == ["lumen"])
+    #expect(s.projects(.week).map(\.name) == ["orbit", "lumen"])
+    #expect(s.projects(.month).map(\.name) == ["fjord", "orbit", "lumen"])
+    #expect(s.projects(.month).first?.tokens.output == 507)
+    #expect(s.sessions(.month).map(\.name) == ["fj.02", "sid-b", "lu.01"])
+    #expect(s.days.count == 31)
+    #expect(s.days[30].tokens.output == 9000)
+    #expect(UsagePeriod.allCases.map(\.days) == [1, 7, 30])
+}
+
+@Test func dayBoundariesFollowTheLocalTimeZone() {
+    var berlin = Calendar(identifier: .gregorian)
+    berlin.timeZone = TimeZone(identifier: "Europe/Berlin")!
+    // 2027-03-28 03:00 local: clocks go forward (a 23-hour day); now is 2027-03-29 08:00 local
+    let now = parseISO("2027-03-29T06:00:00Z")!
+    let records = [
+        rec("1", "2027-03-28T22:30:00Z", output: 1),   // 00:30 on the 29th local: today
+        rec("2", "2027-03-28T21:30:00Z", output: 2),   // 23:30 on the 28th local: yesterday
+        rec("3", "2027-03-27T23:30:00Z", output: 4),   // 00:30 on the 28th local: yesterday
+        rec("4", "2027-03-27T22:30:00Z", output: 8),   // 23:30 on the 27th local: two days ago
+    ]
+    let s = UsageStats.aggregate(records, titles: [:], now: now, calendar: berlin)
+    #expect(s.days.prefix(3).map(\.tokens.output) == [1, 6, 8])
+    #expect(s.days[1].start == parseISO("2027-03-27T23:00:00Z"))
+    #expect(s.tokens(.today).output == 1)
+    #expect(s.tokens(.week).output == 15)
 }
 
 @Test func lineParserSkipsNestedContentAndDecodesEscapes() throws {

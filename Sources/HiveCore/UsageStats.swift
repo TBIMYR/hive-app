@@ -42,12 +42,35 @@ public struct UsageRecord: Equatable, Sendable {
     public var tokens: TokenCounts
 }
 
-/// Token usage today and over the last 7 days.
+/// A period of whole days ending today (in the calendar's time zone).
+public enum UsagePeriod: String, CaseIterable, Identifiable, Sendable {
+    case today, week, month
+
+    /// today and the days before it
+    public var days: Int {
+        switch self {
+        case .today: 1
+        case .week: 7
+        case .month: 30
+        }
+    }
+
+    public var id: String { rawValue }
+}
+
+/// Token usage per day over the last 31 days, per project and per session, so any period can be summed.
 public struct UsageStats: Equatable, Sendable {
+    /// number of days kept: 30 for the longest period plus one so the scan never cuts into it
+    public static let keptDays = 31
+
     public struct Day: Equatable, Sendable {
         /// start of the day in the calendar's time zone
         public let start: Date
-        public var tokens: TokenCounts
+        public var tokens = TokenCounts()
+        /// project name → tokens
+        public var projects: [String: TokenCounts] = [:]
+        /// session name → tokens
+        public var sessions: [String: TokenCounts] = [:]
     }
 
     public struct Row: Equatable, Identifiable, Sendable {
@@ -56,54 +79,63 @@ public struct UsageStats: Equatable, Sendable {
         public var id: String { name }
     }
 
-    public var today = TokenCounts()
-    /// today and the six days before
-    public var last7Days = TokenCounts()
-    /// index 0 = today, 6 = six days ago
+    /// index 0 = today, 30 = thirty days ago
     public var days: [Day] = []
-    /// sorted by total, largest first
-    public var projectsToday: [Row] = []
-    public var sessionsToday: [Row] = []
 
     public init() {}
+
+    public func tokens(_ period: UsagePeriod) -> TokenCounts {
+        days.prefix(period.days).reduce(TokenCounts()) { $0 + $1.tokens }
+    }
+
+    public var today: TokenCounts { tokens(.today) }
+    public var last7Days: TokenCounts { tokens(.week) }
+    public var last30Days: TokenCounts { tokens(.month) }
+
+    /// sorted by total, largest first
+    public func projects(_ period: UsagePeriod) -> [Row] { rows(period, \.projects) }
+    public func sessions(_ period: UsagePeriod) -> [Row] { rows(period, \.sessions) }
+
+    private func rows(_ period: UsagePeriod, _ field: KeyPath<Day, [String: TokenCounts]>) -> [Row] {
+        var sum: [String: TokenCounts] = [:]
+        for d in days.prefix(period.days) {
+            for (name, t) in d[keyPath: field] { sum[name, default: TokenCounts()] += t }
+        }
+        return sum.map { Row(name: $0.key, tokens: $0.value) }.sorted {
+            $0.tokens.total != $1.tokens.total ? $0.tokens.total > $1.tokens.total : $0.name < $1.name
+        }
+    }
+
+    /// Start of the oldest kept day: records and files before it are not needed.
+    public static func cutoff(now: Date, calendar: Calendar) -> Date {
+        let today = calendar.startOfDay(for: now)
+        return calendar.date(byAdding: .day, value: -(keptDays - 1), to: today) ?? today
+    }
 
     /// Session names come from `titles` (session id → name), otherwise the first 8 characters of the id.
     public static func aggregate<S: Sequence>(_ records: S, titles: [String: String], now: Date,
                                               calendar: Calendar) -> UsageStats where S.Element == UsageRecord {
         var stats = UsageStats()
         let today = calendar.startOfDay(for: now)
-        stats.days = (0..<7).map { i in
-            Day(start: calendar.date(byAdding: .day, value: -i, to: today) ?? today, tokens: TokenCounts())
+        stats.days = (0..<keptDays).map { i in
+            Day(start: calendar.date(byAdding: .day, value: -i, to: today) ?? today)
         }
-        var projects: [String: TokenCounts] = [:]
-        var sessions: [String: TokenCounts] = [:]
         for r in records {
             guard let i = calendar.dateComponents([.day], from: calendar.startOfDay(for: r.at), to: today).day,
-                  (0..<7).contains(i) else { continue }
+                  (0..<keptDays).contains(i) else { continue }
             stats.days[i].tokens += r.tokens
-            stats.last7Days += r.tokens
-            guard i == 0 else { continue }
-            stats.today += r.tokens
-            projects[r.project.isEmpty ? "?" : r.project, default: TokenCounts()] += r.tokens
-            sessions[titles[r.sessionId] ?? String(r.sessionId.prefix(8)), default: TokenCounts()] += r.tokens
+            stats.days[i].projects[r.project.isEmpty ? "?" : r.project, default: TokenCounts()] += r.tokens
+            stats.days[i].sessions[titles[r.sessionId] ?? String(r.sessionId.prefix(8)), default: TokenCounts()] += r.tokens
         }
-        func rows(_ m: [String: TokenCounts]) -> [Row] {
-            m.map { Row(name: $0.key, tokens: $0.value) }.sorted {
-                $0.tokens.total != $1.tokens.total ? $0.tokens.total > $1.tokens.total : $0.name < $1.name
-            }
-        }
-        stats.projectsToday = rows(projects)
-        stats.sessionsToday = rows(sessions)
         return stats
     }
 }
 
 /// Reads the token usage from the transcripts `<projects>/<slug>/<sessionId>.jsonl` and
-/// `<projects>/<slug>/<sessionId>/subagents/agent-*.jsonl` of the last 8 days. Incremental: every
+/// `<projects>/<slug>/<sessionId>/subagents/agent-*.jsonl` of the last 31 days. Incremental: every
 /// file is only read on from where the last scan stopped (complete lines only). Scans are serialized
 /// by a lock, so it can be handed to a background queue.
 public final class UsageScanner: @unchecked Sendable {
-    public static let keepDays = 8
     static let chunk = 4 * 1024 * 1024
 
     private struct FileState {
@@ -136,7 +168,7 @@ public final class UsageScanner: @unchecked Sendable {
     public func scan(now: Date = Date()) -> UsageStats {
         lock.lock()
         defer { lock.unlock() }
-        let cutoff = now.addingTimeInterval(-Double(Self.keepDays) * 86400)
+        let cutoff = UsageStats.cutoff(now: now, calendar: calendar)
         var seen = Set<String>()
         for (path, attrs, project) in transcriptFiles(modifiedAfter: cutoff) {
             seen.insert(path)

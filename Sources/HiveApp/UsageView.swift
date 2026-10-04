@@ -52,7 +52,14 @@ final class UsageStore: ObservableObject {
         scanning = true
         let scanner = scanner
         queue.async { [weak self] in
+            #if DEBUG
+            let first = scanner.trackedFiles == 0
+            let started = Date()
             let s = scanner.scan()
+            if first { NSLog("hive: first usage scan %.1f s, %d files", Date().timeIntervalSince(started), scanner.trackedFiles) }
+            #else
+            let s = scanner.scan()
+            #endif
             Task { @MainActor in
                 guard let self else { return }
                 self.scanning = false
@@ -72,21 +79,39 @@ private extension UsageFormat.Level {
     }
 }
 
-/// Title bar: "5h 19% (2h 14m) · Week 78% (1d 3h)"; click opens the details.
+/// Title bar: "5h 19% (2h 14m) · Week 78% (1d 3h)"; click opens the details as a floating card.
 struct UsageButton: View {
     @EnvironmentObject private var usage: UsageStore
     @EnvironmentObject private var store: StateStore
-    @State private var open = false
+    @State private var card = FloatingCard()
+    @State private var anchor: NSView?
 
     var body: some View {
         let now = store.now
         if let limits = usage.current(now: now) {
-            Button { open.toggle() } label: { label(limits, now: now) }
+            Button { toggle() } label: { label(limits, now: now) }
                 .buttonStyle(.plain)
-                .padding(.horizontal, 8)
+                // on macOS 26 the item sits on a glass capsule: a bit more room on the left looks balanced
+                .padding(.leading, 14).padding(.trailing, 7)
+                .background { AnchorReader { anchor = $0 } }
                 .help("Plan usage")
-                .popover(isPresented: $open, arrowEdge: .bottom) { UsagePopover() }
+                .onDisappear { card.close() }
+                #if DEBUG
+                // for screenshots of a test instance: HIVE_OPEN_USAGE=1 opens the details at launch
+                .task {
+                    guard ProcessInfo.processInfo.environment["HIVE_OPEN_USAGE"] != nil else { return }
+                    try? await Task.sleep(for: .seconds(2))
+                    NSApp.activate(ignoringOtherApps: true)
+                    try? await Task.sleep(for: .seconds(1))
+                    toggle()
+                }
+                #endif
         }
+    }
+
+    private func toggle() {
+        let (usage, store) = (usage, store)
+        card.toggle(below: anchor) { UsagePopover().environmentObject(usage).environmentObject(store) }
     }
 
     private func label(_ l: PlanLimits, now: Date) -> some View {
@@ -108,10 +133,12 @@ struct UsageButton: View {
     }
 }
 
-/// Details: both limits with bars and countdown, source, then tokens today and over the week.
+/// Details: both limits with bars and countdown, source, then tokens over 1/7/30 days and the top projects
+/// and sessions of the chosen period.
 struct UsagePopover: View {
     @EnvironmentObject private var usage: UsageStore
     @EnvironmentObject private var store: StateStore
+    @AppStorage("usagePeriod") private var period: UsagePeriod = .week
 
     var body: some View {
         let now = store.now
@@ -154,22 +181,29 @@ struct UsagePopover: View {
             .font(.system(size: 11.5)).foregroundStyle(Hive.muted)
             TokenRow(name: "Today", tokens: s.today, bold: true)
             TokenRow(name: "Last 7 days", tokens: s.last7Days, bold: true)
+            TokenRow(name: "Last 30 days", tokens: s.last30Days, bold: true)
+            DayBars(days: Array(s.days.prefix(UsagePeriod.month.days)))
+                .padding(.top, 4)
             Text(cacheNote(s)).font(.system(size: 11.5)).foregroundStyle(Hive.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        if !s.projectsToday.isEmpty {
-            section("Top projects today", s.projectsToday)
+        Rectangle().fill(Hive.hair).frame(height: 1)
+        PeriodSwitcher(period: $period)
+        let projects = s.projects(period)
+        let sessions = s.sessions(period)
+        if projects.isEmpty && sessions.isEmpty {
+            Text("No usage \(period == .today ? "today" : "in the last \(period.label)").")
+                .font(.system(size: 12.5)).foregroundStyle(Hive.muted)
         }
-        if !s.sessionsToday.isEmpty {
-            section("Top sessions today", s.sessionsToday)
-        }
+        if !projects.isEmpty { section("Top projects · \(period.label.lowercased())", projects) }
+        if !sessions.isEmpty { section("Top sessions · \(period.label.lowercased())", sessions) }
     }
 
     private func cacheNote(_ s: UsageStats) -> String {
-        let t = s.last7Days
-        guard t.total > 0 else { return "Total includes cache reads." }
+        let t = s.last30Days
+        guard t.total > 0 else { return "Output per day over 30 days. Total includes cache reads." }
         let share = Int((Double(t.cacheRead) / Double(t.total) * 100).rounded())
-        return "Total includes cache reads (\(share) % of the week)."
+        return "Output per day over 30 days. Total includes cache reads (\(share) % of it)."
     }
 
     private func section(_ title: String, _ rows: [UsageStats.Row]) -> some View {
@@ -177,6 +211,73 @@ struct UsagePopover: View {
             Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.ink)
             ForEach(rows.prefix(5)) { r in TokenRow(name: r.name, tokens: r.tokens) }
         }
+    }
+}
+
+private extension UsagePeriod {
+    var label: String {
+        switch self {
+        case .today: "Today"
+        case .week: "7 days"
+        case .month: "30 days"
+        }
+    }
+}
+
+/// Today · 7 days · 30 days, in the style of the view switcher: a soft rail, the chosen period in black.
+private struct PeriodSwitcher: View {
+    @Binding var period: UsagePeriod
+    @Namespace private var ns
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(UsagePeriod.allCases) { p in
+                let on = p == period
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { period = p }
+                } label: {
+                    Text(p.label)
+                        .font(.system(size: 12, weight: on ? .semibold : .medium))
+                        .foregroundStyle(on ? Hive.bg : Hive.muted)
+                        .frame(maxWidth: .infinity).frame(height: 24)
+                        .background {
+                            if on {
+                                RoundedRectangle(cornerRadius: 7).fill(Hive.ink)
+                                    .matchedGeometryEffect(id: "on", in: ns)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Hive.soft))
+    }
+}
+
+/// Output tokens per day as quiet bars, oldest on the left, today (darker) on the right.
+private struct DayBars: View {
+    let days: [UsageStats.Day]
+
+    var body: some View {
+        let peak = max(1, days.map(\.tokens.output).max() ?? 1)
+        HStack(alignment: .bottom, spacing: 2) {
+            ForEach(Array(days.enumerated().reversed()), id: \.offset) { i, d in
+                let h = d.tokens.output == 0 ? 0 : max(2, 26 * Double(d.tokens.output) / Double(peak))
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(i == 0 ? Hive.ink2 : Hive.hair2)
+                        .frame(height: h)
+                }
+                .frame(maxWidth: .infinity)
+                .help("\(d.start.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))): "
+                      + "\(UsageFormat.tokens(d.tokens.output)) output")
+            }
+        }
+        .frame(height: 26)
+        .background(alignment: .bottom) { Rectangle().fill(Hive.hair).frame(height: 1) }
     }
 }
 
