@@ -1,12 +1,12 @@
 import Foundation
 
-/// Ordnet Sessions ihrer tmux-Session im hive-Server zu.
+/// Maps sessions to their tmux session in the hive server.
 public enum TmuxMatch {
-    /// `tmuxSessions`: Namen der laufenden tmux-Sessions; `sessionOfPane`: Pane-ID → tmux-Session.
-    /// Liefert Session-`id` → tmux-Session. Lebende Sessions zuerst über die Pane-ID aus dem Register:
-    /// die bleibt, wenn die Session per /rename oder die tmux-Session umbenannt wird. Sonst über den
-    /// gleichen Namen, aber nur, wenn keine lebende Session diese tmux-Session schon belegt (sonst
-    /// hielte z. B. ein altes Handover unter dem früheren Namen die laufende Session für seine).
+    /// `tmuxSessions`: names of the running tmux sessions; `sessionOfPane`: pane ID → tmux session.
+    /// Returns session `id` → tmux session. Live sessions first via the pane ID from the registry:
+    /// that stays valid when the session or the tmux session is renamed via /rename. Otherwise by
+    /// the same name, but only if no live session already claims that tmux session (otherwise, e.g.,
+    /// an old handover under the former name would mistake the running session for its own).
     public static func resolve(_ sessions: [Session], tmuxSessions: Set<String>,
                                sessionOfPane: [String: String]) -> [String: String] {
         var result: [String: String] = [:]

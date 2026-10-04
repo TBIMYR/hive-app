@@ -1,15 +1,15 @@
 import CoreServices
 import Foundation
 
-/// Meldet Änderungen unter den Ordnern (rekursiv). Gedrosselt: das erste Ereignis löst nach `delay`
-/// genau eine Meldung aus, weitere Ereignisse in dieser Zeit gehen darin auf. So ruft eine Session,
-/// die gerade ins Protokoll schreibt, höchstens fünfmal pro Sekunde einen Neuaufbau aus.
+/// Reports changes under the folders (recursively). Throttled: the first event triggers exactly one
+/// report after `delay`, further events within that time merge into it. This way, a session that is
+/// currently writing to the log triggers at most five rebuilds per second.
 public final class Watcher {
     private var stream: FSEventStreamRef?
     private let queue = DispatchQueue(label: "hive.watcher")
     private let delay: TimeInterval
     private let onChange: @Sendable () -> Void
-    private var scheduled = false   // nur auf `queue`
+    private var scheduled = false   // only on `queue`
 
     public init(paths: [String], delay: TimeInterval = 0.2, onChange: @escaping @Sendable () -> Void) {
         self.delay = delay

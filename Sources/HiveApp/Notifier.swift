@@ -2,12 +2,12 @@ import AppKit
 import HiveCore
 import UserNotifications
 
-/// macOS-Mitteilungen und Dock-Zahl für Sessions mit Rang 0 („braucht dich“).
-/// Ohne App-Paket (swift run) gibt es keine Bundle-Kennung; dann nur die Dock-Zahl,
-/// denn UNUserNotificationCenter.current() wirft ohne Kennung eine Ausnahme.
+/// macOS notifications and dock badge for sessions with rank 0 ("needs you").
+/// Without an app bundle (swift run) there is no bundle identifier; then only the dock badge,
+/// because UNUserNotificationCenter.current() throws an exception without an identifier.
 @MainActor
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
-    /// Klick auf eine Mitteilung: Session-Name
+    /// Click on a notification: session name
     var onSelect: ((String) -> Void)?
 
     private var tracker = AttentionTracker()
@@ -18,24 +18,24 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         super.init()
     }
 
-    /// Früh aufrufen (applicationWillFinishLaunching), sonst geht ein Klick verloren, der die App erst startet.
+    /// Call early (applicationWillFinishLaunching), otherwise a click that first launches the app gets lost.
     func start() {
         guard let center else { return }
         center.delegate = self
-        // Mitteilungen aus dem vorigen Lauf kennt der Tracker nicht mehr; die Dock-Zahl stimmt ohnehin sofort
+        // The tracker no longer knows about notifications from the previous run; the dock badge is correct immediately anyway
         center.removeAllDeliveredNotifications()
-        // .badge ist nötig: mit Bundle-Kennung zeigt macOS die Dock-Zahl nur, wenn „Kennzeichen“ erlaubt ist
+        // .badge is needed: with a bundle identifier, macOS only shows the dock badge if "Badges" is allowed
         center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
-    /// Nach jeder Aktualisierung: Dock-Zahl setzen, neue Sessions melden, erledigte Mitteilungen entfernen.
+    /// After every refresh: set the dock badge, report new sessions, remove resolved notifications.
     func update(_ needs: [String: AttentionTracker.Need], selected: String?, now: Date = Date()) {
         NSApp.dockTile.badgeLabel = needs.isEmpty ? nil : String(needs.count)
         let (added, removed) = tracker.update(needs, now: now)
         guard let center else { return }
         if !removed.isEmpty { center.removeDeliveredNotifications(withIdentifiers: Array(removed)) }
         for (name, reason) in added.sorted(by: { $0.key < $1.key }) {
-            // wer die Session gerade vor sich hat, braucht keine Mitteilung
+            // whoever is already looking at the session doesn't need a notification
             if NSApp.isActive && selected == name { continue }
             let content = UNMutableNotificationContent()
             content.title = name

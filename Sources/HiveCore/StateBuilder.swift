@@ -1,12 +1,12 @@
 import Foundation
 
-/// Eine Zeile der Übersicht, gleiche Felder wie in GET /api/state.
+/// A row in the overview, same fields as in GET /api/state.
 public struct Session: Codable, Equatable, Identifiable, Sendable {
     public struct TaskLine: Codable, Equatable, Sendable {
         public let text: String
         public let state: String?
         public let updatedAt: String?
-        /// arbeitet, aber die Aufgaben-Zeile ist älter als eine Stunde
+        /// working, but the task line is older than an hour
         public let stale: Bool
 
         public init(text: String, state: String?, updatedAt: String?, stale: Bool) {
@@ -24,7 +24,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public let cwd: String?
     public let pid: Int?
     public let kind: String?
-    /// tmux-Pane laut Register („%13“); die App findet darüber die tmux-Session, auch nach /rename
+    /// tmux pane per the registry ("%13"); the app uses this to find the tmux session, even after /rename
     public let tmuxPane: String?
     public let alive: Bool
     public let status: String
@@ -34,16 +34,16 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public let lastAssistant: Said?
     public let lastUser: Said?
     public let task: TaskLine?
-    /// letzter Arbeitsschritt (letzter tool_use) für die Zeile „Now“; nicht im Node-Server
+    /// last work step (last tool_use) for the "Now" line; not in the Node server
     public let lastAction: WorkAction?
-    /// letzter Satz der letzten Antwort; nicht im Node-Server
+    /// last sentence of the last response; not in the Node server
     public let lastSentence: String?
     public let hasHandover: Bool
-    /// Lesefehler zu dieser Session (Handover), für einen Hinweis in der Karte
+    /// read errors for this session (handover), for a hint in the card
     public let errors: [String]
 
-    /// Eindeutig auch dann, wenn ein toter Register-Eintrag und eine lebende Session denselben Namen tragen
-    /// (das Register benennt nur lebende Duplikate um). Für die Auswahl in der App weiter `name` nehmen.
+    /// Unique even when a dead registry entry and a live session share the same name
+    /// (the registry only renames live duplicates). Keep using `name` for selection in the app.
     public var id: String { pid.map { "\(name)|\($0)" } ?? name }
 
     public init(name: String, project: String = "", group: String, isPm: Bool = false, cwd: String? = nil,
@@ -77,16 +77,16 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
 public struct HiveState: Codable, Equatable, Sendable {
     public let generatedAt: String
     public let sessions: [Session]
-    /// Dateien im Register, die sich nicht lesen ließen
+    /// Files in the registry that could not be read
     public let errors: [String]
 }
 
-/// Führt Register, Handover und Gesprächsprotokolle zusammen (wie buildState() in hive/lib/state.js).
+/// Merges registry, handover, and conversation transcripts (like buildState() in hive/lib/state.js).
 public enum StateBuilder {
     public static let defaultClaudeHome = "\(home)/.claude"
     public static let staleAfter: TimeInterval = 60 * 60
     static let maxText = 600
-    /// entspricht localeCompare in Node (geprüft mit Punkt, #, -, _, Umlauten, Großschreibung)
+    /// corresponds to localeCompare in Node (checked with period, #, -, _, umlauts, capitalization)
     private static let collation = Locale(identifier: "en")
 
     public static func build(claudeHome: String = defaultClaudeHome, devRoot: String = Project.defaultDevRoot,
@@ -142,7 +142,7 @@ public enum StateBuilder {
         return Session.TaskLine(text: text, state: h.state, updatedAt: h.updatedAt, stale: stale)
     }
 
-    /// Kürzt auf 600 UTF-16-Einheiten wie text.slice(0, 600) in JS.
+    /// Truncates to 600 UTF-16 units like text.slice(0, 600) in JS.
     static func clip(_ s: Said?) -> Said? {
         guard let s, s.text.utf16.count > maxText else { return s }
         return Said(text: String(decoding: Array(s.text.utf16.prefix(maxText)), as: UTF16.self) + "…", at: s.at)

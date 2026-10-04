@@ -7,12 +7,12 @@ private func s(_ status: String = "idle", alive: Bool = true, waitingFor: String
             task: task.map { Session.TaskLine(text: $0, state: taskState, updatedAt: nil, stale: false) })
 }
 
-@Test func shellInTmuxOhneRegister() {
+@Test func shellInTmuxWithoutRegister() {
     let st = SessionStatus(s(alive: false), tmuxCommand: "zsh")
     #expect(st.rank == 2 && st.cls == "shell" && st.label == "Shell" && st.reason == nil)
 }
 
-@Test func claudeInTmuxOhneRegisterWartetBeimStart() {
+@Test func claudeInTmuxWithoutRegisterWaitsAtStart() {
     let st = SessionStatus(s(alive: false), tmuxCommand: "claude")
     #expect(st.rank == 0 && st.cls == "need" && st.label == "waiting at start")
     #expect(st.why == "Answer the start prompt in the terminal")
@@ -20,13 +20,13 @@ private func s(_ status: String = "idle", alive: Bool = true, waitingFor: String
     #expect(st.waitsAtStart)
 }
 
-@Test func andererAgentInTmux() {
+@Test func otherAgentInTmux() {
     let st = SessionStatus(s(alive: false), tmuxCommand: "codex")
     #expect(st.rank == 2 && st.cls == "agent" && st.label == "codex")
 }
 
-@Test func lebendeSessionInTmuxNachRegister() {
-    // läuft Claude und steht lebend im Register, zählt das Register, nicht der tmux-Befehl
+@Test func liveSessionInTmuxFollowsRegister() {
+    // if Claude is running and alive in the register, the register counts, not the tmux command
     let st = SessionStatus(s("waiting", waitingFor: "Freigabe Bash"), tmuxCommand: "claude")
     #expect(st.rank == 0 && st.label == "waiting for you" && st.reason == "Freigabe Bash" && !st.waitsAtStart)
 }
@@ -36,41 +36,41 @@ private func s(_ status: String = "idle", alive: Bool = true, waitingFor: String
     #expect(st.rank == 3 && st.cls == "off" && st.label == "offline")
 }
 
-@Test func wartetAufDichOhneGrund() {
+@Test func waitingForYouWithoutReason() {
     let st = SessionStatus(s("waiting"))
     #expect(st.rank == 0 && st.why == "Input needed" && st.reason == "Input needed")
 }
 
-@Test func arbeitetSchlaegtBlockiert() {
+@Test func workingBeatsBlockedTaskState() {
     let st = SessionStatus(s("busy", task: "x", taskState: "blocked"))
     #expect(st.rank == 1 && st.cls == "busy" && st.label == "working" && st.reason == nil)
 }
 
-@Test func blockiertMitAufgabenZeile() {
+@Test func blockedWithTaskLine() {
     let st = SessionStatus(s(task: "Entscheidung Spaltenlayout", taskState: "blocked"))
     #expect(st.rank == 0 && st.cls == "block" && st.label == "blocked")
     #expect(st.why == "Blocked – needs a decision")
     #expect(st.reason == "Entscheidung Spaltenlayout")
 }
 
-@Test func blockiertMitLeererAufgabenZeile() {
+@Test func blockedWithEmptyTaskLine() {
     #expect(SessionStatus(s(task: " ", taskState: "blocked")).reason == "needs a decision")
 }
 
-@Test func wartetAufRueckmeldung() {
+@Test func waitingForReply() {
     let st = SessionStatus(s(task: "x", taskState: "waiting"))
     #expect(st.rank == 2 && st.cls == "wait" && st.label == "waiting for reply")
 }
 
-@Test func shellImRegister() {
+@Test func shellInRegister() {
     #expect(SessionStatus(s("shell")).cls == "shell")
 }
 
-@Test func bereit() {
+@Test func ready() {
     let st = SessionStatus(s())
     #expect(st.rank == 2 && st.cls == "idle" && st.label == "ready")
 }
 
-@Test func shellErkennung() {
+@Test func shellDetection() {
     #expect(SessionStatus.isShell("-zsh") && SessionStatus.isShell("login") && !SessionStatus.isShell("claude"))
 }

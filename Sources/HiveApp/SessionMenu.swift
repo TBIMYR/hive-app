@@ -1,8 +1,8 @@
 import SwiftUI
 import HiveCore
 
-/// Rechtsklick-Menü für Karte, Zeile und Kachel. Der Store kommt als Parameter,
-/// damit das Menü nicht vom Environment des Kontextmenüs abhängt.
+/// Right-click menu for card, row, and tile. The store comes in as a parameter,
+/// so the menu doesn't depend on the context menu's environment.
 struct SessionMenu: View {
     @ObservedObject var store: StateStore
     let session: Session
@@ -17,7 +17,7 @@ struct SessionMenu: View {
             }
         }
         Divider()
-        // Steuern geht nur über tmux, also nur für Sessions, die in hive laufen
+        // control only works via tmux, so only for sessions running in hive
         let inHive = store.tmux(session) != nil
         let help = inHive ? "" : "Only for sessions running in Hive"
         Group {

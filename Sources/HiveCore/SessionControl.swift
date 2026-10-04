@@ -1,32 +1,32 @@
 import Foundation
 
-/// Bausteine zum Steuern einer Session in tmux: Adressierung, Argumente, Entscheidung „beendet?“.
-/// Die Aufrufe selbst macht die App (HiveApp/Tmux.swift).
+/// Building blocks for controlling a session in tmux: addressing, arguments, deciding "exited?".
+/// The actual calls are made by the app (HiveApp/Tmux.swift).
 public enum SessionControl {
-    /// tmux deutet „.01“ in „lu.01“ sonst als Fenster/Pane; „=name:“ trifft genau diese Session (kein Präfix).
+    /// tmux would otherwise interpret ".01" in "lu.01" as a window/pane; "=name:" matches exactly this session (no prefix).
     public static func target(_ name: String) -> String { "=\(name):" }
 
-    /// Text wörtlich tippen (`-l`, `--` auch für Text mit „-“ vorn), danach als eigener Aufruf Enter.
+    /// Type text literally (`-l`, `--` also for text starting with "-"), then Enter as a separate call.
     public static func typeArgs(_ text: String, into name: String) -> [[String]] {
         [["send-keys", "-t", target(name), "-l", "--", text],
          ["send-keys", "-t", target(name), "Enter"]]
     }
 
-    /// Bildschirm der Session als Text (nur lesen).
+    /// Session screen as text (read-only).
     public static func captureArgs(_ name: String) -> [String] { ["capture-pane", "-p", "-t", target(name)] }
 
-    /// Eine Taste schicken (Ziffer einer Option, „Enter“).
+    /// Send a single key (digit of an option, "Enter").
     public static func keyArgs(_ key: String, into name: String) -> [String] { ["send-keys", "-t", target(name), key] }
 
     public static func killArgs(_ name: String) -> [String] { ["kill-session", "-t", target(name)] }
 
-    /// Text aus dem Antwortfeld ohne Rand; nil = nichts schicken.
+    /// Text from the reply field, trimmed; nil = send nothing.
     public static func replyText(_ raw: String) -> String? {
         let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? nil : t
     }
 
-    /// Startzeile für eine Session in tmux.
+    /// Start line for a session in tmux.
     public static func claudeCommand(_ name: String) -> String { "claude -n \(shellQuote(name))" }
 
     static func shellQuote(_ s: String) -> String {
@@ -35,16 +35,16 @@ public enum SessionControl {
         return "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
-    /// Ist der Agent nach `/exit` weg? Ja, wenn die tmux-Session fehlt, vorn eine Shell läuft oder
-    /// eine zuvor lebende Session im Register nicht mehr lebt. Stand sie nie lebend im Register
-    /// (z. B. codex), entscheidet nur die Pane.
+    /// Is the agent gone after `/exit`? Yes if the tmux session is missing, a shell is running in front,
+    /// or a previously alive session in the registry is no longer alive. If it was never alive in the
+    /// registry (e.g. codex), only the pane decides.
     public static func hasExited(wasAlive: Bool, aliveNow: Bool, paneCommand: String?) -> Bool {
         guard let cmd = paneCommand else { return true }
         if SessionStatus.isShell(cmd) { return true }
         return wasAlive && !aliveNow
     }
 
-    /// Zusatzwarnungen für „Close“/„Restart“.
+    /// Extra warnings for "Close"/"Restart".
     public static func closeWarnings(_ s: Session) -> [String] {
         var w: [String] = []
         if s.status == "busy" { w.append("It is still working") }
@@ -52,7 +52,7 @@ public enum SessionControl {
         return w
     }
 
-    /// Prüft alle `interval` Sekunden, bis `check` true liefert oder `timeout` um ist.
+    /// Checks every `interval` seconds until `check` returns true or `timeout` runs out.
     public static func waitUntil(timeout: TimeInterval, interval: TimeInterval,
                                  _ check: () async -> Bool) async -> Bool {
         let end = Date().addingTimeInterval(timeout)

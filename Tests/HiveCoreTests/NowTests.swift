@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import HiveCore
 
-// MARK: Hilfen für kleine Protokolle
+// MARK: Helpers for small transcripts
 
 private func json(_ o: Any) -> String {
     String(decoding: try! JSONSerialization.data(withJSONObject: o, options: [.sortedKeys]), as: UTF8.self)
@@ -24,9 +24,9 @@ private func said(_ text: String, at: String = "2026-10-04T08:59:00.000Z") -> St
 
 private func action(_ lines: String...) -> WorkAction? { Transcript.parseTail(lines.joined(separator: "\n")).lastAction }
 
-// MARK: letzter Arbeitsschritt
+// MARK: last work step
 
-@Test func bashMitBeschreibungZeigtBeschreibungUndBefehl() throws {
+@Test func bashWithDescriptionShowsDescriptionAndCommand() throws {
     let a = try #require(action(toolUse("Bash", ["command": "npm test -- pdf", "description": "Running tests"])))
     #expect(a.tool == "Bash")
     #expect(a.text == "Running tests")
@@ -35,7 +35,7 @@ private func action(_ lines: String...) -> WorkAction? { Transcript.parseTail(li
     #expect(a.pending)
 }
 
-@Test func bashOhneBeschreibungZeigtBefehlEinzeiligGekuerzt() throws {
+@Test func bashWithoutDescriptionShowsCommandSingleLineTruncated() throws {
     let long = "git -C ~/Development/lumen log --oneline\n  | head -20 " + String(repeating: "x", count: 120)
     let a = try #require(action(toolUse("Bash", ["command": long])))
     #expect(!a.text.contains("\n"))
@@ -46,24 +46,24 @@ private func action(_ lines: String...) -> WorkAction? { Transcript.parseTail(li
     #expect(d.hasSuffix("…"))
 }
 
-@Test func toolResultBeendetPending() throws {
+@Test func toolResultEndsPending() throws {
     let a = try #require(action(toolUse("Bash", ["command": "ls"]), toolResult()))
     #expect(a.pending == false)
 }
 
-@Test func fremdesToolResultBeendetPendingNicht() throws {
+@Test func foreignToolResultDoesNotEndPending() throws {
     let a = try #require(action(toolUse("Bash", ["command": "ls"], id: "t2"), toolResult("t1")))
     #expect(a.pending)
 }
 
-@Test func juengsterToolUseGewinnt() throws {
+@Test func mostRecentToolUseWins() throws {
     let a = try #require(action(toolUse("Read", ["file_path": "/x/a.swift"], id: "t1"), toolResult("t1"),
                                 toolUse("Edit", ["file_path": "/x/or/Kalender.swift"], id: "t2")))
     #expect(a.text == "Editing Kalender.swift")
     #expect(a.pending)
 }
 
-@Test func werkzeugeWerdenBeschrieben() {
+@Test func toolsAreDescribed() {
     #expect(action(toolUse("Write", ["file_path": "/a/b/fj.md"]))?.text == "Editing fj.md")
     #expect(action(toolUse("MultiEdit", ["file_path": "/a/b/c.ts"]))?.text == "Editing c.ts")
     #expect(action(toolUse("NotebookEdit", ["notebook_path": "/a/n.ipynb"]))?.text == "Editing n.ipynb")
@@ -77,11 +77,11 @@ private func action(_ lines: String...) -> WorkAction? { Transcript.parseTail(li
     #expect(action(toolUse("TodoWrite", ["todos": []]))?.text == "TodoWrite")
 }
 
-@Test func dateiwerkzeugeHabenDenPfadAlsDetail() {
+@Test func fileToolsHavePathAsDetail() {
     #expect(action(toolUse("Edit", ["file_path": "/a/b/c.ts"]))?.detail == "/a/b/c.ts")
 }
 
-@Test func askUserQuestionZeigtDieFrageUndOptionen() {
+@Test func askUserQuestionShowsQuestionAndOptions() {
     let a = action(toolUse("AskUserQuestion", ["questions": [["question": "Push to stage?",
                                                              "options": [["label": "Yes", "description": "now"], ["label": "Later"]]]]]))
     #expect(a?.text == "Push to stage?")
@@ -89,57 +89,57 @@ private func action(_ lines: String...) -> WorkAction? { Transcript.parseTail(li
     #expect(action(toolUse("Bash", ["command": "ls"]))?.options == nil)
 }
 
-@Test func ohneToolUseKeinArbeitsschritt() {
+@Test func withoutToolUseNoWorkStep() {
     #expect(action(said("Fertig.")) == nil)
 }
 
-// MARK: letzter Satz
+// MARK: last sentence
 
 private func sentence(_ text: String) -> String? { Transcript.parseTail(said(text)).lastSentence }
 
-@Test func letzterSatzDesLetztenAbsatzes() {
+@Test func lastSentenceOfTheLastParagraph() {
     #expect(sentence("Erster Absatz. Mit zwei Sätzen.\n\nDer Export ist fertig. Er wartet auf fj.pm zur Durchsicht.")
             == "Er wartet auf fj.pm zur Durchsicht.")
 }
 
-@Test func markdownWirdEntfernt() {
+@Test func markdownIsStripped() {
     #expect(sentence("Alles gut.\n\n**Fertig:** `npm test` läuft *grün*.") == "Fertig: npm test läuft grün.")
     #expect(sentence("## Ergebnis\n\nSiehe [Doku](https://x.y/z) für mehr.") == "Siehe Doku für mehr.")
 }
 
-@Test func listeLiefertDenLetztenPunkt() {
+@Test func listReturnsTheLastItem() {
     #expect(sentence("Offen:\n\n- Tests schreiben\n- Push an or.pm") == "Push an or.pm")
 }
 
-@Test func frageAmEnde() {
+@Test func questionAtTheEnd() {
     #expect(sentence("Ich habe zwei Wege gefunden. Soll ich A nehmen, z. B. mit Cache?") == "Soll ich A nehmen, z. B. mit Cache?")
 }
 
-@Test func satzWirdGekuerzt() throws {
+@Test func sentenceIsTruncated() throws {
     let s = try #require(sentence(String(repeating: "lang ", count: 60) + "Ende."))
     #expect(s.count <= 141)
     #expect(s.hasSuffix("…"))
 }
 
-@Test func ohneTextKeinSatz() {
+@Test func withoutTextNoSentence() {
     #expect(Transcript.parseTail(toolUse("Bash", ["command": "ls"])).lastSentence == nil)
 }
 
-@Test func fixtureLiefertBeides() throws {
+@Test func fixtureProvidesBoth() throws {
     let tail = Transcript.parseTail(try String(contentsOfFile: fixture("transcript.jsonl"), encoding: .utf8))
     #expect(tail.lastSentence == "Ich fange mit dem Layout an.")
     #expect(tail.lastAction?.text == "Bash")
     #expect(tail.lastAction?.pending == false)
 }
 
-// MARK: Now-Zeile
+// MARK: Now line
 
 private func work(_ tool: String = "Bash", text: String = "Running tests", detail: String? = "npm test",
                   pending: Bool = false) -> WorkAction {
     WorkAction(tool: tool, text: text, detail: detail, at: "2026-10-04T09:00:00.000Z", pending: pending)
 }
 
-@Test func arbeitendZeigtDenArbeitsschritt() throws {
+@Test func workingShowsTheWorkStep() throws {
     let s = Session(name: "lu.03", group: "lu", alive: true, status: "busy", lastAction: work(), lastSentence: "Egal.")
     let n = try #require(NowLine(s, rank: 1))
     #expect(n.kind == .working)
@@ -148,11 +148,11 @@ private func work(_ tool: String = "Bash", text: String = "Running tests", detai
     #expect(n.at == "2026-10-04T09:00:00.000Z")
 }
 
-@Test func arbeitendOhneArbeitsschrittKeinKasten() {
+@Test func workingWithoutWorkStepNoBox() {
     #expect(NowLine(Session(name: "lu.03", group: "lu", status: "busy", lastSentence: "x"), rank: 1) == nil)
 }
 
-@Test func freigabeUeberWaitingFor() throws {
+@Test func permissionViaWaitingFor() throws {
     let s = Session(name: "lu.01", group: "lu", alive: true, status: "waiting", waitingFor: "Permission prompt",
                     lastAction: work(text: "Pushing", detail: "git push origin feat/sort"), lastSentence: "Soll ich?")
     let n = try #require(NowLine(s, rank: 0))
@@ -161,13 +161,13 @@ private func work(_ tool: String = "Bash", text: String = "Running tests", detai
     #expect(n.detail == "git push origin feat/sort")
 }
 
-@Test func freigabeUeberPending() throws {
+@Test func permissionViaPending() throws {
     let s = Session(name: "lu.01", group: "lu", status: "waiting", lastAction: work("Edit", text: "Editing a.swift",
                     detail: "/x/a.swift", pending: true))
     #expect(NowLine(s, rank: 0)?.text == "Allow Edit?")
 }
 
-@Test func offeneAskUserQuestionIstEineFrageMitOptionen() throws {
+@Test func openAskUserQuestionIsAQuestionWithOptions() throws {
     let ask = WorkAction(tool: "AskUserQuestion", text: "Push to stage?", detail: nil, at: nil, pending: true,
                          options: ["Yes", "Later"])
     let s = Session(name: "or.01", group: "or", status: "waiting", lastAction: ask, lastSentence: "Alt.")
@@ -177,16 +177,16 @@ private func work(_ tool: String = "Bash", text: String = "Running tests", detai
     #expect(n.options == ["Yes", "Later"])
 }
 
-// MARK: Antwortfeld
+// MARK: reply field
 
-@Test func antwortfeldNurOhneOffenenWerkzeugaufrufUndOhneFreigabe() {
+@Test func replyFieldOnlyWithoutOpenToolCallAndWithoutPermission() {
     #expect(Session(name: "or.01", group: "or", status: "waiting", waitingFor: "idle", lastAction: work()).acceptsReply)
     #expect(Session(name: "or.01", group: "or", status: "waiting").acceptsReply)
     #expect(!Session(name: "or.01", group: "or", status: "waiting", lastAction: work(pending: true)).acceptsReply)
     #expect(!Session(name: "or.01", group: "or", status: "waiting", waitingFor: "Permission prompt").acceptsReply)
 }
 
-@Test func wartendSonstMitLetztemSatz() throws {
+@Test func waitingOtherwiseWithLastSentence() throws {
     let s = Session(name: "or.01", group: "or", status: "waiting", waitingFor: "idle", lastAction: work(),
                     lastSentence: "Soll ich pushen?")
     let n = try #require(NowLine(s, rank: 0))
@@ -195,31 +195,31 @@ private func work(_ tool: String = "Bash", text: String = "Running tests", detai
     #expect(NowLine(Session(name: "or.01", group: "or", status: "waiting"), rank: 0) == nil)
 }
 
-@Test func bereitMitLetztemSatzSonstNichts() {
+@Test func readyWithLastSentenceOtherwiseNothing() {
     let s = Session(name: "fj.01", group: "fj", alive: true, status: "idle", lastAction: work(), lastSentence: "Export fertig.")
     #expect(NowLine(s, rank: 2) == NowLine(kind: .done, text: "Export fertig.", detail: nil, at: nil))
     #expect(NowLine(Session(name: "fj.01", group: "fj", status: "idle", lastAction: work()), rank: 2) == nil)
 }
 
-// MARK: veraltete Aufgaben-Zeile
+// MARK: outdated task line
 
 private func task(_ at: String?) -> Session.TaskLine { .init(text: "Kalender", state: "working", updatedAt: at, stale: false) }
 
-@Test func aufgabeVeraltetWennZweiStundenAelterAlsLetzteAktivitaet() {
+@Test func taskIsOutdatedWhenTwoHoursOlderThanLastActivity() {
     let old = Session(name: "fj.01", group: "fj", statusUpdatedAt: "2026-10-04T08:00:00Z", task: task("2026-10-04T05:00:00Z"))
     #expect(old.taskOutdated)
     let fresh = Session(name: "fj.01", group: "fj", statusUpdatedAt: "2026-10-04T08:00:00Z", task: task("2026-10-04T07:00:00Z"))
     #expect(!fresh.taskOutdated)
     let byAction = Session(name: "fj.01", group: "fj", statusUpdatedAt: "2026-10-04T06:00:00Z", task: task("2026-10-04T05:00:00Z"),
                            lastAction: work())
-    #expect(byAction.taskOutdated, "lastAction 09:00 ist mehr als 2 h nach 05:00")
+    #expect(byAction.taskOutdated, "lastAction 09:00 is more than 2 h after 05:00")
     #expect(!Session(name: "fj.01", group: "fj", task: task("2026-10-04T05:00:00Z")).taskOutdated)
     #expect(!Session(name: "fj.01", group: "fj", statusUpdatedAt: "2026-10-04T08:00:00Z", task: task(nil)).taskOutdated)
 }
 
-// MARK: Antwort-Knöpfe
+// MARK: reply buttons
 
-@Test func askUserQuestionMerktSichAnzahlDerFragenUndMultiSelect() throws {
+@Test func askUserQuestionRemembersQuestionCountAndMultiSelect() throws {
     let one = try #require(action(toolUse("AskUserQuestion", ["questions": [["question": "Push?", "multiSelect": false,
                                                                            "options": [["label": "Yes"], ["label": "No"]]]]])))
     #expect(one.questionCount == 1)
@@ -232,7 +232,7 @@ private func task(_ at: String?) -> Session.TaskLine { .init(text: "Kalender", s
     #expect(two.questionCount == 2)
 }
 
-@Test func knoepfeNurBeiGenauEinerFrageOhneMultiSelect() {
+@Test func buttonsOnlyForExactlyOneQuestionWithoutMultiSelect() {
     func line(count: Int?, multi: Bool?) -> NowLine? {
         let ask = WorkAction(tool: "AskUserQuestion", text: "Push?", detail: nil, at: nil, pending: true,
                              options: ["Yes", "Later"], questionCount: count, multiSelect: multi)
@@ -242,6 +242,6 @@ private func task(_ at: String?) -> Session.TaskLine { .init(text: "Kalender", s
     #expect(line(count: 1, multi: nil)?.singleChoice == true)
     #expect(line(count: 1, multi: true)?.singleChoice == false)
     #expect(line(count: 2, multi: false)?.singleChoice == false)
-    // altes Protokoll ohne Anzahl: lieber keine Knöpfe
+    // old protocol without count: better no buttons
     #expect(line(count: nil, multi: nil)?.singleChoice == false)
 }

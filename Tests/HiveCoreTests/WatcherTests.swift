@@ -9,15 +9,15 @@ private final class Counter: @unchecked Sendable {
     var value: Int { lock.lock(); defer { lock.unlock() }; return n }
 }
 
-@Test func meldetAenderungenGedrosselt() async throws {
+@Test func reportsChangesThrottled() async throws {
     let dir = FileManager.default.temporaryDirectory.appending(path: "hive-watch-\(UUID().uuidString)")
         .resolvingSymlinksInPath()
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let count = Counter()
     let watcher = Watcher(paths: [dir.path], delay: 0.2) { count.inc() }
-    try await Task.sleep(for: .milliseconds(300))   // Stream anlaufen lassen
-    let base = count.value   // FSEvents meldet oft noch das Anlegen des Ordners
+    try await Task.sleep(for: .milliseconds(300))   // let the stream start up
+    let base = count.value   // FSEvents often still reports the creation of the folder
     for i in 0..<5 { try "x".write(to: dir.appending(path: "f\(i)"), atomically: false, encoding: .utf8) }
     try await Task.sleep(for: .milliseconds(1500))
     #expect(count.value - base >= 1)

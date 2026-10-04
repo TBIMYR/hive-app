@@ -1,13 +1,13 @@
 import SwiftUI
 import HiveCore
 
-/// Ansicht „Tiles“: kleine Kacheln ohne Abschnitte, gleiche Reihenfolge wie die Liste: Favoriten zuerst,
-/// Offline eingeklappt am Ende.
+/// "Tiles" view: small tiles without sections, same order as the list: favorites first,
+/// offline collapsed at the end.
 struct SessionTileGrid: View {
     @EnvironmentObject private var store: StateStore
-    /// Favoriten, schon sortiert (SessionOrder), auch offline
+    /// Favorites, already sorted (SessionOrder), including offline
     let favorites: [OverviewItem]
-    /// übrige Sessions, schon sortiert (SessionOrder), ohne Favoriten
+    /// Remaining sessions, already sorted (SessionOrder), without favorites
     let items: [OverviewItem]
     @Binding var showOffline: Bool
 
@@ -15,7 +15,7 @@ struct SessionTileGrid: View {
         let active = items.filter { $0.status.rank < 3 }
         let offline = items.filter { $0.status.rank == 3 }
         VStack(alignment: .leading, spacing: 0) {
-            // ein Raster für Favoriten und aktive, damit keine Lücke zwischen beiden entsteht
+            // one grid for favorites and active, so there's no gap between the two
             grid(favorites + active)
             if !offline.isEmpty {
                 SectionHeader(title: "Offline", count: offline.count, color: Hive.off, expanded: $showOffline)
@@ -47,7 +47,7 @@ struct SmallTile: View {
         let loud = st.rank == 0
         let task = item.session.task?.text
         let now = item.now
-        // arbeitend/wartend knapp der Inhalt von „Now“, sonst bei „braucht dich“ zuerst der Grund, dann die Aufgabe
+        // working/waiting: briefly the content of "Now", otherwise for "needs you" first the reason, then the task
         let text = loud ? [st.why, task].compactMap { $0 }.joined(separator: " – ") : (task ?? "No task line")
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 7) {
@@ -58,7 +58,7 @@ struct SmallTile: View {
                     .padding(.trailing, -4)
             }
             if let now {
-                // eine Zeile Text, darunter Befehl/Datei; zusammen so hoch wie zwei Zeilen Aufgabe
+                // one line of text, below it command/file; together as tall as two lines of task
                 VStack(alignment: .leading, spacing: 2) {
                     Text(now.text)
                         .font(.system(size: 13, weight: now.kind == .permission ? .semibold : .regular))
@@ -81,7 +81,7 @@ struct SmallTile: View {
         .background(Hive.card)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
-            // arbeitend: ruhiger grünlicher Rahmen (kein Pulsieren, bei vielen Kacheln zu unruhig)
+            // working: a calm greenish border (no pulsing, too restless with many tiles)
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(isSelected ? Hive.ink : (loud ? st.color.opacity(0.5) : (st.rank == 1 ? st.color.opacity(0.4) : Hive.hair)),
                               lineWidth: isSelected ? 3 : 1)

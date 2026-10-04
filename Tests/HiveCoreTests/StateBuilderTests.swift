@@ -9,7 +9,7 @@ private func build(now: Date = now, alive: @escaping (Int) -> Bool = { _ in true
 }
 private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.sessions.first { $0.name == name } }
 
-@Test func lebendeSessionsUndOfflineZeileAusHandover() throws {
+@Test func livingSessionsAndOfflineLineFromHandover() throws {
     let s = build()
     #expect(s.sessions.map(\.name).sorted() == ["al.01", "al.01#101", "al.pm", "al.pm#103", "be.pm"])
     let off = try #require(session("be.pm", s))
@@ -21,7 +21,7 @@ private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.s
     #expect(off.pid == nil)
 }
 
-@Test func transkriptUndHandoverWerdenVerknuepft() throws {
+@Test func transcriptAndHandoverAreLinked() throws {
     let pm = try #require(session("al.pm"))
     #expect(pm.lastAssistant?.text == "Ich fange mit dem Layout an.")
     #expect(pm.lastUser?.text == "Bitte die Startseite umbauen")
@@ -40,7 +40,7 @@ private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.s
     #expect(w.errors.isEmpty)
 }
 
-@Test func staleWennBusyUndAufgabeAelterAlsEineStunde() {
+@Test func staleWhenBusyAndTaskOlderThanOneHour() {
     let late = build(now: parseISO("2026-09-30T18:00:00+02:00")!)
     #expect(session("al.01", late)?.status == "busy")
     #expect(session("al.01", late)?.task?.stale == true)
@@ -48,29 +48,29 @@ private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.s
     #expect(session("al.01", early)?.task?.stale == false)
 }
 
-@Test func sortierungGruppePmZuerstDannName() {
+@Test func sortingGroupPmFirstThenName() {
     #expect(build().sessions.map(\.name) == ["al.pm", "al.01", "al.01#101", "al.pm#103", "be.pm"])
 }
 
-@Test func toteRegisterEintraegeOhneHandoverFallenWeg() {
+@Test func deadRegisterEntriesWithoutHandoverAreDropped() {
     let s = build(alive: { $0 != 100 && $0 != 103 })
     #expect(!s.sessions.contains { $0.name.hasPrefix("al.pm") })
 }
 
-@Test func kindWirdDurchgereichtOfflineHatKeins() {
+@Test func kindIsPassedThroughOfflineHasNone() {
     #expect(session("al.pm")?.kind == "interactive")
     #expect(session("al.pm#103")?.kind == "bg")
     #expect(session("be.pm")?.kind == nil)
 }
 
-@Test func langeTexteWerdenGekuerzt() {
+@Test func longTextsAreTruncated() {
     let long = String(repeating: "a", count: 700)
     let c = StateBuilder.clip(Said(text: long, at: nil))
     #expect(c?.text == String(repeating: "a", count: 600) + "…")
     #expect(StateBuilder.clip(Said(text: "kurz", at: "x")) == Said(text: "kurz", at: "x"))
 }
 
-@Test func registerFehlerLandenImZustand() {
+@Test func registerErrorsEndUpInState() {
     #expect(build().errors.count == 1)
     #expect(build().generatedAt == "2026-09-30T16:00:00.000Z")
 }

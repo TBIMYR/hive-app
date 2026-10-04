@@ -1,22 +1,22 @@
 import Foundation
 
-/// Einordnung einer Session für Übersicht und Mitteilungen, gleiche Reihenfolge wie classify() im Dashboard.
-/// Farben setzt die App (Status in HiveApp/Model.swift).
+/// Classification of a session for the overview and notifications, same order as classify() in the dashboard.
+/// Colors are set by the app (Status in HiveApp/Model.swift).
 public struct SessionStatus: Equatable, Sendable {
-    /// 0 braucht dich, 1 arbeitet, 2 bereit, 3 offline
+    /// 0 needs you, 1 working, 2 ready, 3 offline
     public let rank: Int
     public let cls: String
     public let label: String
-    /// Hinweiszeile in der Karte
+    /// Hint line in the card
     public let why: String?
-    /// Text der Mitteilung (nur bei Rang 0)
+    /// Text of the notification (only for rank 0)
     public let reason: String?
-    /// „wartet beim Start“: erst nach kurzer Bestätigung melden (siehe AttentionTracker)
+    /// "waiting at start": only report after a short confirmation (see AttentionTracker)
     public let waitsAtStart: Bool
 
-    /// `tmuxCommand`: was in der tmux-Session vorn läuft (nil = nicht im hive-tmux-Server).
-    /// Steht die Session nicht (lebend) im Claude-Register, entscheidet dieser Befehl:
-    /// Shell → „Shell“, Claude → hängt vor dem Start (meist Vertrauensabfrage), sonst anderer Agent.
+    /// `tmuxCommand`: what is running in front in the tmux session (nil = not in the hive tmux server).
+    /// If the session is not (alive) in the Claude registry, this command decides:
+    /// shell → "Shell", Claude → stuck before start (usually a trust prompt), otherwise another agent.
     public init(_ s: Session, tmuxCommand: String? = nil) {
         let state = s.task?.state
         switch true {
@@ -33,7 +33,7 @@ public struct SessionStatus: Equatable, Sendable {
             let text = s.waitingFor ?? "Input needed"
             self.init(0, "need", "waiting for you", why: text, reason: text)
         case s.status == "busy":
-            // wer gerade arbeitet, ist nicht blockiert, auch wenn die Aufgaben-Zeile noch „blocked“ sagt
+            // whoever is currently working is not blocked, even if the task line still says "blocked"
             self.init(1, "busy", "working")
         case state == "blocked":
             let line = s.task?.text.trimmingCharacters(in: .whitespaces) ?? ""
@@ -58,7 +58,7 @@ public struct SessionStatus: Equatable, Sendable {
         self.waitsAtStart = waitsAtStart
     }
 
-    /// Befehl vorn in einer tmux-Pane ist eine Shell (kein Agent).
+    /// Command in front of a tmux pane is a shell (not an agent).
     public static func isShell(_ command: String) -> Bool {
         ["zsh", "bash", "fish", "sh", "-zsh", "-bash", "login"].contains(command)
     }

@@ -1,12 +1,12 @@
 import Foundation
 
-/// Merkt sich, welche Sessions schon als „braucht dich“ gemeldet wurden, und liefert je Aktualisierung
-/// die neu zu meldenden und die weggefallenen. Beim ersten Aufruf gilt alles als schon gemeldet
-/// (keine Flut nach dem App-Start).
+/// Remembers which sessions have already been reported as "needs you", and returns, per update,
+/// the newly reported ones and the dropped ones. On the first call everything counts as already
+/// reported (no flood right after app start).
 public struct AttentionTracker {
     public struct Need: Equatable, Sendable {
         public let reason: String
-        /// so lange muss die Session ununterbrochen Rang 0 haben, bevor sie gemeldet wird
+        /// how long the session must hold rank 0 uninterrupted before it gets reported
         public let confirmAfter: TimeInterval
 
         public init(reason: String, confirmAfter: TimeInterval = 0) {
@@ -15,7 +15,7 @@ public struct AttentionTracker {
         }
     }
 
-    /// seit wann eine Session ununterbrochen Rang 0 hat
+    /// since when a session has held rank 0 uninterrupted
     private var since: [String: Date] = [:]
     private var reported: Set<String> = []
     private var started = false

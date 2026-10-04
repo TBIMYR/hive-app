@@ -2,14 +2,14 @@ import AppKit
 import SwiftUI
 import HiveCore
 
-/// Todo-Liste aus `~/.claude/hive/todos.md` (zum Ausprobieren: `HIVE_TODOS=<pfad>`).
-/// Schreibt atomar und übernimmt Änderungen von außen; nach dem eigenen Schreiben ist der gelesene
-/// Stand gleich dem eigenen, darum flackert nichts.
+/// Todo list from `~/.claude/hive/todos.md` (to try it out: `HIVE_TODOS=<path>`).
+/// Writes atomically and picks up external changes; after writing itself, the state read back
+/// matches its own, so nothing flickers.
 @MainActor
 final class TodoStore: ObservableObject {
     @Published private(set) var list = TodoList.parse("")
     let url: URL
-    /// zuletzt gelesener oder geschriebener Dateiinhalt
+    /// last file content read or written
     private var text = ""
     private var watcher: Watcher?
 
@@ -24,7 +24,7 @@ final class TodoStore: ObservableObject {
         }
     }
 
-    /// Liest die Datei neu; fehlt sie, ist die Liste leer.
+    /// Re-reads the file; if it's missing, the list is empty.
     func load() {
         let now = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
         guard now != text else { return }
@@ -53,7 +53,7 @@ final class TodoStore: ObservableObject {
         }
     }
 
-    /// Öffnet die Datei im Standard-Editor (legt sie leer an, wenn es sie noch nicht gibt).
+    /// Opens the file in the default editor (creates it empty if it doesn't exist yet).
     func openInEditor() {
         if !FileManager.default.fileExists(atPath: url.path) {
             try? Data().write(to: url, options: .atomic)
@@ -64,13 +64,13 @@ final class TodoStore: ObservableObject {
     var displayPath: String { (url.path as NSString).abbreviatingWithTildeInPath }
 }
 
-/// Schwebende Todo-Karte im Hive-Fenster. Lage und Größe liegen in @AppStorage; angezeigt wird sie
-/// immer innerhalb von `bounds` (kleineres Fenster schiebt sie zurück, ohne den gemerkten Wert zu ändern).
+/// Floating todo card in the Hive window. Position and size live in @AppStorage; it's always
+/// displayed within `bounds` (a smaller window pushes it back, without changing the stored value).
 struct TodoPanel: View {
     @EnvironmentObject private var todos: TodoStore
-    /// Fenstergröße, in die die Karte passen muss
+    /// Window size the card must fit into
     let bounds: CGSize
-    /// Lage, falls noch keine gemerkt ist
+    /// Position, if none is stored yet
     let defaultOrigin: CGPoint
     @Binding var visible: Bool
 
@@ -90,7 +90,7 @@ struct TodoPanel: View {
     private enum Field: Hashable { case add, item(Int) }
 
     static let minSize = CGSize(width: 260, height: 220)
-    /// Größe beim ersten Öffnen und nach dem Zurücksetzen (Doppelklick auf die Kopfzeile)
+    /// Size on first opening and after resetting (double-click on the header)
     static let defaultSize = CGSize(width: 380, height: 460)
 
     private var size: CGSize {
@@ -130,12 +130,12 @@ struct TodoPanel: View {
         .shadow(color: .black.opacity(0.06), radius: 3, y: 2)
         .offset(x: o.x, y: o.y)
         .onChange(of: focus) { old, new in
-            // Fokus verlassen speichert die Bearbeitung
+            // leaving focus saves the edit
             if case .item(let id) = old, new != old, editing == id { commit() }
         }
     }
 
-    // MARK: Teile
+    // MARK: Parts
 
     private var header: some View {
         HStack(spacing: 9) {
@@ -153,7 +153,7 @@ struct TodoPanel: View {
         }
         .padding(.leading, 16).padding(.trailing, 10).frame(height: 44)
         .contentShape(Rectangle())
-        // Doppelklick: Standardgröße, mittig im Fenster
+        // double-click: default size, centered in the window
         .onTapGesture(count: 2) { reset() }
         .gesture(
             DragGesture(minimumDistance: 1, coordinateSpace: .global)
@@ -164,7 +164,7 @@ struct TodoPanel: View {
                     storedY = Double(start.y + v.translation.height).rounded()
                 }
                 .onEnded { _ in
-                    // gemerkt wird, wo die Karte wirklich steht
+                    // what's stored is where the card actually ends up
                     let o = origin
                     storedX = o.x; storedY = o.y
                     dragStart = nil
@@ -276,7 +276,7 @@ struct TodoPanel: View {
                     .onChanged { v in
                         let start = resizeStart ?? size
                         resizeStart = start
-                        // nicht über den Fensterrand hinaus
+                        // not beyond the window edge
                         let o = origin
                         storedW = min(max(Double(start.width + v.translation.width), Self.minSize.width),
                                       max(Self.minSize.width, bounds.width - o.x)).rounded()
@@ -288,7 +288,7 @@ struct TodoPanel: View {
             .help("Resize")
     }
 
-    /// Zurück auf Standardgröße, mittig im Fenster (gemerkte Werte werden überschrieben).
+    /// Back to default size, centered in the window (stored values are overwritten).
     private func reset() {
         let w = min(Self.defaultSize.width, max(Self.minSize.width, bounds.width))
         let h = min(Self.defaultSize.height, max(Self.minSize.height, bounds.height))
@@ -297,17 +297,17 @@ struct TodoPanel: View {
         storedY = Double(max(0, (bounds.height - h) / 2)).rounded()
     }
 
-    // MARK: Bearbeiten
+    // MARK: Editing
 
     private func startEditing(_ item: TodoList.Item) {
         if let id = editing, id != item.id { commit() }
         draft = item.text
         editing = item.id
-        // erst wenn das Feld steht, kann es den Fokus nehmen
+        // only once the field is in place can it take focus
         DispatchQueue.main.async { focus = .item(item.id) }
     }
 
-    /// Speichert den Entwurf; leerer Text löscht den Eintrag (siehe TodoList.edit).
+    /// Saves the draft; empty text deletes the entry (see TodoList.edit).
     private func commit() {
         guard let id = editing else { return }
         editing = nil

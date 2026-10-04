@@ -3,7 +3,7 @@ import HiveCore
 import SwiftUI
 
 extension Session {
-    /// Projektkürzel wie abbr() im Dashboard.
+    /// Project abbreviation like abbr() in the dashboard.
     var abbr: String {
         if let i = name.firstIndex(of: "."), i != name.startIndex { return String(name[..<i]) }
         let p = (project.isEmpty ? (group.isEmpty ? "?" : group) : project).filter { $0.isLetter || $0.isNumber }
@@ -11,7 +11,7 @@ extension Session {
     }
 }
 
-/// Einordnung aus HiveCore (SessionStatus) plus Farbe für die Karte.
+/// Classification from HiveCore (SessionStatus) plus color for the card.
 struct Status {
     let core: SessionStatus
     let color: Color
@@ -38,31 +38,31 @@ struct Status {
 final class StateStore: ObservableObject {
     @Published private(set) var sessions: [Session] = []
     @Published private(set) var error: String?
-    /// Sekundentakt für „vor x min“, auch wenn sich die Daten nicht ändern
+    /// Per-second tick for "x min ago", even when the data doesn't change
     @Published private(set) var now = Date()
-    /// Laufende tmux-Sessions mit Befehl vorn und Pane-IDs (einmal je Abfrage geholt)
+    /// Running tmux sessions with their command and pane IDs (fetched once per query)
     @Published private(set) var tmuxPanes = Tmux.Panes()
-    /// Session-`id` → ihre tmux-Session (siehe TmuxMatch)
+    /// Session `id` → its tmux session (see TmuxMatch)
     @Published private(set) var tmuxOf: [String: String] = [:]
-    /// Ausgewählte Session (Name). `--select <name>` wählt beim Start eine (zum Ausprobieren).
+    /// Selected session (name). `--select <name>` selects one at startup (for trying things out).
     @Published var selected: String? = {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--select"), i + 1 < args.count else { return nil }
         return args[i + 1]
     }()
-    /// Mitteilungen und Dock-Zahl; der Store hält ihn, weil das Mitteilungszentrum seinen Delegate nur schwach hält
+    /// Notifications and dock badge; the store holds it because the notification center only holds its delegate weakly
     let notifier = Notifier()
-    /// Favoriten (Namen), gespeichert unter `pinned` (früher Leiste „Pinned“, alte Pins werden so zu Favoriten)
+    /// Favorites (names), stored under `pinned` (formerly the "Pinned" bar; old pins thereby become favorites)
     @Published private(set) var favorites: [String] = UserDefaults.standard.stringArray(forKey: "pinned") ?? []
-    /// Vorbelegung für den Dialog „New Session“ (nil = zu)
+    /// Preset for the "New Session" dialog (nil = closed)
     @Published var newPreset: NewSessionPreset?
-    /// Jede Erhöhung bittet das Terminal der Auswahl um den Tastaturfokus (siehe TmuxTerminal)
+    /// Each increment asks the terminal of the selection for keyboard focus (see TmuxTerminal)
     @Published private(set) var focusRequest = 0
-    /// Offene Bestätigung „Close…“/„Restart…“
+    /// Open confirmation for "Close…"/"Restart…"
     @Published var closeRequest: CloseRequest?
-    /// Hinweis als Alert (z. B. Session nach 15 s noch nicht beendet)
+    /// Notice shown as an alert (e.g. session not finished after 15 s)
     @Published var notice: String?
-    /// Erhöht nach einem Restart: das Terminal hängt sich an die neue tmux-Session gleichen Namens
+    /// Incremented after a restart: the terminal attaches to the new tmux session of the same name
     @Published private(set) var terminalEpoch = 0
 
     private var timer: Timer?
@@ -73,8 +73,8 @@ final class StateStore: ObservableObject {
     init() {
         notifier.onSelect = { [weak self] name in self?.selected = name }
         Task { await refresh() }
-        // Register, Handover und Gesprächsprotokolle melden Änderungen sofort; der Takt fängt
-        // beendete Prozesse, tmux und die „vor x min“-Anzeige ab.
+        // Register, handover, and transcripts report changes immediately; the tick catches
+        // finished processes, tmux, and the "x min ago" display.
         let home = StateBuilder.defaultClaudeHome
         watcher = Watcher(paths: ["sessions", "handover", "projects"].map { "\(home)/\($0)" }) { [weak self] in
             Task { @MainActor in await self?.refresh() }
@@ -84,11 +84,11 @@ final class StateStore: ObservableObject {
         }
     }
 
-    /// Nach dem Anlegen sofort neu laden, statt bis zu 2 s zu warten.
+    /// Reload immediately after creating, instead of waiting up to 2 s.
     func refreshSoon() { Task { await refresh() } }
 
     func refresh() async {
-        // Läuft schon ein Neuaufbau, danach genau einen weiteren anhängen
+        // If a rebuild is already running, queue exactly one more after it
         if refreshing { again = true; return }
         refreshing = true
         repeat {
@@ -105,11 +105,11 @@ final class StateStore: ObservableObject {
         refreshing = false
     }
 
-    /// Status mit Blick auf tmux (siehe Status.init).
+    /// Status with a view of tmux (see Status.init).
     func status(_ s: Session) -> Status { Status(s, tmuxCommand: tmux(s).flatMap { tmuxPanes.commands[$0] }) }
 
-    /// Sessions mit Rang 0 nach Name, für Mitteilungen und Dock-Zahl. Bei doppelten Namen
-    /// zählt der erste Eintrag mit Rang 0 (ein toter Eintrag verdeckt den lebenden nicht).
+    /// Sessions with rank 0 by name, for notifications and the dock badge. For duplicate names
+    /// the first entry with rank 0 counts (a dead entry doesn't hide the live one).
     var needs: [String: AttentionTracker.Need] {
         var m: [String: AttentionTracker.Need] = [:]
         for s in displaySessions where m[s.name] == nil {
@@ -120,29 +120,29 @@ final class StateStore: ObservableObject {
         return m
     }
 
-    /// Sprung-Taste ⌘H: zur am längsten wartenden Session, Cursor ins Terminal; jeder weitere Druck zur nächsten.
+    /// Jump key ⌘H: to the longest-waiting session, cursor into the terminal; each further press to the next.
     func jumpToWaiting() {
         let waiting = displaySessions.map { ($0, status($0)) }.filter { $0.1.rank == 0 }
         var seen = Set<String>()
         let names = SessionOrder.sorted(waiting, session: { $0.0 }, status: { $0.1.core }, labels: labels)
             .map(\.0.name).filter { seen.insert($0).inserted }
         guard !names.isEmpty else { return }
-        // ohne tmux-Terminal (z. B. iTerm) gibt es keinen Fokus zu holen: dann gleich weiter zur nächsten
+        // without a tmux terminal (e.g. iTerm) there's no focus to grab: then move straight to the next one
         let hasTerminal = displaySessions.contains { $0.name == selected && tmux($0) != nil }
         let focused = NSApp.keyWindow?.firstResponder is HiveTerminalView || !hasTerminal
         selected = SessionOrder.nextWaiting(candidates: names, selected: selected, terminalFocused: focused)
         focusRequest += 1
     }
 
-    /// tmux-Session dieser Session im hive-Server, nil = keine.
-    /// Karten, die nur aus tmux stammen (displaySessions), tragen den tmux-Namen selbst.
+    /// tmux session of this session in the hive server, nil = none.
+    /// Cards that come only from tmux (displaySessions) carry the tmux name itself.
     func tmux(_ s: Session) -> String? {
         if let t = tmuxOf[s.id] { return t }
         let isExtra = s.pid == nil && !s.hasHandover && !sessions.contains { $0.id == s.id }
         return isExtra && tmuxPanes.commands[s.name] != nil ? s.name : nil
     }
 
-    /// Sessions aus hive plus tmux-Sessions, die hive noch nicht kennt (kein Register, kein Handover).
+    /// Sessions from hive plus tmux sessions that hive doesn't know yet (no register, no handover).
     var displaySessions: [Session] {
         let known = Set(sessions.map(\.name)).union(tmuxOf.values)
         let extra = Set(tmuxPanes.commands.keys).subtracting(known).sorted().map { name in
@@ -153,13 +153,13 @@ final class StateStore: ObservableObject {
 
     func isFavorite(_ name: String) -> Bool { favorites.contains(name) }
 
-    /// Stern oder Rechtsklick-Menü: Favorit an/aus, gespeichert unter `pinned`.
+    /// Star or right-click menu: toggle favorite on/off, stored under `pinned`.
     func toggleFavorite(_ name: String) {
         favorites = Favorites.toggling(name, in: favorites)
         UserDefaults.standard.set(favorites, forKey: "pinned")
     }
 
-    /// Projektname je Gruppe, wie groupLabels() im Dashboard (PM bestimmt den Namen).
+    /// Project name per group, like groupLabels() in the dashboard (the PM determines the name).
     var labels: [String: String] {
         var m: [String: String] = [:]
         for s in sessions {
@@ -169,7 +169,7 @@ final class StateStore: ObservableObject {
         return m
     }
 
-    /// Farbe je Gruppe: Gruppen alphabetisch, Palette der Reihe nach. Für viele Sessions einmal holen.
+    /// Color per group: groups alphabetically, palette in order. Fetch once for many sessions.
     func groupColors(_ labels: [String: String]) -> [String: Color] {
         var m: [String: Color] = [:]
         for (i, key) in labels.keys.sorted().enumerated() {
@@ -178,26 +178,26 @@ final class StateStore: ObservableObject {
         return m
     }
 
-    /// Farbe für Gruppen ohne Projektnamen (reine tmux-Sessions)
+    /// Color for groups without a project name (pure tmux sessions)
     static let fallbackColor = Color(nsColor: NSColor(hex: 0x1B1B1B))
 
     func color(for group: String) -> Color { groupColors(labels)[group] ?? Self.fallbackColor }
 
-    /// Springt in den iTerm-Tab der Session. Liefert eine Fehlermeldung oder nil.
+    /// Jumps to the session's iTerm tab. Returns an error message or nil.
     func focusInITerm(_ s: Session) async -> String? {
         guard let pid = s.pid else { return "No PID" }
         if s.kind == "bg" { return "Background session without a window" }
         return await Task.detached { Focus.focus(pid: pid) }.value
     }
 
-    /// Handover der Session ohne Frontmatter, wie in der Seitenleiste des Dashboards. nil, wenn keins da ist.
+    /// The session's handover without frontmatter, like in the dashboard's sidebar. nil if there isn't one.
     func handover(_ name: String) async -> String? {
         await Task.detached { Handover.body(name) }.value
     }
 
-    // MARK: Session steuern (nur Sessions in tmux)
+    // MARK: Control session (only sessions in tmux)
 
-    /// Antwortfeld der Karte: Text tippen und abschicken. Liefert eine Fehlermeldung oder nil.
+    /// Reply field of the card: type text and send. Returns an error message or nil.
     func reply(_ raw: String, to s: Session) async -> String? {
         guard let text = SessionControl.replyText(raw) else { return nil }
         guard let t = tmux(s) else { return "Not running in Hive" }
@@ -206,7 +206,7 @@ final class StateStore: ObservableObject {
         return e
     }
 
-    /// Antwort-Knopf in der Karte (Auswahlfrage oder Freigabe). Liefert eine Meldung oder nil.
+    /// Reply button in the card (multiple-choice question or approval). Returns a message or nil.
     func answer(_ a: ScreenDialog.Answer, known: [String], to s: Session) async -> String? {
         guard let t = tmux(s) else { return "Not running in Hive" }
         let e = await Task.detached { Tmux.answer(a, known: known, in: t) }.value
@@ -214,13 +214,13 @@ final class StateStore: ObservableObject {
         return e
     }
 
-    /// Dialog, der gerade auf dem Bildschirm der Session steht (nur lesen), nil = keiner.
+    /// Dialog currently showing on the session's screen (read-only), nil = none.
     func dialog(_ s: Session) async -> ScreenDialog? {
         guard let t = tmux(s) else { return nil }
         return await Task.detached { Tmux.capture(t).flatMap(ScreenDialog.parse) }.value
     }
 
-    /// Menü „Write Handover“: `/handover` + Enter.
+    /// "Write Handover" menu item: `/handover` + Enter.
     func writeHandover(_ s: Session) {
         guard let t = tmux(s) else { return }
         Task {
@@ -231,14 +231,14 @@ final class StateStore: ObservableObject {
         }
     }
 
-    /// Menü „Close…“/„Restart…“: erst bestätigen lassen (ContentView zeigt den Dialog).
+    /// "Close…"/"Restart…" menu item: get confirmation first (ContentView shows the dialog).
     func requestClose(_ s: Session, restart: Bool) {
         guard let t = tmux(s) else { return }
         closeRequest = CloseRequest(session: s, tmux: t, restart: restart)
     }
 
-    /// `/exit` tippen, bis zu 15 s warten, bis der Agent weg ist, dann die tmux-Session beenden.
-    /// Bei Restart danach im selben Ordner unter demselben Namen `claude -n <name>` starten.
+    /// Type `/exit`, wait up to 15 s for the agent to be gone, then end the tmux session.
+    /// On restart, afterwards start `claude -n <name>` in the same folder under the same name.
     func close(_ r: CloseRequest) {
         let s = r.session, t = r.tmux
         let dir = s.cwd ?? tmuxPanes.paths[t]
@@ -271,7 +271,7 @@ final class StateStore: ObservableObject {
                     notice = "Could not restart \(s.name): \(e)"
                     return
                 }
-                // gleicher tmux-Name: das Terminal muss sich neu anhängen
+                // same tmux name: the terminal needs to reattach
                 terminalEpoch += 1
                 selected = s.name
             }
@@ -280,10 +280,10 @@ final class StateStore: ObservableObject {
     }
 }
 
-/// Bestätigung für „Close…“/„Restart…“ (ContentView zeigt den Dialog).
+/// Confirmation for "Close…"/"Restart…" (ContentView shows the dialog).
 struct CloseRequest: Identifiable {
     let session: Session
-    /// tmux-Session zum Zeitpunkt der Anfrage
+    /// tmux session at the time of the request
     let tmux: String
     let restart: Bool
 

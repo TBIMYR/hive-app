@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import HiveCore
 
-/// Vorbelegung für den Dialog, z. B. vom „+“ einer Projektgruppe.
+/// Preset for the dialog, e.g. from the "+" of a project group.
 struct NewSessionPreset: Identifiable {
     var name = ""
     var dir: String?
@@ -10,14 +10,14 @@ struct NewSessionPreset: Identifiable {
 }
 
 enum SessionNaming {
-    /// „al.04“ → „al“; Namen ohne Punkt haben kein Präfix.
+    /// "al.04" → "al"; names without a dot have no prefix.
     static func prefix(_ name: String) -> String? {
         guard let dot = name.lastIndex(of: ".") else { return nil }
         let p = String(name[..<dot])
         return p.isEmpty ? nil : p
     }
 
-    /// Häufigstes Präfix einer Gruppe, nächster freier Worker-Name („al.05“).
+    /// Most frequent prefix of a group, next free worker name ("al.05").
     static func nextName(in sessions: [Session]) -> String? {
         let prefixes = sessions.compactMap { prefix($0.name) }
         guard let p = Dictionary(grouping: prefixes, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key
@@ -29,14 +29,14 @@ enum SessionNaming {
         return String(format: "%@.%02d", p, (used.max() ?? 0) + 1)
     }
 
-    /// Ordner einer anderen Session mit gleichem Präfix (PM bevorzugt).
+    /// Folder of another session with the same prefix (PM preferred).
     static func dir(for name: String, in sessions: [Session]) -> String? {
         guard let p = prefix(name) else { return nil }
         let same = sessions.filter { prefix($0.name) == p && ($0.cwd ?? "").isEmpty == false }
         return (same.first { $0.isPm == true } ?? same.first)?.cwd
     }
 
-    /// Bekannte Projektordner aus den laufenden Sessions, nach Projektname sortiert.
+    /// Known project folders from the running sessions, sorted by project name.
     static func projects(in sessions: [Session]) -> [(label: String, dir: String)] {
         var seen = Set<String>()
         return sessions.compactMap { s -> (String, String)? in
@@ -71,7 +71,7 @@ struct NewSessionSheet: View {
             Form {
                 TextField("Name", text: $name, prompt: Text("e.g. al.04"))
                     .onChange(of: name) { _, n in
-                        // Ordner aus dem Präfix ableiten, solange keiner bewusst gewählt wurde
+                        // Derive folder from the prefix, as long as none was deliberately chosen
                         if !dirChosen, let d = SessionNaming.dir(for: n, in: store.sessions) { dir = d }
                     }
                 LabeledContent("Folder") {

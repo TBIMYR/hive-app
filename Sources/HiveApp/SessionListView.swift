@@ -1,19 +1,19 @@
 import SwiftUI
 import HiveCore
 
-/// Ansicht „List“: eine Zeile je Session ohne Abschnitte, Favoriten zuerst, Offline eingeklappt am Ende.
-/// Worker stehen eingerückt unter ihrem PM (SessionTree), Favoriten, aktiv und offline je für sich.
-/// ScrollView + LazyVStack statt List, damit Hintergründe, Auswahlrahmen und Kontextmenü wie in den Karten bleiben.
+/// "List" view: one row per session without sections, favorites first, offline collapsed at the end.
+/// Workers are indented under their PM (SessionTree); favorites, active, and offline are each grouped separately.
+/// ScrollView + LazyVStack instead of List, so backgrounds, selection border, and context menu stay like in the cards.
 struct SessionListView: View {
     @EnvironmentObject private var store: StateStore
-    /// Favoriten, schon sortiert (SessionOrder), auch offline
+    /// Favorites, already sorted (SessionOrder), including offline
     let favorites: [OverviewItem]
-    /// übrige Sessions, schon sortiert (SessionOrder), ohne Favoriten
+    /// Remaining sessions, already sorted (SessionOrder), without favorites
     let items: [OverviewItem]
     @Binding var showOffline: Bool
 
     var body: some View {
-        // Favoriten und aktive je für sich gruppiert, aber eine durchgehende Streifenfolge
+        // favorites and active grouped separately, but one continuous stripe sequence
         let top = SessionTree.grouped(favorites, session: \.session)
             + SessionTree.grouped(items.filter { $0.status.rank < 3 }, session: \.session)
         let offline = SessionTree.grouped(items.filter { $0.status.rank == 3 }, session: \.session)
@@ -44,12 +44,12 @@ struct SessionListView: View {
             }
     }
 
-    /// Einrückung der Worker unter ihrem PM
+    /// Indentation of workers under their PM
     static let indent: CGFloat = 28
 }
 
-/// Feine Linie links von einem eingerückten Worker: senkrecht (beim letzten nur bis zur Mitte), dazu ein kurzer
-/// waagrechter Strich zur Zeile. Ragt oben und unten um den Zeilenabstand hinaus, damit die Linie durchgeht.
+/// Thin line to the left of an indented worker: vertical (for the last one only down to the middle), plus a short
+/// horizontal stroke to the row. Extends beyond the row spacing above and below so the line stays continuous.
 private struct TreeLine: Shape {
     let isLast: Bool
 
@@ -67,10 +67,10 @@ private struct TreeLine: Shape {
 struct SessionRow: View {
     let item: OverviewItem
     let isSelected: Bool
-    /// abwechselnder Hintergrund (jede zweite Zeile)
+    /// alternating background (every other row)
     let striped: Bool
-    /// Breite der Namensspalte; eingerückte Zeilen bekommen sie um die Einrückung schmaler, damit die übrigen
-    /// Spalten bündig bleiben
+    /// Width of the name column; indented rows get it narrower by the indentation amount, so the remaining
+    /// columns stay aligned
     var nameWidth: CGFloat = SessionRow.nameWidth
     let toggleFavorite: () -> Void
 
@@ -80,7 +80,7 @@ struct SessionRow: View {
         let st = item.status
         let loud = st.rank == 0
         let task = item.session.task?.text
-        // arbeitend/wartend der Kasten „Now“ knapp statt der Aufgabe
+        // working/waiting: the "Now" box briefly, instead of the task
         let now = item.now?.text
         HStack(spacing: 14) {
             Circle().fill(st.color).frame(width: 9, height: 9).frame(width: 14)

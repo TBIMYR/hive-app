@@ -1,18 +1,18 @@
 import Foundation
 
-/// Gruppierung der Ansicht „List“: Worker stehen eingerückt direkt unter ihrem PM.
+/// Grouping for the "List" view: workers are indented directly under their PM.
 public enum SessionTree {
     public struct Row<T> {
         public let item: T
-        /// 0 = normale Zeile oder PM, 1 = eingerückt unter dem PM
+        /// 0 = normal row or PM, 1 = indented under the PM
         public let depth: Int
-        /// letzte Zeile ihrer Gruppe (Linie endet hier in der Zeilenmitte)
+        /// last row of its group (line ends here at the row's middle)
         public let isLastInGroup: Bool
     }
 
-    /// `sortedItems`: schon nach `SessionOrder` sortiert. Eine Gruppe (gleicher `groupKey` mit mindestens einem PM)
-    /// steht dort, wo ihr erstes (dringendstes) Mitglied steht: erst der erste PM als Kopf, dann alle übrigen
-    /// Mitglieder (auch weitere PMs) eingerückt in Eingabereihenfolge. Ohne PM bleiben Sessions flach an ihrer Stelle.
+    /// `sortedItems`: already sorted by `SessionOrder`. A group (same `groupKey` with at least one PM) sits where
+    /// its first (most urgent) member sits: the first PM comes first as head, then all remaining members
+    /// (including further PMs) indented in input order. Without a PM, sessions stay flat in their place.
     public static func grouped<T>(_ sortedItems: [T], session: (T) -> Session) -> [Row<T>] {
         let sessions = sortedItems.map(session)
         let withPm = Set(sessions.filter(\.isPm).map(\.groupKey))

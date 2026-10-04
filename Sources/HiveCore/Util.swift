@@ -1,20 +1,20 @@
 import Foundation
 
 extension Optional where Wrapped == String {
-    /// Wie `x || null` in JS: leerer String zählt als fehlend.
+    /// Like `x || null` in JS: empty string counts as missing.
     var nonEmpty: String? {
         guard let s = self, !s.isEmpty else { return nil }
         return s
     }
 }
 
-/// JSON-Zahl, aber kein Bool (JSONSerialization liefert beides als NSNumber; JS: typeof x === 'number').
+/// JSON number, but not a bool (JSONSerialization returns both as NSNumber; JS: typeof x === 'number').
 func number(_ v: Any?) -> Double? {
     guard let n = v as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
     return n.doubleValue
 }
 
-/// Nicht-leerer String oder nil.
+/// Non-empty string or nil.
 func string(_ v: Any?) -> String? { (v as? String).nonEmpty }
 
 private let isoSeconds: ISO8601DateFormatter = {
@@ -29,7 +29,7 @@ private let isoFractional: ISO8601DateFormatter = {
     return f
 }()
 
-/// Wie `new Date(ms).toISOString()`: UTC, immer drei Nachkommastellen, Millisekunden abgeschnitten.
+/// Like `new Date(ms).toISOString()`: UTC, always three decimal places, milliseconds truncated.
 func isoString(ms: Double) -> String {
     let whole = (ms / 1000).rounded(.down)
     let frac = Int(ms - whole * 1000)
@@ -37,7 +37,7 @@ func isoString(ms: Double) -> String {
     return String(base.dropLast()) + String(format: ".%03dZ", frac)
 }
 
-/// ISO-Zeit mit oder ohne Nachkommastellen, mit Z oder Offset.
+/// ISO time with or without decimal places, with Z or offset.
 public func parseISO(_ s: String) -> Date? {
     isoSeconds.date(from: s) ?? isoFractional.date(from: s)
 }

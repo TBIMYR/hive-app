@@ -2,10 +2,10 @@ import AppKit
 import SwiftUI
 import HiveCore
 
-// Ohne App-Bundle (swift run) wäre das Fenster sonst ohne Tastaturfokus und Menüleiste.
+// Without an app bundle (swift run) the window would otherwise have no keyboard focus and no menu bar.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// Der Store gehört dem AppDelegate, damit der Mitteilungs-Delegate schon vor dem ersten Fenster steht.
+    /// The store belongs to the AppDelegate so the notification delegate is set up before the first window appears.
     let store = StateStore()
     let todos = TodoStore()
 
@@ -35,12 +35,12 @@ struct HiveApp: App {
         }
         .defaultSize(width: 1440, height: 860)
         .commands {
-            // ⌘H nur in hive: ersetzt „Hide hive“ (dazu fallen „Hide Others“ und „Show All“ weg)
+            // ⌘H only in hive: replaces "Hide hive" (this also drops "Hide Others" and "Show All")
             CommandGroup(replacing: .appVisibility) {
                 Button("Jump to Waiting Session") { delegate.store.jumpToWaiting() }
                     .keyboardShortcut("h")
             }
-            // im Menü View, mit Häkchen, solange die Karte sichtbar ist
+            // in the View menu, checked as long as the card is visible
             CommandGroup(after: .toolbar) {
                 Toggle("Todo List", isOn: $todoVisible)
                     .keyboardShortcut("t")
@@ -51,7 +51,7 @@ struct HiveApp: App {
 
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
-    /// Breite des Terminals in Punkten, per Ziehen an der Grenze geändert; 0 = Standard (⅓ des Fensters)
+    /// Width of the terminal in points, changed by dragging the divider; 0 = default (⅓ of the window)
     @AppStorage("terminalWidth") private var terminalWidth: Double = 0
     @AppStorage("todoVisible") private var todoVisible = false
     @State private var dragStart: Double?
@@ -59,14 +59,14 @@ struct ContentView: View {
     private static let minTerminal: Double = 340
     private static let minOverview: Double = 420
 
-    /// Breite des Terminals für die Fensterbreite, begrenzt und auf ganze Punkte gerundet
-    /// (sonst liegt das Terminal zwischen zwei Pixeln und der Text wird unscharf).
+    /// Terminal width for the window width, clamped and rounded to whole points
+    /// (otherwise the terminal sits between two pixels and the text gets blurry).
     private func width(for total: Double, wanted: Double) -> Double {
         let w = wanted > 0 ? wanted : total / 3
         return min(max(w, Self.minTerminal), max(Self.minTerminal, total - Self.minOverview)).rounded()
     }
 
-    /// Signet und Wortmarke links in der Titelleiste
+    /// Mark and wordmark on the left of the title bar
     private var brandLabel: some View {
         HStack(spacing: 8) {
             ZStack {
@@ -81,7 +81,7 @@ struct ContentView: View {
 
     @ToolbarContentBuilder
     private var brand: some ToolbarContent {
-        // ab macOS 26 bekommen Toolbar-Elemente sonst einen Glas-Hintergrund; das Logo steht frei
+        // from macOS 26 toolbar items otherwise get a glass background; the logo stands free
         if #available(macOS 26, *) {
             ToolbarItem(placement: .navigation) { brandLabel }.sharedBackgroundVisibility(.hidden)
         } else {
@@ -101,7 +101,7 @@ struct ContentView: View {
             .keyboardShortcut("n")
     }
 
-    /// Todo und Neue Session am rechten Rand der Titelleiste; ab macOS 26 schiebt ein flexibler Abstand sie dorthin
+    /// Todo and New Session at the right edge of the title bar; from macOS 26 a flexible spacer pushes them there
     @ToolbarContentBuilder
     private var actions: some ToolbarContent {
         if #available(macOS 26, *) {
@@ -125,7 +125,7 @@ struct ContentView: View {
                     .frame(width: w)
                     .frame(maxHeight: .infinity)
             }
-            // unsichtbarer Griff auf der Grenze: Ziehen ändert die Breite des Terminals
+            // invisible handle on the divider: dragging changes the terminal's width
             .overlay(alignment: .topLeading) {
                 Color.clear
                     .frame(width: 9).frame(maxHeight: .infinity)
@@ -144,7 +144,7 @@ struct ContentView: View {
                             .onEnded { _ in dragStart = nil }
                     )
             }
-            // schwebende Todo-Karte, standardmäßig oben rechts in der Übersicht
+            // floating todo card, by default top right in the overview
             .overlay(alignment: .topLeading) {
                 if todoVisible {
                     TodoPanel(bounds: geo.size,
@@ -153,7 +153,7 @@ struct ContentView: View {
                 }
             }
         }
-        // statt des Fenstertitels: Signet und Wortmarke links in der Titelleiste
+        // instead of the window title: mark and wordmark on the left of the title bar
         .onAppear { NSApp.windows.forEach { $0.titleVisibility = .hidden } }
         .toolbar {
             brand
@@ -165,7 +165,7 @@ struct ContentView: View {
                 store.refreshSoon()
             }
         }
-        // Bestätigung für Close…/Restart… aus dem Rechtsklick-Menü
+        // confirmation for Close…/Restart… from the right-click menu
         .alert(store.closeRequest?.title ?? "",
                isPresented: Binding(get: { store.closeRequest != nil },
                                     set: { if !$0 { store.closeRequest = nil } }),

@@ -1,13 +1,13 @@
 import SwiftUI
 import HiveCore
 
-/// Ansicht „Cards“: Favoriten zuerst (ohne Überschrift), darunter Abschnitte nach Dringlichkeit wie im Dashboard,
-/// große Karten mit dem Kasten „Now“ (letzter Arbeitsschritt, Frage oder letztes Ergebnis).
+/// "Cards" view: favorites first (without a heading), below that sections by urgency like in the dashboard,
+/// large cards with the "Now" box (last work step, question, or last result).
 struct SessionCardsView: View {
     @EnvironmentObject private var store: StateStore
-    /// Favoriten, schon sortiert (SessionOrder), auch offline
+    /// Favorites, already sorted (SessionOrder), including offline
     let favorites: [OverviewItem]
-    /// übrige Sessions, schon sortiert (SessionOrder), ohne Favoriten
+    /// Remaining sessions, already sorted (SessionOrder), without favorites
     let items: [OverviewItem]
     @Binding var showOffline: Bool
 
@@ -16,7 +16,7 @@ struct SessionCardsView: View {
     ]
 
     var body: some View {
-        // PMs stehen ohne eigenen Abschnitt bei den übrigen Karten; sie heben sich nur durch die Projektfarbe ab (Tile)
+        // PMs have no section of their own among the remaining cards; they stand out only by the project color (Tile)
         VStack(alignment: .leading, spacing: 34) {
             if !favorites.isEmpty { grid(favorites) }
             ForEach(Self.sections, id: \.rank) { sec in
@@ -59,9 +59,9 @@ struct Tile: View {
     let isSelected: Bool
     let now: Date
     let isFavorite: Bool
-    /// Antwortfeld unten (nur „braucht dich“, in tmux und ohne offenen Auswahl-Dialog)
+    /// Reply field at the bottom (only "needs you", in tmux, and without an open choice dialog)
     var canReply = false
-    /// Antwort-Knöpfe für Auswahlfrage oder Freigabe (nur „braucht dich“, in tmux, nicht beim Start)
+    /// Answer buttons for a choice question or permission (only "needs you", in tmux, not at startup)
     var canAnswer = false
     let toggleFavorite: () -> Void
 
@@ -69,7 +69,7 @@ struct Tile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Name und Status
+            // Name and status
             HStack(spacing: 7) {
                 if isPm { Token(text: session.abbr, color: color) }
                 Text(session.name).font(.hiveMono(isPm ? 16 : 15, .semibold)).lineLimit(1).fixedSize()
@@ -81,12 +81,12 @@ struct Tile: View {
             }
 
             let line = NowLine(session, rank: status.rank)
-            // roter Grund nur, wenn der Kasten „Now“ nichts Besseres zeigt
+            // red background only if the "Now" box doesn't show anything better
             if line == nil, let why = status.why {
                 Text(why).font(.system(size: 12.5, weight: .medium)).foregroundStyle(status.color).lineLimit(1)
             }
 
-            // Aufgabe: grau, wenn sie deutlich älter ist als die letzte Aktivität
+            // task: gray if it's noticeably older than the last activity
             let outdated = session.taskOutdated
             Text(session.task?.text ?? "No task line")
                 .font(.system(size: 13.5, weight: session.task?.text == nil || outdated ? .medium : .semibold))
@@ -100,7 +100,7 @@ struct Tile: View {
 
             if canReply { ReplyField(session: session) }
 
-            // Meta: Projekt · Branch, rechts wo die Session läuft
+            // Meta: project · branch, on the right where the session runs
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 7, height: 7)
                 Text(label)
@@ -140,14 +140,14 @@ struct Tile: View {
     }
 }
 
-/// Kasten „Now“: arbeitend der letzte Arbeitsschritt, wartend Freigabe oder Frage, bereit der letzte Satz.
-/// Heller, halb durchsichtiger Grund mit feinem Rand, damit er auch auf getönten Karten (PM, wartend) ruhig wirkt.
+/// "Now" box: when working, the last work step; when waiting, a permission or question; when ready, the last sentence.
+/// A light, semi-transparent background with a thin border so it stays calm even on tinted cards (PM, waiting).
 struct NowBox: View {
     let line: NowLine
-    /// Tönung der Karte (Statusfarbe wartend, Projektfarbe bei PMs), nil = neutral
+    /// Card tint (status color when waiting, project color for PMs), nil = neutral
     let tint: Color?
     let now: Date
-    /// Session, die per Knopf geantwortet werden kann; nil = keine Knöpfe
+    /// Session that can be answered via button; nil = no buttons
     var answerFor: Session? = nil
 
     private var icon: String {
@@ -159,7 +159,7 @@ struct NowBox: View {
         }
     }
 
-    /// Knöpfe statt Liste: Freigabe oder eine einzelne Frage ohne Mehrfachauswahl
+    /// Buttons instead of a list: a permission, or a single question without multiple choice
     private var buttons: Bool {
         answerFor != nil && (line.kind == .permission || (line.kind == .choice && line.singleChoice))
     }
@@ -204,9 +204,9 @@ struct NowBox: View {
     }
 }
 
-/// Antwort-Knöpfe im Kasten „Now“: je Option einer Auswahlfrage oder Allow/Always allow/Deny bei einer
-/// Freigabe. Ein Klick prüft den Bildschirm und tippt die Ziffer (Tmux.answer); nie automatisch.
-/// Gesperrt, solange in das Terminal dieser Session getippt wird.
+/// Answer buttons in the "Now" box: one per option of a choice question, or Allow/Always allow/Deny for a
+/// permission. A click checks the screen and types the digit (Tmux.answer); never automatically.
+/// Disabled while someone is typing into this session's terminal.
 struct AnswerButtons: View {
     @EnvironmentObject private var store: StateStore
     @ObservedObject private var activity = TerminalActivity.shared
@@ -214,7 +214,7 @@ struct AnswerButtons: View {
     let line: NowLine
     @State private var sending = false
     @State private var note: String?
-    /// „Always allow“ steht auf dem Bildschirm (einmal gelesen, wenn die Freigabe erscheint)
+    /// "Always allow" is on the screen (read once, when the permission appears)
     @State private var hasAlways = false
 
     private struct Choice: Identifiable {
@@ -267,7 +267,7 @@ struct AnswerButtons: View {
     }
 }
 
-/// Kleiner Knopf im Hive-Stil: „Allow“ dunkel gefüllt, sonst hell mit Rand.
+/// Small button in the Hive style: "Allow" filled dark, otherwise light with a border.
 struct AnswerButtonStyle: ButtonStyle {
     let primary: Bool
     @Environment(\.isEnabled) private var enabled
@@ -286,7 +286,7 @@ struct AnswerButtonStyle: ButtonStyle {
     }
 }
 
-/// Befehl oder Pfad in Schreibmaschinenschrift auf grauem Grund.
+/// Command or path in monospace font on a gray background.
 struct CodeChip: View {
     let text: String
 
@@ -301,9 +301,9 @@ struct CodeChip: View {
     }
 }
 
-/// Einzeiliges Antwortfeld in wartenden Karten: Enter tippt den Text per tmux in die Session.
-/// Ein Klick ins Feld holt nur den Fokus; die Karte wird dabei nicht ausgewählt (sonst nähme
-/// das Terminal der Auswahl den Fokus gleich wieder an sich).
+/// Single-line reply field in waiting cards: Enter types the text into the session via tmux.
+/// A click into the field only grabs focus; the card doesn't get selected (otherwise the
+/// terminal of the selection would immediately take the focus back).
 struct ReplyField: View {
     @EnvironmentObject private var store: StateStore
     let session: Session

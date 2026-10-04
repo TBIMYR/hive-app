@@ -1,9 +1,9 @@
 import SwiftUI
 import HiveCore
 
-// MARK: Bausteine
+// MARK: Building blocks
 
-/// Langsam pulsierender Rahmen für arbeitende Sessions; bei „Bewegung reduzieren“ ruhig.
+/// Slowly pulsing border for working sessions; calm when "reduce motion" is on.
 struct PulsingBorder: View {
     let color: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -13,7 +13,7 @@ struct PulsingBorder: View {
             shape(opacity: 0.6)
         } else {
             TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
-                // 2,4 s pro Atemzug, Deckkraft 0,2 … 0,85
+                // 2.4 s per breath, opacity 0.2 … 0.85
                 let t = ctx.date.timeIntervalSinceReferenceDate
                 let phase = (sin(t * 2 * .pi / 2.4) + 1) / 2
                 shape(opacity: 0.2 + 0.65 * phase)
@@ -44,7 +44,7 @@ struct Token: View {
     }
 }
 
-/// Status als Punkt + Text; nur „braucht dich“ wird eine gefüllte Pille.
+/// Status as dot + text; only "needs you" becomes a filled pill.
 struct StatusLabel: View {
     let status: Status
     var since: String = ""
@@ -64,8 +64,8 @@ struct StatusLabel: View {
     }
 }
 
-/// Stern für Favoriten: gefüllt in Hive.ink, solange Favorit, sonst graue Kontur. Immer sichtbar, damit nichts hüpft.
-/// Als Button fängt er den Klick ab, die Auswahl der Session (onTapGesture darunter) bleibt unberührt.
+/// Star for favorites: filled in Hive.ink while a favorite, otherwise a gray outline. Always visible so nothing jumps around.
+/// As a button it intercepts the click; the session selection (onTapGesture below it) stays untouched.
 struct StarButton: View {
     let isOn: Bool
     let toggle: () -> Void
@@ -84,28 +84,28 @@ struct StarButton: View {
     }
 }
 
-/// Eine Session mit allem, was die Ansichten zeigen; der Rahmen (OverviewView) berechnet das einmal je Durchlauf.
+/// A session with everything the views show; the frame (OverviewView) computes this once per pass.
 struct OverviewItem: Identifiable {
     let session: Session
     let status: Status
-    /// Projektname (labels[groupKey] ?? groupKey)
+    /// Project name (labels[groupKey] ?? groupKey)
     let project: String
     let color: Color
     let inTmux: Bool
-    /// „<1 min“, „12 min“ seit dem letzten Statuswechsel, nur bei lebenden Sessions
+    /// "<1 min", "12 min" since the last status change, only for live sessions
     let since: String
-    /// Favorit (Stern gefüllt, steht vorn)
+    /// Favorite (star filled, listed first)
     let isFavorite: Bool
 
     var id: String { session.id }
     var name: String { session.name }
 
-    /// Kurzzeile für Tiles und List: arbeitend der Arbeitsschritt, wartend „Allow …?“ bzw. die Frage, sonst nil
-    /// (dann die Aufgabe).
+    /// Short line for Tiles and List: while working the work step, while waiting "Allow …?" or the question, otherwise nil
+    /// (then the task).
     var now: NowLine? { status.rank <= 1 ? NowLine(session, rank: status.rank) : nil }
 }
 
-/// Abschnittskopf: Punkt, Titel, Anzahl, Linie. Mit `expanded` einklappbar (Offline).
+/// Section header: dot, title, count, line. Collapsible with `expanded` (Offline).
 struct SectionHeader: View {
     let title: String
     let count: Int
@@ -128,8 +128,8 @@ struct SectionHeader: View {
     }
 }
 
-/// Signet von hive: eine Wabe (spitze Seite oben), wie das App-Symbol. Runde Ecken entstehen beim
-/// Zeichnen durch eine zusätzliche Linie mit runder Verbindung.
+/// hive's mark: a honeycomb cell (pointed side up), like the app icon. Rounded corners come from
+/// drawing an extra line with a rounded join.
 struct HiveMark: Shape {
     func path(in rect: CGRect) -> Path {
         let r = min(rect.width / sqrt(3), rect.height / 2)
@@ -145,7 +145,7 @@ struct HiveMark: Shape {
     }
 }
 
-/// Reihe, die bei Platzmangel in die nächste Zeile umbricht (Antwort-Knöpfe).
+/// Row that wraps to the next line when space runs short (reply buttons).
 struct FlowLayout: Layout {
     var spacing: CGFloat = 6
 

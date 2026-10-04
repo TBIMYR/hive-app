@@ -1,7 +1,7 @@
 import Foundation
 
-/// Holt das iTerm-Fenster und den Tab einer Session nach vorn (wie hive/lib/focus.js).
-/// Weg: PID → Terminal (ps) → iTerm-Session mit diesem tty (AppleScript).
+/// Brings a session's iTerm window and tab to the front (like hive/lib/focus.js).
+/// Path: PID → terminal (ps) → iTerm session with this tty (AppleScript).
 public enum Focus {
     static let script = """
     on run argv
@@ -25,7 +25,7 @@ public enum Focus {
     end run
     """
 
-    /// Terminal des Prozesses, z. B. /dev/ttys004; nil ohne Terminal.
+    /// The process's terminal, e.g. /dev/ttys004; nil if it has no terminal.
     public static func tty(of pid: Int) -> String? {
         let r = Shell.run("/bin/ps", ["-o", "tty=", "-p", String(pid)])
         let tty = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -33,7 +33,7 @@ public enum Focus {
         return tty.hasPrefix("/dev/") ? tty : "/dev/\(tty)"
     }
 
-    /// nil = Tab ist vorn, sonst der Grund.
+    /// nil = tab is in front, otherwise the reason.
     public static func focus(pid: Int) -> String? {
         guard let tty = tty(of: pid) else { return "Session has no terminal" }
         let r = Shell.run("/usr/bin/osascript", ["-e", script, tty])

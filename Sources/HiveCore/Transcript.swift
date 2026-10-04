@@ -10,22 +10,22 @@ public struct Said: Codable, Equatable, Sendable {
     }
 }
 
-/// Letzter Arbeitsschritt des Assistenten (letzter tool_use), kurz beschrieben für die Zeile „Now“.
+/// Last work step of the assistant (last tool_use), briefly described for the "Now" line.
 public struct WorkAction: Codable, Equatable, Sendable {
-    /// Werkzeugname wie im Protokoll („Bash“, „Edit“ …)
+    /// tool name as in the log ("Bash", "Edit" …)
     public let tool: String
-    /// kurzer Text („Running tests“, „Editing Kalender.swift“)
+    /// short text ("Running tests", "Editing Kalender.swift")
     public let text: String
-    /// Befehl oder Pfad, einzeilig und gekürzt
+    /// command or path, single-line and truncated
     public let detail: String?
     public let at: String?
-    /// noch ohne tool_result (läuft oder wartet auf Freigabe)
+    /// still without tool_result (running or waiting for approval)
     public let pending: Bool
-    /// AskUserQuestion: Beschriftungen der Optionen der ersten Frage
+    /// AskUserQuestion: labels of the options of the first question
     public let options: [String]?
-    /// AskUserQuestion: Anzahl der Fragen
+    /// AskUserQuestion: number of questions
     public let questionCount: Int?
-    /// AskUserQuestion: erste Frage mit Mehrfachauswahl
+    /// AskUserQuestion: first question with multi-select
     public let multiSelect: Bool?
 
     public init(tool: String, text: String, detail: String?, at: String?, pending: Bool, options: [String]? = nil,
@@ -46,15 +46,15 @@ public struct Tail: Equatable, Sendable {
     public var lastUser: Said? = nil
     public var branch: String? = nil
     public var lastAction: WorkAction? = nil
-    /// letzter Satz der letzten Textantwort, ohne Markdown, gekürzt
+    /// last sentence of the last text response, without Markdown, truncated
     public var lastSentence: String? = nil
 }
 
-/// Liest das Ende eines Gesprächsprotokolls (JSONL) wie hive/lib/transcript.js.
+/// Reads the end of a conversation transcript (JSONL) like hive/lib/transcript.js.
 public enum Transcript {
     public static let defaultTailBytes = 64 * 1024
 
-    /// Letzte `bytes` Bytes; ist die Datei länger, fällt die angeschnittene erste Zeile weg.
+    /// Last `bytes` bytes; if the file is longer, the truncated first line is dropped.
     public static func readTail(_ path: String, bytes: Int = defaultTailBytes) -> String {
         guard let h = FileHandle(forReadingAtPath: path) else { return "" }
         defer { try? h.close() }
@@ -70,7 +70,7 @@ public enum Transcript {
 
     public static func parseTail(_ text: String) -> Tail {
         var tail = Tail()
-        // tool_results aus jüngeren Zeilen (rückwärts gelesen also schon gesehen)
+        // tool_results from more recent lines (already seen, since we read backwards)
         var resultIds = Set<String>()
         var sawResult = false
         for raw in text.components(separatedBy: "\n").reversed() {
@@ -107,7 +107,7 @@ public enum Transcript {
         return tail
     }
 
-    /// Text aus einem String oder aus den text-Blöcken einer Liste.
+    /// Text from a string or from the text blocks of a list.
     static func textOf(_ content: Any?) -> String {
         if let s = content as? String { return s.trimmingCharacters(in: .whitespacesAndNewlines) }
         guard let blocks = content as? [Any] else { return "" }
@@ -120,7 +120,7 @@ public enum Transcript {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    // MARK: Arbeitsschritt
+    // MARK: Work step
 
     static let maxDetail = 80
     static let maxSentence = 140
@@ -171,9 +171,9 @@ public enum Transcript {
                           questionCount: questionCount, multiSelect: multiSelect)
     }
 
-    // MARK: letzter Satz
+    // MARK: Last sentence
 
-    /// Letzter Satz des letzten Absatzes (bei einer Liste: letzter Punkt), Markdown grob entfernt.
+    /// Last sentence of the last paragraph (for a list: last item), Markdown roughly stripped.
     static func lastSentence(of text: String) -> String? {
         var paragraphs: [[String]] = [[]]
         var inCode = false
@@ -192,7 +192,7 @@ public enum Transcript {
         return clip(sentenceTail(flat), maxSentence)
     }
 
-    /// Länge eines Listen- oder Überschriftenzeichens am Zeilenanfang („- “, „1. “, „## “, „> “).
+    /// Length of a list or heading marker at the start of a line ("- ", "1. ", "## ", "> ").
     static func listMarker(_ line: String) -> Int? {
         guard let r = line.range(of: #"^(?:[-*+•]|\d+[.)]|#{1,6}|>)\s+"#, options: .regularExpression) else { return nil }
         return line.distance(from: line.startIndex, to: r.upperBound)
@@ -207,7 +207,7 @@ public enum Transcript {
         return oneLine(t)
     }
 
-    /// Rest nach dem letzten Satzende ([.!?] + Leerzeichen); Ein-Buchstaben-Abkürzungen („z. B.“) zählen nicht.
+    /// Remainder after the last sentence end ([.!?] + space); single-letter abbreviations ("e.g.") don't count.
     static func sentenceTail(_ s: String) -> String {
         let chars = Array(s)
         var i = chars.count - 2
@@ -224,9 +224,9 @@ public enum Transcript {
         return s
     }
 
-    // MARK: Hilfen
+    // MARK: Helpers
 
-    /// Zeilenumbrüche und Mehrfach-Leerzeichen zu einem Leerzeichen.
+    /// Line breaks and multiple spaces collapsed to one space.
     static func oneLine(_ s: String) -> String {
         s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }

@@ -3,28 +3,28 @@ import Testing
 
 private let waiting = ["lu.01", "lu.03", "keeper"]
 
-@Test func wartendeAuswahlOhneFokusBleibt() {
+@Test func waitingSelectionWithoutFocusStays() {
     #expect(SessionOrder.nextWaiting(candidates: waiting, selected: "lu.03", terminalFocused: false) == "lu.03")
 }
 
-@Test func wartendeAuswahlMitFokusGehtWeiter() {
+@Test func waitingSelectionWithFocusMovesOn() {
     #expect(SessionOrder.nextWaiting(candidates: waiting, selected: "lu.01", terminalFocused: true) == "lu.03")
 }
 
-@Test func amEndeWiederDieErste() {
+@Test func atTheEndWrapsToTheFirst() {
     #expect(SessionOrder.nextWaiting(candidates: waiting, selected: "keeper", terminalFocused: true) == "lu.01")
 }
 
-@Test func nichtWartendeAuswahlSpringtZurErsten() {
+@Test func nonWaitingSelectionJumpsToTheFirst() {
     #expect(SessionOrder.nextWaiting(candidates: waiting, selected: "fj.01", terminalFocused: true) == "lu.01")
     #expect(SessionOrder.nextWaiting(candidates: waiting, selected: "fj.01", terminalFocused: false) == "lu.01")
 }
 
-@Test func ohneAuswahlDieErste() {
+@Test func withoutSelectionTheFirst() {
     #expect(SessionOrder.nextWaiting(candidates: waiting, selected: nil, terminalFocused: false) == "lu.01")
 }
 
-@Test func ohneKandidatinBleibtDieAuswahl() {
+@Test func withoutCandidatesSelectionStays() {
     #expect(SessionOrder.nextWaiting(candidates: [], selected: "fj.01", terminalFocused: true) == "fj.01")
     #expect(SessionOrder.nextWaiting(candidates: [], selected: nil, terminalFocused: false) == nil)
 }

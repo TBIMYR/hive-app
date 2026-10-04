@@ -1,29 +1,29 @@
 import Foundation
 
-/// Inhalt des Kastens „Now“ in der Karte: was die Session gerade tut, was sie von dir will oder was zuletzt herauskam.
+/// Content of the "Now" box in the card: what the session is currently doing, what it wants from you, or what it last produced.
 public struct NowLine: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
-        /// arbeitet: letzter Arbeitsschritt
+        /// working: last work step
         case working
-        /// braucht dich: Freigabe eines Werkzeugs
+        /// needs you: approval of a tool
         case permission
-        /// braucht dich: Frage im letzten Satz (Antwort über das Antwortfeld)
+        /// needs you: question in the last sentence (answer via the reply field)
         case question
-        /// braucht dich: offene AskUserQuestion mit Optionen (Antwort im Terminal)
+        /// needs you: open AskUserQuestion with options (answer in the terminal)
         case choice
-        /// bereit oder offline: letzter Satz
+        /// ready or offline: last sentence
         case done
     }
 
     public let kind: Kind
     public let text: String
-    /// Befehl oder Pfad (klein darunter)
+    /// Command or path (small, underneath)
     public let detail: String?
-    /// seit wann der Arbeitsschritt läuft (nur .working)
+    /// since when the work step has been running (only .working)
     public let at: String?
-    /// Optionen einer offenen AskUserQuestion (nur .choice)
+    /// Options of an open AskUserQuestion (only .choice)
     public let options: [String]
-    /// .choice mit genau einer Frage ohne Mehrfachauswahl: per Knopf beantwortbar
+    /// .choice with exactly one question without multi-select: answerable via button
     public let singleChoice: Bool
 
     public init(kind: Kind, text: String, detail: String?, at: String?, options: [String] = [], singleChoice: Bool = false) {
@@ -35,7 +35,7 @@ public struct NowLine: Equatable, Sendable {
         self.singleChoice = singleChoice
     }
 
-    /// `rank` aus SessionStatus (0 braucht dich, 1 arbeitet, sonst bereit/offline). nil = kein Kasten.
+    /// `rank` from SessionStatus (0 needs you, 1 working, otherwise ready/offline). nil = no box.
     public init?(_ s: Session, rank: Int) {
         let action = s.lastAction
         switch rank {
@@ -63,17 +63,17 @@ public struct NowLine: Equatable, Sendable {
 }
 
 extension Session {
-    /// waitingFor sieht nach einer Freigabe aus („Permission prompt“ …)
+    /// waitingFor looks like an approval ("Permission prompt" …)
     public var waitsForPermission: Bool { waitingFor?.localizedCaseInsensitiveContains("permission") == true }
 
-    /// Antwortfeld zeigen: kein Werkzeugaufruf offen (sonst steht ein Auswahl-Dialog im Terminal, getippter
-    /// Text landete falsch) und keine Freigabe.
+    /// Show the reply field: no tool call pending (otherwise a choice dialog is showing in the terminal and
+    /// typed text would land in the wrong place) and no approval pending.
     public var acceptsReply: Bool { lastAction?.pending != true && !waitsForPermission }
 
-    /// Ab wann eine Aufgaben-Zeile als veraltet gilt: so viel älter als die letzte Aktivität.
+    /// When a task line counts as outdated: this much older than the last activity.
     public static let taskOutdatedAfter: TimeInterval = 2 * 60 * 60
 
-    /// Aufgaben-Zeile deutlich älter als die letzte Aktivität (letzter Arbeitsschritt oder Statuswechsel).
+    /// Task line noticeably older than the last activity (last work step or status change).
     public var taskOutdated: Bool {
         guard let updated = task?.updatedAt.flatMap(parseISO) else { return false }
         let activity = [lastAction?.at, statusUpdatedAt].compactMap { $0.flatMap(parseISO) }.max()

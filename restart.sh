@@ -1,9 +1,9 @@
 #!/bin/sh
-# restart.sh — hive-App bauen, als App-Paket verpacken und neu starten. Die Sessions laufen im tmux-Server weiter.
-#   sh restart.sh          bauen + neu starten
-#   sh restart.sh --build  nur bauen und verpacken
-# Mitteilungen brauchen eine Bundle-Kennung, darum ein lokales, ad-hoc-signiertes Paket.
-# Testinstanz neben der Haupt-App (eigene Kennung, nimmt ihr keine Mitteilungen weg):
+# restart.sh — build the hive app, package it as an app bundle and restart it. Sessions keep running in the tmux server.
+#   sh restart.sh          build + restart
+#   sh restart.sh --build  only build and package
+# Notifications need a bundle identifier, hence a local, ad-hoc-signed bundle.
+# Test instance alongside the main app (own identifier, doesn't steal its notifications):
 #   HIVE_APP=HiveApp-dev HIVE_BUNDLE_ID=io.github.tbimyr.hive-app.dev sh restart.sh
 set -eu
 cd "$(dirname "$0")"
@@ -16,9 +16,9 @@ exe="$root/$app/Contents/MacOS/HiveApp"
 lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 swift build 2>&1 | grep -E "error|warning: unre|Build complete" || true
-[ -x .build/debug/HiveApp ] || { echo "restart.sh: Build fehlt" >&2; exit 1; }
+[ -x .build/debug/HiveApp ] || { echo "restart.sh: build missing" >&2; exit 1; }
 
-# Paket daneben bauen und dann tauschen: nie die Datei einer laufenden App überschreiben
+# Build the bundle next to the old one and then swap: never overwrite the file of a running app
 new=".build/new/$appname.app"
 rm -rf .build/new
 mkdir -p "$new/Contents/MacOS"
@@ -45,20 +45,20 @@ cat > "$new/Contents/Info.plist" <<EOF
 </plist>
 EOF
 codesign --force -s - "$new"
-# ein mv auf ein vorhandenes Paket würde das neue hineinlegen, darum erst weg damit
+# an mv onto an existing bundle would nest the new one inside it, so remove it first
 rm -rf "$app"
 mv "$new" "$app"
 rmdir .build/new
-# damit Erlaubnis und Klick auf eine Mitteilung (auch bei beendeter App) das Paket finden
+# so permission prompts and clicking a notification (even with the app quit) can find the bundle
 "$lsregister" -f "$app"
 [ "${1:-}" = "--build" ] && exit 0
 
-# Nur die App aus diesem Ordner beenden (Muster am Anfang verankert). Die Haupt-App beendet im
-# Übergang auch die alte, relativ gestartete .build/debug/HiveApp; eine Testinstanz (HIVE_APP) nie.
+# Only quit the app from this folder (pattern anchored at the start). The main app's restart also
+# quits the old, relatively started .build/debug/HiveApp; a test instance (HIVE_APP) never does.
 pids=$(pgrep -f "^$exe\$" || true)
 if [ -z "${HIVE_APP:-}" ]; then
   pids="$pids $(pgrep -f "^$root/\\.build/debug/HiveApp\$" || true)"
-  # relativ gestartete nur, wenn ihr Arbeitsordner dieser Ordner ist
+  # relatively started ones only if their working directory is this folder
   for p in $(pgrep -f '^\.build/debug/HiveApp$' || true); do
     if [ "$(lsof -a -p "$p" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')" = "$root" ]; then pids="$pids $p"; fi
   done
@@ -68,5 +68,5 @@ pids=$(echo $pids)
 sleep 1
 nohup "$exe" >/dev/null 2>&1 &
 sleep 2
-echo "App: PID $(pgrep -f "^$exe\$" || echo 'läuft nicht') ($app, $id)"
+echo "App: PID $(pgrep -f "^$exe\$" || echo 'not running') ($app, $id)"
 echo "tmux: $(tmux -L hive ls -F '#{session_name}' 2>/dev/null | tr '\n' ' ')"

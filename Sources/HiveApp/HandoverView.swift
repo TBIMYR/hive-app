@@ -1,8 +1,8 @@
 import MarkdownUI
 import SwiftUI
 
-/// Handover einer Session lesen, wie die Seitenleiste im Dashboard.
-/// Rendert das Markdown (ohne Frontmatter, das schneidet `Handover.body` ab) mit MarkdownUI im Theme `.hive`.
+/// Read a session's handover, like the sidebar in the dashboard.
+/// Renders the Markdown (without frontmatter, which `Handover.body` cuts off) with MarkdownUI in the `.hive` theme.
 struct HandoverView: View {
     @EnvironmentObject private var store: StateStore
     let name: String
@@ -31,8 +31,8 @@ struct HandoverView: View {
     }
 }
 
-/// Ruhige Lese-Typografie für Handover: 14 pt Fließtext, großzügiger Zeilen- und Absatzabstand,
-/// Farben aus `Hive` (hell/dunkel dynamisch).
+/// Calm reading typography for handover: 14 pt body text, generous line and paragraph spacing,
+/// colors from `Hive` (dynamic light/dark).
 extension Theme {
     static let hive = Theme()
         .text {

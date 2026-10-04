@@ -8,23 +8,23 @@ public struct RegistryEntry: Equatable, Sendable {
     public var status: String
     public var waitingFor: String?
     public let kind: String?
-    /// tmux-Pane, in der Claude läuft („%13“), unabhängig von Session- und tmux-Namen
+    /// tmux pane Claude is running in ("%13"), independent of session and tmux names
     public let tmuxPane: String?
     public let startedAt: Double
     public var statusUpdatedAt: String?
     public let alive: Bool
-    /// Hintergrund-Session: ihr Auftrag; Fenster: an welchen Auftrag es sein Gespräch übergeben hat
+    /// Background session: its job; window: which job it handed its conversation over to
     public let jobId: String?
     public let parkedJobId: String?
 }
 
-/// Liest das Claude-Register ~/.claude/sessions/*.json wie hive/lib/registry.js.
+/// Reads the Claude registry ~/.claude/sessions/*.json like hive/lib/registry.js.
 public enum Registry {
     public static func isAlive(_ pid: Int) -> Bool {
         kill(pid_t(truncatingIfNeeded: pid), 0) == 0 || errno == EPERM
     }
 
-    /// "keeper.01:@13.%13" → "%13". Die Pane-ID bleibt, wenn Session oder tmux umbenannt werden.
+    /// "keeper.01:@13.%13" → "%13". The pane id stays the same when the session or tmux is renamed.
     public static func paneOf(_ tmux: String?) -> String? {
         guard let tmux, let r = tmux.range(of: #"%\d+$"#, options: .regularExpression) else { return nil }
         return String(tmux[r])
@@ -39,9 +39,9 @@ public enum Registry {
                 let data = try Data(contentsOf: URL(fileURLWithPath: "\(dir)/\(f)"))
                 guard let j = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let pidValue = number(j["pid"]),
-                      // Int(Double) stürzt bei 1e20 oder NaN ab; solche Einträge sind keine Prozesse
+                      // Int(Double) crashes on 1e20 or NaN; such entries aren't processes
                       let pid = Int(exactly: pidValue.rounded(.towardZero)) else { continue }
-                // Vorrats-Prozess von Claude Code für die nächste Hintergrund-Session, noch keine Session
+                // Spare process of Claude Code for the next background session, not a session yet
                 if j["spare"] as? Bool == true { continue }
                 // JS: j.statusUpdatedAt ?? j.updatedAt
                 let updated = j["statusUpdatedAt"].flatMap { $0 is NSNull ? nil : $0 } ?? j["updatedAt"]
@@ -64,8 +64,8 @@ public enum Registry {
                 errors.append("\(f): \(error.localizedDescription)")
             }
         }
-        // Hat ein Fenster sein Gespräch an eine Hintergrund-Session übergeben (parkedJobId), läuft die
-        // Arbeit dort und das Fenster zeigt sie nur an: eine Session mit dem Status von dort.
+        // If a window has handed its conversation to a background session (parkedJobId), the work
+        // runs there and the window only displays it: one session with the status from there.
         var jobs: [String: Int] = [:]
         for (i, e) in entries.enumerated() where e.alive { if let j = e.jobId { jobs[j] = i } }
         var parked = Set<Int>()
@@ -77,9 +77,9 @@ public enum Registry {
             parked.insert(k)
         }
         entries = entries.enumerated().filter { !parked.contains($0.offset) }.map(\.element)
-        // Duplikate unter lebenden Einträgen: den Namen behält zuerst eine Session mit
-        // Fenster (kind != "bg"), danach die jüngste; alle anderen bekommen #pid.
-        // Hintergrund-Sessions laufen ohne Fenster und wären sonst nicht auffindbar.
+        // Duplicates among live entries: the name is kept first by a session with
+        // a window (kind != "bg"), then by the newest; all others get #pid.
+        // Background sessions run without a window and would otherwise be unfindable.
         var byName: [String: [Int]] = [:]
         for (i, e) in entries.enumerated() where e.alive { byName[e.name, default: []].append(i) }
         for indices in byName.values where indices.count > 1 {

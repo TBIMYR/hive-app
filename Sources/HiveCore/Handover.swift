@@ -6,15 +6,15 @@ public struct HandoverEntry: Equatable, Sendable {
     public var state: String? = nil
     public var updatedAt: String? = nil
     public var project: String? = nil
-    /// Lesefehler der Datei (nicht: fehlendes Frontmatter)
+    /// Read error of the file (not: missing frontmatter)
     public var error: String? = nil
 }
 
-/// Liest ~/.claude/handover/*.md mit Frontmatter (wie hive/lib/handover.js).
+/// Reads ~/.claude/handover/*.md with frontmatter (like hive/lib/handover.js).
 public enum Handover {
     public static let defaultDir = "\(home)/.claude/handover"
 
-    // ASCII wie \w in JS (Swift-\w nimmt auch Umlaute)
+    // ASCII like \w in JS (Swift's \w also matches umlauts)
     private static let field = try! Regex(#"^([A-Za-z_][A-Za-z0-9_-]*):\s?(.*)$"#)
 
     public static func parseFrontmatter(_ text: String) -> (fields: [String: String], body: String) {
@@ -48,8 +48,8 @@ public enum Handover {
         return map
     }
 
-    /// Handover-Text ohne Frontmatter für die Ansicht in der App (ersetzt GET /api/handover/<name>).
-    /// nil, wenn keins da ist. Nur einfache Namen wie im Server (NAME_RE), damit kein Pfad aus dem Ordner führt.
+    /// Handover text without frontmatter for the view in the app (replaces GET /api/handover/<name>).
+    /// nil if there is none. Only simple names like on the server (NAME_RE), so no path can lead out of the folder.
     public static func body(_ name: String, dir: String = defaultDir) -> String? {
         guard !name.isEmpty, !name.contains(".."),
               name.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }),
@@ -57,7 +57,7 @@ public enum Handover {
         return parseFrontmatter(text).body
     }
 
-    /// Wie readFileSync(…, 'utf8') in Node: kaputte Bytes werden U+FFFD, statt die ganze Datei zu verwerfen.
+    /// Like readFileSync(…, 'utf8') in Node: broken bytes become U+FFFD instead of discarding the whole file.
     private static func readUTF8(_ path: String) throws -> String {
         String(decoding: try Data(contentsOf: URL(fileURLWithPath: path)), as: UTF8.self)
     }

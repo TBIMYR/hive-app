@@ -1,23 +1,23 @@
 import Testing
 @testable import HiveCore
 
-@Test func frontmatterFelderUndBody() {
+@Test func frontmatterFieldsAndBody() {
     let r = Handover.parseFrontmatter("---\na: 1\nb: x: y\n---\nbody\n")
     #expect(r.fields == ["a": "1", "b": "x: y"])
     #expect(r.body == "body\n")
 }
 
-@Test func ohneFrontmatterIstAllesBody() {
+@Test func withoutFrontmatterEverythingIsBody() {
     let r = Handover.parseFrontmatter("# Nur Body\n")
     #expect(r.fields.isEmpty)
     #expect(r.body == "# Nur Body\n")
 }
 
-@Test func nichtGeschlossenesFrontmatterHatKeineFelder() {
+@Test func unclosedFrontmatterHasNoFields() {
     #expect(Handover.parseFrontmatter("---\nsession: x\n").fields.isEmpty)
 }
 
-@Test func ordnerWirdNachNameGelesen() {
+@Test func directoryIsReadByName() {
     let m = Handover.readDir(fixture("handover"))
     let e = m["al.01"]
     #expect(e?.task == "Startseite Layout #12, PR offen")
@@ -27,20 +27,20 @@ import Testing
     #expect(m["archive"] == nil)
 }
 
-@Test func kaputteDateienHabenKeineAufgabeUndKeinenFehler() {
+@Test func brokenFilesHaveNoTaskAndNoError() {
     let m = Handover.readDir(fixture("handover-broken"))
     #expect(m["kaputt"]?.task == nil)
     #expect(m["kaputt"]?.error == nil)
     #expect(m["nofm"]?.task == nil)
 }
 
-@Test func fehlenderOrdnerIstLeer() {
+@Test func missingDirectoryIsEmpty() {
     #expect(Handover.readDir("/nonexistent").isEmpty)
 }
 
-@Test func textOhneFrontmatterFuerDieAnsicht() {
+@Test func textWithoutFrontmatterForTheView() {
     #expect(Handover.body("al.01", dir: fixture("handover"))?.hasPrefix("# Handover al.01") == true)
     #expect(Handover.body("nofm", dir: fixture("handover-broken")) == "# Nur Body\n")
     #expect(Handover.body("gibtsnicht", dir: fixture("handover")) == nil)
-    #expect(Handover.body("../handover/al.01", dir: fixture("handover")) == nil, "nur einfache Namen wie im Server")
+    #expect(Handover.body("../handover/al.01", dir: fixture("handover")) == nil, "only simple names, as in the server")
 }

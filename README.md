@@ -1,29 +1,56 @@
 # hive-app
 
-Mac-App für parallele Claude-Code-Sessions: links die Übersicht aller Sessions, rechts das echte
-Terminal der gewählten Session (tmux). Hervorgegangen aus dem Prototyp in
-[hive](../hive) (`prototype/`); Skripte (`cc-task`, `cc-spawn`, `cc-close`) und Doku liegen weiter dort.
+Mac app for parallel Claude Code sessions: the overview of all sessions on the left, the real
+terminal of the selected session (tmux) on the right. Grew out of the prototype in
+[hive](../hive) (`prototype/`); scripts (`cc-task`, `cc-spawn`, `cc-close`) and docs still live there.
 
-## Starten
+Names in docs, tests and examples are made up: projects `lumen`, `orbit`, `fjord`, `kiosk` with the
+session prefixes `lu`, `or`, `fj`, `ki`; "Mika" stands for the user. Please write new docs the same
+way, no real names or ticket numbers. Use `~/` for paths in commands so they work for everyone.
+
+## Features
+
+- Views: List, Tiles, Cards
+- Favorites with a star
+- ⌘H jumps to the longest-waiting session, cursor into the terminal; press again for the next one
+- Notifications and a dock badge count for sessions that need you
+- Floating todo list (⌘T), stored in `~/.claude/hive/todos.md`
+- Quick reply and reply buttons in the cards view
+- Write Handover / Restart… / Close… in the right-click menu
+- Drag & drop into the terminal
+
+## Starting
 
 ```sh
-brew install tmux                  # einmalig
+brew install tmux                  # once
 swift run HiveApp
-swift run HiveApp --select al.04   # mit vorgewählter Session
-sh restart.sh                      # bauen und neu starten (beendet jede laufende .build/debug/HiveApp, auch den Prototyp)
-swift test                         # Tests von HiveCore
-scripts/compare-node.sh            # Vergleich mit dem alten Node-Server, solange er läuft
+swift run HiveApp --select lu.04   # with a preselected session
+sh restart.sh                      # build, package as .build/HiveApp.app and restart
+                                    # (quits only apps started from this folder, including the prototype)
+swift test                         # HiveCore tests
+scripts/compare-node.sh            # comparison with the old Node server, as long as it's running
 ```
 
-Von außen an eine Session: `tmux -L hive attach -t '=<name>:'` (Doppelpunkt nötig, sonst liest tmux `.01` als Pane).
+Test instance alongside the main app (own bundle identifier, doesn't steal its notifications):
 
-## Aufbau
+```sh
+HIVE_APP=HiveApp-dev HIVE_BUNDLE_ID=io.github.tbimyr.hive-app.dev sh restart.sh
+```
 
-- `HiveCore`: liest `~/.claude/sessions`, `~/.claude/handover` und die Gesprächsprotokolle unter
-  `~/.claude/projects`, gleiche Regeln wie früher `hive/lib/*.js`. Änderungen kommen per FSEvents.
-- `HiveApp`: SwiftUI-Fenster, Terminal über SwiftTerm und einen eigenen tmux-Server (`tmux -L hive`).
-- `hive-state`: gibt den Zustand als JSON aus.
+Test todo file instead of `~/.claude/hive/todos.md`: `HIVE_TODOS=<path> swift run HiveApp`.
 
-## Lizenz
+App icon: `swift scripts/make-icon.swift Resources/AppIcon.iconset && iconutil -c icns Resources/AppIcon.iconset`.
 
-MIT, siehe [LICENSE](LICENSE).
+Attaching to a session from outside: `tmux -L hive attach -t '=<name>:'` (colon needed, otherwise tmux reads `.01` as a pane).
+
+## Structure
+
+- `HiveCore`: reads `~/.claude/sessions`, `~/.claude/handover` and the conversation transcripts under
+  `~/.claude/projects`, same rules as the earlier `hive/lib/*.js`. Changes arrive via FSEvents.
+- `HiveApp`: SwiftUI window, terminal via SwiftTerm, handover view via MarkdownUI, and its own tmux
+  server (`tmux -L hive`).
+- `hive-state`: prints the state as JSON.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

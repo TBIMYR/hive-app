@@ -1,7 +1,7 @@
 import SwiftUI
 import HiveCore
 
-/// Ansicht der Übersicht, gemerkt unter `view`; unbekannte Werte ergeben Cards.
+/// Overview view mode, remembered under `view`; unknown values default to Cards.
 enum ViewMode: String, CaseIterable, Identifiable {
     case list, tiles, cards
 
@@ -22,7 +22,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// Umschalter der Ansichten: weiße Schiene mit schwarzem, mitgleitendem Feld für die gewählte Ansicht.
+/// View switcher: white rail with a black, sliding field for the selected view.
 struct ViewSwitcher: View {
     @Binding var mode: ViewMode
     @Namespace private var ns
@@ -60,11 +60,11 @@ struct ViewSwitcher: View {
     }
 }
 
-/// Rahmen der Übersicht: Umschalter fest oben, darunter die gewählte Ansicht (Favoriten zuerst).
+/// Frame of the overview: switcher fixed at the top, below it the selected view (favorites first).
 struct OverviewView: View {
     @EnvironmentObject private var store: StateStore
     @AppStorage("view") private var mode: ViewMode = .cards
-    /// Offline-Sessions aufgeklappt (geteilt von allen Ansichten, nicht über Neustart gemerkt)
+    /// Offline sessions expanded (shared by all views, not remembered across restarts)
     @State private var showOffline = false
 
     var body: some View {
@@ -80,7 +80,7 @@ struct OverviewView: View {
     }
 
     private var board: some View {
-        // einmal je Durchlauf: Projektnamen, Farben, Status
+        // once per pass: project names, colors, status
         let labels = store.labels
         let colors = store.groupColors(labels)
         let now = store.now

@@ -13,31 +13,31 @@ Schluss
 
 """
 
-@Test func parstAufgabenUndUebergehtFremdeZeilen() {
+@Test func parsesTasksAndSkipsForeignLines() {
     let list = TodoList.parse(sample)
     #expect(list.items.map(\.text) == ["Freigabe klären", "Kim anrufen", "eingerückt erledigt", "  viele Leerzeichen"])
     #expect(list.items.map(\.done) == [false, true, true, false])
 }
 
-@Test func keineAufgabenOhneKaestchen() {
+@Test func noTasksWithoutCheckbox() {
     let list = TodoList.parse("- normaler Punkt\n[ ] ohne Strich\n-[ ] ohne Abstand\n")
     #expect(list.items.isEmpty)
 }
 
-@Test func rendertUnveraendertVerlustfrei() {
+@Test func rendersUnchangedLosslessly() {
     #expect(TodoList.parse(sample).render() == sample)
     #expect(TodoList.parse("").render() == "")
     #expect(TodoList.parse("ohne Zeilenende").render() == "ohne Zeilenende")
 }
 
-@Test func offeneVorErledigtenSonstDateiReihenfolge() {
+@Test func openBeforeDoneOtherwiseFileOrder() {
     let list = TodoList.parse("- [x] a\n- [ ] b\n- [x] c\n- [ ] d\n")
     #expect(list.open.map(\.text) == ["b", "d"])
     #expect(list.done.map(\.text) == ["a", "c"])
     #expect(list.ordered.map(\.text) == ["b", "d", "a", "c"])
 }
 
-@Test func idsSindEindeutigUndBleibenBeiAenderungen() {
+@Test func idsAreUniqueAndStableAcrossChanges() {
     var list = TodoList.parse("- [ ] a\n- [ ] b\n")
     let ids = list.items.map(\.id)
     #expect(Set(ids).count == 2)
@@ -47,14 +47,14 @@ Schluss
     #expect(!ids.contains(c!))
 }
 
-@Test func hinzufuegenHinterDemLetztenEintrag() {
+@Test func addingInsertsAfterLastEntry() {
     var list = TodoList.parse("# Todo\n- [ ] a\n- [x] b\n\nFuß\n")
     list.add("neu")
     #expect(list.render() == "# Todo\n- [ ] a\n- [x] b\n- [ ] neu\n\nFuß\n")
     #expect(list.open.map(\.text) == ["a", "neu"])
 }
 
-@Test func hinzufuegenOhneEintraegeAnsEnde() {
+@Test func addingWithoutEntriesAppendsAtEnd() {
     var empty = TodoList.parse("")
     empty.add("erste")
     #expect(empty.render() == "- [ ] erste\n")
@@ -68,7 +68,7 @@ Schluss
     #expect(bare.render() == "# Todo\n- [ ] x")
 }
 
-@Test func hinzufuegenIgnoriertLeerenTextUndGlaettetZeilenumbrueche() {
+@Test func addingIgnoresEmptyTextAndCollapsesNewlines() {
     var list = TodoList.parse("")
     #expect(list.add("   ") == nil)
     #expect(list.items.isEmpty)
@@ -76,7 +76,7 @@ Schluss
     #expect(list.items.map(\.text) == ["zwei Zeilen"])
 }
 
-@Test func abhakenUndWiederAufmachen() {
+@Test func togglingChecksAndUnchecks() {
     var list = TodoList.parse("Kopf\n* [ ] a\n")
     let id = list.items[0].id
     list.toggle(id)
@@ -85,38 +85,38 @@ Schluss
     #expect(list.render() == "Kopf\n* [ ] a\n")
 }
 
-@Test func abhakenBehaeltEinrueckung() {
+@Test func togglingPreservesIndentation() {
     var list = TodoList.parse("  - [ ] a\n")
     list.toggle(list.items[0].id)
     #expect(list.render() == "  - [x] a\n")
 }
 
-@Test func bearbeitenAendertNurDenText() {
+@Test func editingChangesOnlyTheText() {
     var list = TodoList.parse("Kopf\n- [x] alt\nFuß")
     list.edit(list.items[0].id, "  neu  ")
     #expect(list.render() == "Kopf\n- [x] neu\nFuß")
 }
 
-@Test func bearbeitenMitLeeremTextLoescht() {
+@Test func editingWithEmptyTextDeletes() {
     var list = TodoList.parse("- [ ] a\n- [ ] b\n")
     list.edit(list.items[0].id, "  ")
     #expect(list.render() == "- [ ] b\n")
 }
 
-@Test func entfernenLaesstFremdeZeilenStehen() {
+@Test func removingLeavesForeignLinesIntact() {
     var list = TodoList.parse("# T\n- [ ] a\ntext\n- [ ] b\n")
     list.remove(list.items[0].id)
     #expect(list.render() == "# T\ntext\n- [ ] b\n")
 }
 
-@Test func erledigteEntfernen() {
+@Test func clearingDoneRemovesCompletedItems() {
     var list = TodoList.parse("# T\n- [x] a\n- [ ] b\n* [X] c\n")
     list.clearDone()
     #expect(list.render() == "# T\n- [ ] b\n")
     #expect(list.done.isEmpty)
 }
 
-@Test func unbekannteIdAendertNichts() {
+@Test func unknownIdChangesNothing() {
     var list = TodoList.parse("- [ ] a\n")
     list.toggle(999); list.edit(999, "x"); list.remove(999)
     #expect(list.render() == "- [ ] a\n")

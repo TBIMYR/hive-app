@@ -1,8 +1,8 @@
 import Foundation
 
-/// Todo-Liste aus einer Markdown-Datei (`- [ ] Text`, `- [x] Text`, auch `* [ ]` und `[X]`).
-/// Fremde Zeilen (Überschriften, Leerzeilen, Text) bleiben beim Rendern an ihrer Stelle erhalten,
-/// unveränderte Aufgabenzeilen Zeichen für Zeichen. IDs gelten nur für diesen Wert (nicht in der Datei).
+/// Todo list from a Markdown file (`- [ ] Text`, `- [x] Text`, also `* [ ]` and `[X]`).
+/// Foreign lines (headings, blank lines, text) stay in place when rendering,
+/// unchanged task lines character for character. IDs are only valid for this value (not in the file).
 public struct TodoList: Equatable, Sendable {
     public struct Item: Equatable, Identifiable, Sendable {
         public let id: Int
@@ -12,9 +12,9 @@ public struct TodoList: Equatable, Sendable {
 
     private struct Task: Equatable, Sendable {
         var item: Item
-        /// Einrückung und Aufzählungszeichen vor dem Kästchen, z. B. „  - “
+        /// indentation and bullet character before the checkbox, e.g. "  - "
         let lead: String
-        /// Zeile wie gelesen; nil, sobald der Eintrag geändert wurde
+        /// line as read; nil once the entry has been changed
         var raw: String?
 
         var line: String { raw ?? "\(lead)[\(item.done ? "x" : " ")] \(item.text)" }
@@ -28,7 +28,7 @@ public struct TodoList: Equatable, Sendable {
     private var lines: [Line]
     private var nextID: Int
 
-    // Einrückung, „-“ oder „*“, Abstand, Kästchen, ein optionales Leerzeichen, Text
+    // indentation, "-" or "*", spacing, checkbox, an optional space, text
     private static let pattern = try! NSRegularExpression(pattern: #"^(\s*[-*]\s+)\[([ xX])\] ?(.*)$"#)
 
     public static func parse(_ text: String) -> TodoList {
@@ -55,18 +55,18 @@ public struct TodoList: Equatable, Sendable {
         }.joined(separator: "\n")
     }
 
-    /// Alle Einträge in Datei-Reihenfolge
+    /// All entries in file order
     public var items: [Item] {
         lines.compactMap { if case .task(let t) = $0 { t.item } else { nil } }
     }
 
     public var open: [Item] { items.filter { !$0.done } }
     public var done: [Item] { items.filter(\.done) }
-    /// Anzeige-Reihenfolge: offene, dann erledigte
+    /// Display order: open, then done
     public var ordered: [Item] { open + done }
 
-    /// Legt einen offenen Eintrag hinter dem letzten Eintrag an (ohne Einträge ans Ende, vor eine
-    /// abschließende Leerzeile). Leerer Text legt nichts an. Liefert die neue ID.
+    /// Creates an open entry after the last entry (with no entries, at the end, before a
+    /// trailing blank line). Empty text creates nothing. Returns the new ID.
     @discardableResult
     public mutating func add(_ text: String) -> Int? {
         let text = Self.clean(text)
@@ -90,7 +90,7 @@ public struct TodoList: Equatable, Sendable {
         change(id) { $0.item.done.toggle() }
     }
 
-    /// Neuer Text für den Eintrag; leerer Text löscht ihn.
+    /// New text for the entry; empty text deletes it.
     public mutating func edit(_ id: Int, _ text: String) {
         let text = Self.clean(text)
         guard !text.isEmpty else { return remove(id) }

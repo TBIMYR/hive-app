@@ -1,15 +1,15 @@
 import Foundation
 
 extension Session {
-    /// Gruppenschlüssel wie im Dashboard (hive gruppiert nach Namensanfang).
+    /// Group key like in the dashboard (hive groups by name prefix).
     public var groupKey: String { group.isEmpty ? name : group }
 }
 
-/// Reihenfolge der Sessions in der Übersicht, gleich für alle Ansichten.
+/// Order of sessions in the overview, same for all views.
 public enum SessionOrder {
-    /// Erst nach Rang (0 braucht dich … 3 offline). Rang 0: wer am längsten wartet, zuerst (fehlende Zeit ganz vorn),
-    /// dann Name. Sonst: „wartet auf Rückmeldung“ zuerst, dann Projektname, PM vor Workern, dann Name.
-    /// Allgemein über den Elementtyp, damit die App ihre Paare aus Session und Status (mit Farbe) direkt sortiert.
+    /// First by rank (0 needs you … 3 offline). Rank 0: whoever has waited longest comes first (missing time first),
+    /// then name. Otherwise: "waiting for reply" first, then project name, PM before workers, then name.
+    /// Generic over the item type so the app can sort its pairs of session and status (with color) directly.
     public static func sorted<T>(_ items: [T], session: (T) -> Session, status: (T) -> SessionStatus,
                                  labels: [String: String]) -> [T] {
         items.sorted { a, b in
@@ -35,9 +35,9 @@ public enum SessionOrder {
 }
 
 extension SessionOrder {
-    /// Ziel der Sprung-Taste ⌘H. `candidates`: wartende Sessions (Rang 0) in Übersichts-Reihenfolge, nach Name
-    /// entdoppelt. Ist die Auswahl wartend und das Terminal noch nicht fokussiert, bleibt sie (der Sprung holt nur
-    /// den Fokus); sonst geht es zur nächsten, am Ende wieder zur ersten. Ohne Kandidatin bleibt die Auswahl.
+    /// Target of the jump key ⌘H. `candidates`: waiting sessions (rank 0) in overview order, deduplicated by name.
+    /// If the selection is waiting and the terminal is not yet focused, it stays selected (the jump just grabs
+    /// focus); otherwise it moves to the next one, wrapping to the first at the end. With no candidate, the selection stays.
     public static func nextWaiting(candidates: [String], selected: String?, terminalFocused: Bool) -> String? {
         guard let first = candidates.first else { return selected }
         guard let sel = selected, let i = candidates.firstIndex(of: sel) else { return first }

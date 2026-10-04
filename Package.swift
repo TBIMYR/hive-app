@@ -5,13 +5,13 @@ let package = Package(
     name: "HiveApp",
     platforms: [.macOS(.v14)],
     dependencies: [
-        // 1.21 kündigt Breaking Changes an, darum auf 1.20.x festhalten
+        // 1.21 announces breaking changes, so stay on 1.20.x
         .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", .upToNextMinor(from: "1.20.0")),
-        // Handover-Anzeige: Markdown mit Tabellen, Code-Blöcken, Zitaten
+        // Handover display: Markdown with tables, code blocks, quotes
         .package(url: "https://github.com/gonzalezreal/swift-markdown-ui.git", .upToNextMinor(from: "2.4.1")),
     ],
     targets: [
-        // Liest Register, Handover und Gesprächsprotokolle (ersetzt hive/lib/*.js)
+        // Reads registry, handover and conversation transcripts (replaces hive/lib/*.js)
         .target(name: "HiveCore"),
         .executableTarget(
             name: "HiveApp",
@@ -21,7 +21,7 @@ let package = Package(
                 .product(name: "MarkdownUI", package: "swift-markdown-ui"),
             ]
         ),
-        // Gibt den Zustand wie GET /api/state aus, für den Vergleich mit dem Node-Server
+        // Prints the state like GET /api/state, for comparison with the Node server
         .executableTarget(name: "hive-state", dependencies: ["HiveCore"]),
         .testTarget(name: "HiveCoreTests", dependencies: ["HiveCore"], resources: [.copy("Fixtures")]),
     ]
