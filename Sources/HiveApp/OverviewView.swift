@@ -60,14 +60,12 @@ struct ViewSwitcher: View {
     }
 }
 
-/// Rahmen der Übersicht: Umschalter, Leiste „Pinned“ fest oben, darunter die gewählte Ansicht.
+/// Rahmen der Übersicht: Umschalter fest oben, darunter die gewählte Ansicht (Favoriten zuerst).
 struct OverviewView: View {
     @EnvironmentObject private var store: StateStore
     @AppStorage("view") private var mode: ViewMode = .cards
     /// Offline-Sessions aufgeklappt (geteilt von allen Ansichten, nicht über Neustart gemerkt)
     @State private var showOffline = false
-    /// Name des Pins, der gerade gezogen wird (siehe PinDropDelegate)
-    @State private var dragging: String?
 
     var body: some View {
         Group {
@@ -89,23 +87,17 @@ struct OverviewView: View {
         func item(_ s: Session) -> OverviewItem {
             OverviewItem(session: s, status: store.status(s), project: labels[s.groupKey] ?? s.groupKey,
                          color: colors[s.groupKey] ?? StateStore.fallbackColor, inTmux: store.tmux(s) != nil,
-                         since: s.alive ? dur(s.statusUpdatedAt, now: now) : "")
+                         since: s.alive ? dur(s.statusUpdatedAt, now: now) : "", isFavorite: store.isFavorite(s.name))
         }
-        let pins = store.pinnedSessions.map(item)
-        let items = SessionOrder.sorted(store.displaySessions.map(item), session: { $0.session },
-                                        status: { $0.status.core }, labels: labels)
+        let sorted = SessionOrder.sorted(store.displaySessions.map(item), session: { $0.session },
+                                         status: { $0.status.core }, labels: labels)
+        let parts = Favorites.split(sorted, favorites: store.favorites, name: \.name)
         return VStack(alignment: .leading, spacing: 0) {
-            // Kopfzeile: Umschalter links, Pins rechts auf gleicher Höhe
-            HStack(alignment: .top, spacing: 24) {
-                ViewSwitcher(mode: $mode).fixedSize()
-                if !pins.isEmpty {
-                    PinBar(items: pins, dragging: $dragging)
-                }
-            }
-            .padding(.horizontal, 26).padding(.top, 16).padding(.bottom, 4)
+            ViewSwitcher(mode: $mode).fixedSize()
+                .padding(.horizontal, 26).padding(.top, 16).padding(.bottom, 4)
 
             ScrollView {
-                content(items)
+                content(favorites: parts.favorites, rest: parts.rest)
                     .padding(.horizontal, 26).padding(.top, 20).padding(.bottom, 60)
             }
             .scrollIndicators(.never)
@@ -113,11 +105,11 @@ struct OverviewView: View {
     }
 
     @ViewBuilder
-    private func content(_ items: [OverviewItem]) -> some View {
+    private func content(favorites: [OverviewItem], rest: [OverviewItem]) -> some View {
         switch mode {
-        case .list: SessionListView(items: items, showOffline: $showOffline)
-        case .tiles: SessionTileGrid(items: items, showOffline: $showOffline)
-        case .cards: SessionCardsView(items: items, showOffline: $showOffline)
+        case .list: SessionListView(favorites: favorites, items: rest, showOffline: $showOffline)
+        case .tiles: SessionTileGrid(favorites: favorites, items: rest, showOffline: $showOffline)
+        case .cards: SessionCardsView(favorites: favorites, items: rest, showOffline: $showOffline)
         }
     }
 }

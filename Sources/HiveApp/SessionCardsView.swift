@@ -1,10 +1,13 @@
 import SwiftUI
 import HiveCore
 
-/// Ansicht „Cards“: Abschnitte nach Dringlichkeit wie im Dashboard, große Karten mit letzter Antwort.
+/// Ansicht „Cards“: Favoriten zuerst (ohne Überschrift), darunter Abschnitte nach Dringlichkeit wie im Dashboard,
+/// große Karten mit letzter Antwort.
 struct SessionCardsView: View {
     @EnvironmentObject private var store: StateStore
-    /// schon sortiert (SessionOrder), ohne gepinnte
+    /// Favoriten, schon sortiert (SessionOrder), auch offline
+    let favorites: [OverviewItem]
+    /// übrige Sessions, schon sortiert (SessionOrder), ohne Favoriten
     let items: [OverviewItem]
     @Binding var showOffline: Bool
 
@@ -15,6 +18,7 @@ struct SessionCardsView: View {
     var body: some View {
         // PMs stehen ohne eigenen Abschnitt bei den übrigen Karten; sie heben sich nur durch die Projektfarbe ab (Tile)
         VStack(alignment: .leading, spacing: 34) {
+            if !favorites.isEmpty { grid(favorites) }
             ForEach(Self.sections, id: \.rank) { sec in
                 let part = items.filter { $0.status.rank == sec.rank }
                 if !part.isEmpty {
@@ -33,7 +37,8 @@ struct SessionCardsView: View {
                   alignment: .leading, spacing: 18) {
             ForEach(part) { it in
                 Tile(session: it.session, status: it.status, label: it.project, color: it.color,
-                     inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now)
+                     inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now,
+                     isFavorite: it.isFavorite) { store.toggleFavorite(it.name) }
                     .onTapGesture { store.selected = it.name }
                     .contextMenu { SessionMenu(store: store, session: it.session) }
             }
@@ -49,6 +54,9 @@ struct Tile: View {
     let inTmux: Bool
     let isSelected: Bool
     let now: Date
+    let isFavorite: Bool
+    let toggleFavorite: () -> Void
+    @State private var hover = false
 
     private var isPm: Bool { session.isPm == true }
 
@@ -59,6 +67,7 @@ struct Tile: View {
                 if isPm { Token(text: session.abbr, color: color) }
                 Text(session.name).font(.hiveMono(isPm ? 16 : 15, .semibold)).lineLimit(1).fixedSize()
                 Spacer(minLength: 8)
+                HeartButton(isOn: isFavorite, visible: hover, toggle: toggleFavorite)
                 StatusLabel(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
                     .layoutPriority(-1)
             }
@@ -120,6 +129,7 @@ struct Tile: View {
         .overlay { if status.rank == 1 && !isSelected { PulsingBorder(color: status.color) } }
         .opacity(status.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
+        .onHover { hover = $0 }
     }
 
     /// Markdown der Antwort (fett, Code …) als formatierter Text statt mit Sternchen; Zeilenumbrüche raus.

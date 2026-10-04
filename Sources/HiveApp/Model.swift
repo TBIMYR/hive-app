@@ -52,8 +52,8 @@ final class StateStore: ObservableObject {
     }()
     /// Mitteilungen und Dock-Zahl; der Store hält ihn, weil das Mitteilungszentrum seinen Delegate nur schwach hält
     let notifier = Notifier()
-    /// Angepinnte Sessions (Namen, in der Reihenfolge der Leiste), gespeichert unter `pinned`
-    @Published private(set) var pinned: [String] = UserDefaults.standard.stringArray(forKey: "pinned") ?? []
+    /// Favoriten (Namen), gespeichert unter `pinned` (früher Leiste „Pinned“, alte Pins werden so zu Favoriten)
+    @Published private(set) var favorites: [String] = UserDefaults.standard.stringArray(forKey: "pinned") ?? []
     /// Vorbelegung für den Dialog „New Session“ (nil = zu)
     @Published var newPreset: NewSessionPreset?
     /// Jede Erhöhung bittet das Terminal der Auswahl um den Tastaturfokus (siehe TmuxTerminal)
@@ -145,24 +145,12 @@ final class StateStore: ObservableObject {
         return sessions + extra
     }
 
-    /// Je angepinntem Namen eine Session (bei totem und lebendem Eintrag der mit kleinerem Rang).
-    var pinnedSessions: [Session] {
-        Pins.resolve(pinned, in: displaySessions, name: \.name, rank: { self.status($0).rank })
-    }
+    func isFavorite(_ name: String) -> Bool { favorites.contains(name) }
 
-    func isPinned(_ name: String) -> Bool { pinned.contains(name) }
-
-    func pin(_ name: String) { setPins(Pins.pinning(name, in: pinned)) }
-
-    func unpin(_ name: String) { setPins(pinned.filter { $0 != name }) }
-
-    /// Beim Ziehen in der Leiste: `name` nimmt den Platz von `target` ein.
-    func movePin(_ name: String, to target: String) { setPins(Pins.moving(name, to: target, in: pinned)) }
-
-    private func setPins(_ list: [String]) {
-        guard list != pinned else { return }
-        pinned = list
-        UserDefaults.standard.set(list, forKey: "pinned")
+    /// Herz oder Rechtsklick-Menü: Favorit an/aus, gespeichert unter `pinned`.
+    func toggleFavorite(_ name: String) {
+        favorites = Favorites.toggling(name, in: favorites)
+        UserDefaults.standard.set(favorites, forKey: "pinned")
     }
 
     /// Projektname je Gruppe, wie groupLabels() im Dashboard (PM bestimmt den Namen).

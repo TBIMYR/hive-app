@@ -25,6 +25,8 @@ enum Hive {
     static let shell = Color(nsColor: NSColor(hex: 0x2F6FED))
     static let idle = dyn(0xB4B4B0, 0x5C5C59)
     static let off = dyn(0xD4D4D0, 0x333331)
+    /// Herz der Favoriten: kräftiges Pink, bewusst nicht das Rot von „Needs you“
+    static let favorite = Color(nsColor: NSColor(hex: 0xE0319A))
 
     // Projektfarben: bewusst ohne Rot/Orange/Grün, damit sie nie wie ein Status aussehen
     static let palette: [UInt32] = [0x2F6FED, 0x8B3DFF, 0xE0319A, 0x0A9FB5, 0x1B1B1B,

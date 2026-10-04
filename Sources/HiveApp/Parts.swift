@@ -64,6 +64,31 @@ struct StatusLabel: View {
     }
 }
 
+/// Herz für Favoriten: gefüllt und pink, solange Favorit (immer sichtbar), sonst leer und grau nur bei `visible`
+/// (Zeiger über Karte, Kachel oder Zeile). Belegt auch unsichtbar seinen Platz, damit nichts springt.
+/// Als Button fängt es den Klick ab, die Auswahl der Session (onTapGesture darunter) bleibt unberührt.
+struct HeartButton: View {
+    let isOn: Bool
+    let visible: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        let shown = isOn || visible
+        Button(action: toggle) {
+            Image(systemName: isOn ? "heart.fill" : "heart")
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(isOn ? Hive.favorite : Hive.muted)
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(isOn ? "Remove from favorites" : "Favorite")
+        .opacity(shown ? 1 : 0)
+        .allowsHitTesting(shown)
+        .accessibilityLabel(isOn ? "Remove from favorites" : "Favorite")
+    }
+}
+
 /// Eine Session mit allem, was die Ansichten zeigen; der Rahmen (OverviewView) berechnet das einmal je Durchlauf.
 struct OverviewItem: Identifiable {
     let session: Session
@@ -74,6 +99,8 @@ struct OverviewItem: Identifiable {
     let inTmux: Bool
     /// „<1 min“, „12 min“ seit dem letzten Statuswechsel, nur bei lebenden Sessions
     let since: String
+    /// Favorit (Herz gefüllt, steht vorn)
+    let isFavorite: Bool
 
     var id: String { session.id }
     var name: String { session.name }

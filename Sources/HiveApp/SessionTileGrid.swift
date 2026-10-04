@@ -1,10 +1,13 @@
 import SwiftUI
 import HiveCore
 
-/// Ansicht „Tiles“: kleine Kacheln ohne Abschnitte, gleiche Reihenfolge wie die Liste, Offline eingeklappt am Ende.
+/// Ansicht „Tiles“: kleine Kacheln ohne Abschnitte, gleiche Reihenfolge wie die Liste: Favoriten zuerst,
+/// Offline eingeklappt am Ende.
 struct SessionTileGrid: View {
     @EnvironmentObject private var store: StateStore
-    /// schon sortiert (SessionOrder), ohne gepinnte
+    /// Favoriten, schon sortiert (SessionOrder), auch offline
+    let favorites: [OverviewItem]
+    /// übrige Sessions, schon sortiert (SessionOrder), ohne Favoriten
     let items: [OverviewItem]
     @Binding var showOffline: Bool
 
@@ -12,7 +15,8 @@ struct SessionTileGrid: View {
         let active = items.filter { $0.status.rank < 3 }
         let offline = items.filter { $0.status.rank == 3 }
         VStack(alignment: .leading, spacing: 0) {
-            grid(active)
+            // ein Raster für Favoriten und aktive, damit keine Lücke zwischen beiden entsteht
+            grid(favorites + active)
             if !offline.isEmpty {
                 SectionHeader(title: "Offline", count: offline.count, color: Hive.off, expanded: $showOffline)
                     .padding(.top, 22).padding(.bottom, 10)
@@ -25,7 +29,7 @@ struct SessionTileGrid: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 14, alignment: .top)],
                   alignment: .leading, spacing: 14) {
             ForEach(part) { it in
-                SmallTile(item: it, isSelected: it.name == store.selected)
+                SmallTile(item: it, isSelected: it.name == store.selected) { store.toggleFavorite(it.name) }
                     .onTapGesture { store.selected = it.name }
                     .contextMenu { SessionMenu(store: store, session: it.session) }
             }
@@ -36,6 +40,8 @@ struct SessionTileGrid: View {
 struct SmallTile: View {
     let item: OverviewItem
     let isSelected: Bool
+    let toggleFavorite: () -> Void
+    @State private var hover = false
 
     var body: some View {
         let st = item.status
@@ -47,6 +53,8 @@ struct SmallTile: View {
             HStack(spacing: 7) {
                 Circle().fill(st.color).frame(width: 9, height: 9)
                 Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink).lineLimit(1)
+                Spacer(minLength: 4)
+                HeartButton(isOn: item.isFavorite, visible: hover, toggle: toggleFavorite)
             }
             Text(text)
                 .font(.system(size: 13))
@@ -68,5 +76,6 @@ struct SmallTile: View {
         )
         .opacity(st.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
+        .onHover { hover = $0 }
     }
 }

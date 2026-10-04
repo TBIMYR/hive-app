@@ -1,20 +1,24 @@
 import SwiftUI
 import HiveCore
 
-/// Ansicht „List“: eine Zeile je Session ohne Abschnitte, Offline eingeklappt am Ende.
-/// Worker stehen eingerückt unter ihrem PM (SessionTree), aktiv und offline je für sich.
+/// Ansicht „List“: eine Zeile je Session ohne Abschnitte, Favoriten zuerst, Offline eingeklappt am Ende.
+/// Worker stehen eingerückt unter ihrem PM (SessionTree), Favoriten, aktiv und offline je für sich.
 /// ScrollView + LazyVStack statt List, damit Hintergründe, Auswahlrahmen und Kontextmenü wie in den Karten bleiben.
 struct SessionListView: View {
     @EnvironmentObject private var store: StateStore
-    /// schon sortiert (SessionOrder), ohne gepinnte
+    /// Favoriten, schon sortiert (SessionOrder), auch offline
+    let favorites: [OverviewItem]
+    /// übrige Sessions, schon sortiert (SessionOrder), ohne Favoriten
     let items: [OverviewItem]
     @Binding var showOffline: Bool
 
     var body: some View {
-        let active = SessionTree.grouped(items.filter { $0.status.rank < 3 }, session: \.session)
+        // Favoriten und aktive je für sich gruppiert, aber eine durchgehende Streifenfolge
+        let top = SessionTree.grouped(favorites, session: \.session)
+            + SessionTree.grouped(items.filter { $0.status.rank < 3 }, session: \.session)
         let offline = SessionTree.grouped(items.filter { $0.status.rank == 3 }, session: \.session)
         LazyVStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(active.enumerated()), id: \.element.item.id) { i, r in row(r, index: i) }
+            ForEach(Array(top.enumerated()), id: \.element.item.id) { i, r in row(r, index: i) }
             if !offline.isEmpty {
                 SectionHeader(title: "Offline", count: offline.count, color: Hive.off, expanded: $showOffline)
                     .padding(.top, 22).padding(.bottom, 8)
@@ -29,7 +33,7 @@ struct SessionListView: View {
         let it = r.item
         let indent: CGFloat = r.depth > 0 ? Self.indent : 0
         return SessionRow(item: it, isSelected: it.name == store.selected, striped: index.isMultiple(of: 2),
-                          nameWidth: SessionRow.nameWidth - indent)
+                          nameWidth: SessionRow.nameWidth - indent) { store.toggleFavorite(it.name) }
             .onTapGesture { store.selected = it.name }
             .contextMenu { SessionMenu(store: store, session: it.session) }
             .padding(.leading, indent)
@@ -68,6 +72,8 @@ struct SessionRow: View {
     /// Breite der Namensspalte; eingerückte Zeilen bekommen sie um die Einrückung schmaler, damit die übrigen
     /// Spalten bündig bleiben
     var nameWidth: CGFloat = SessionRow.nameWidth
+    let toggleFavorite: () -> Void
+    @State private var hover = false
 
     static let nameWidth: CGFloat = 140
 
@@ -91,6 +97,8 @@ struct SessionRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             Text(item.since).font(.system(size: 12)).foregroundStyle(Hive.muted).monospacedDigit()
                 .frame(width: 56, alignment: .trailing)
+            HeartButton(isOn: item.isFavorite, visible: hover, toggle: toggleFavorite)
+                .padding(.leading, -4)
         }
         .font(.system(size: 13.5))
         .lineLimit(1).truncationMode(.tail)
@@ -101,5 +109,6 @@ struct SessionRow: View {
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(isSelected ? Hive.ink : Color.clear, lineWidth: 2))
         .opacity(st.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
+        .onHover { hover = $0 }
     }
 }
