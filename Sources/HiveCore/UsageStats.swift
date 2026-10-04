@@ -100,9 +100,9 @@ public struct UsageStats: Equatable, Sendable {
 
 /// Reads the token usage from the transcripts `<projects>/<slug>/<sessionId>.jsonl` and
 /// `<projects>/<slug>/<sessionId>/subagents/agent-*.jsonl` of the last 8 days. Incremental: every
-/// file is only read on from where the last scan stopped (complete lines only). Not thread-safe;
-/// use it from one queue.
-public final class UsageScanner {
+/// file is only read on from where the last scan stopped (complete lines only). Scans are serialized
+/// by a lock, so it can be handed to a background queue.
+public final class UsageScanner: @unchecked Sendable {
     public static let keepDays = 8
     static let chunk = 4 * 1024 * 1024
 
@@ -129,9 +129,13 @@ public final class UsageScanner {
     }
 
     /// number of transcript files currently followed
-    public var trackedFiles: Int { files.count }
+    public var trackedFiles: Int { lock.withLock { files.count } }
+
+    private let lock = NSLock()
 
     public func scan(now: Date = Date()) -> UsageStats {
+        lock.lock()
+        defer { lock.unlock() }
         let cutoff = now.addingTimeInterval(-Double(Self.keepDays) * 86400)
         var seen = Set<String>()
         for (path, attrs, project) in transcriptFiles(modifiedAfter: cutoff) {
