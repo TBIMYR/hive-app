@@ -39,6 +39,8 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     /// last sentence of the last response; not in the Node server
     public let lastSentence: String?
     public let hasHandover: Bool
+    /// background agents and shell commands still running (from the transcript tail); not in the Node server
+    public let backgroundTasks: Int
     /// read errors for this session (handover), for a hint in the card
     public let errors: [String]
 
@@ -50,7 +52,8 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
                 pid: Int? = nil, kind: String? = nil, tmuxPane: String? = nil, alive: Bool = false, status: String = "offline",
                 waitingFor: String? = nil, statusUpdatedAt: String? = nil, branch: String? = nil,
                 lastAssistant: Said? = nil, lastUser: Said? = nil, task: TaskLine? = nil,
-                lastAction: WorkAction? = nil, lastSentence: String? = nil, hasHandover: Bool = false, errors: [String] = []) {
+                lastAction: WorkAction? = nil, lastSentence: String? = nil, hasHandover: Bool = false, backgroundTasks: Int = 0,
+                errors: [String] = []) {
         self.name = name
         self.project = project
         self.group = group
@@ -70,7 +73,30 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
         self.lastAction = lastAction
         self.lastSentence = lastSentence
         self.hasHandover = hasHandover
+        self.backgroundTasks = backgroundTasks
         self.errors = errors
+    }
+
+    /// Like the synthesized decoder, but `backgroundTasks` may be missing (older JSON).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            name: try c.decode(String.self, forKey: .name), project: try c.decode(String.self, forKey: .project),
+            group: try c.decode(String.self, forKey: .group), isPm: try c.decode(Bool.self, forKey: .isPm),
+            cwd: try c.decodeIfPresent(String.self, forKey: .cwd), pid: try c.decodeIfPresent(Int.self, forKey: .pid),
+            kind: try c.decodeIfPresent(String.self, forKey: .kind), tmuxPane: try c.decodeIfPresent(String.self, forKey: .tmuxPane),
+            alive: try c.decode(Bool.self, forKey: .alive), status: try c.decode(String.self, forKey: .status),
+            waitingFor: try c.decodeIfPresent(String.self, forKey: .waitingFor),
+            statusUpdatedAt: try c.decodeIfPresent(String.self, forKey: .statusUpdatedAt),
+            branch: try c.decodeIfPresent(String.self, forKey: .branch),
+            lastAssistant: try c.decodeIfPresent(Said.self, forKey: .lastAssistant),
+            lastUser: try c.decodeIfPresent(Said.self, forKey: .lastUser),
+            task: try c.decodeIfPresent(TaskLine.self, forKey: .task),
+            lastAction: try c.decodeIfPresent(WorkAction.self, forKey: .lastAction),
+            lastSentence: try c.decodeIfPresent(String.self, forKey: .lastSentence),
+            hasHandover: try c.decode(Bool.self, forKey: .hasHandover),
+            backgroundTasks: try c.decodeIfPresent(Int.self, forKey: .backgroundTasks) ?? 0,
+            errors: try c.decode([String].self, forKey: .errors))
     }
 }
 
@@ -100,8 +126,11 @@ public enum StateBuilder {
             let h = handovers[e.name]
             if !e.alive && h == nil { continue }
             var tail = Tail()
+            var background = 0
             if let sid = e.sessionId, !e.cwd.isEmpty {
-                tail = Transcript.parseTail(Transcript.readTail("\(claudeHome)/projects/\(Project.slug(e.cwd))/\(sid).jsonl"))
+                let text = Transcript.readTail("\(claudeHome)/projects/\(Project.slug(e.cwd))/\(sid).jsonl")
+                tail = Transcript.parseTail(text)
+                background = backgroundTasks(alive: e.alive, text: text, now: now)
             }
             let project = Project.fromCwd(e.cwd, devRoot: devRoot)
             let status = e.alive ? e.status : "offline"
@@ -111,7 +140,7 @@ public enum StateBuilder {
                 waitingFor: e.waitingFor, statusUpdatedAt: e.statusUpdatedAt, branch: tail.branch,
                 lastAssistant: clip(tail.lastAssistant), lastUser: clip(tail.lastUser),
                 task: taskOf(h, status: status, now: now), lastAction: tail.lastAction, lastSentence: tail.lastSentence,
-                hasHandover: h != nil,
+                hasHandover: h != nil, backgroundTasks: background,
                 errors: h?.error.map { ["handover: \($0)"] } ?? []
             ))
             seen.insert(e.name)
@@ -133,6 +162,11 @@ public enum StateBuilder {
             return a.name.compare(b.name, locale: collation) == .orderedAscending
         }
         return HiveState(generatedAt: isoString(ms: now.timeIntervalSince1970 * 1000), sessions: sessions, errors: reg.errors)
+    }
+
+    /// Background tasks die with their Claude process, so only live sessions count them.
+    static func backgroundTasks(alive: Bool, text: String, now: Date) -> Int {
+        alive ? Transcript.backgroundTasks(text, now: now) : 0
     }
 
     static func taskOf(_ h: HandoverEntry?, status: String, now: Date) -> Session.TaskLine? {

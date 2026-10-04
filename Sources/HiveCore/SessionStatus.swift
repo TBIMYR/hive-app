@@ -39,6 +39,9 @@ public struct SessionStatus: Equatable, Sendable {
             let line = s.task?.text.trimmingCharacters(in: .whitespaces) ?? ""
             self.init(0, "block", "blocked", why: "Blocked – needs a decision",
                       reason: line.isEmpty ? "needs a decision" : line)
+        case s.backgroundTasks > 0:
+            // main loop idle, but background agents or shell commands are still running
+            self.init(1, "busy", "working in background")
         case state == "waiting":
             self.init(2, "wait", "waiting for reply")
         case s.status == "shell":

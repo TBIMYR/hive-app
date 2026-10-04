@@ -39,6 +39,10 @@ public struct NowLine: Equatable, Sendable {
     public init?(_ s: Session, rank: Int) {
         let action = s.lastAction
         switch rank {
+        case 1 where s.status != "busy" && s.backgroundTasks > 0:
+            // only background tasks are running: the last work step would be stale, the last sentence says more
+            guard let done = s.lastSentence else { return nil }
+            self.init(kind: .done, text: done, detail: nil, at: nil)
         case 1:
             guard let action else { return nil }
             self.init(kind: .working, text: action.text, detail: action.detail, at: action.at)

@@ -107,6 +107,87 @@ public enum Transcript {
         return tail
     }
 
+    // MARK: Background tasks
+
+    /// Tasks started longer ago than this without a completion are ignored (crashed or lost notification).
+    public static let backgroundStaleAfter: TimeInterval = 6 * 60 * 60
+
+    /// Number of background agents and shell commands still running, from the given transcript tail.
+    /// Started: a tool_result whose `toolUseResult` has `status: "async_launched"` + `agentId` (Agent/Task),
+    /// `backgroundTaskId` (Bash with run_in_background) or `resumedAgentId` (SendMessage resumed an agent);
+    /// without metadata the result text ("Async agent launched … agentId: X", "Command running in background
+    /// with ID: X"). Finished: a `<task-notification>` with that `<task-id>` and a `<status>` (completed,
+    /// failed, killed …) in a user message, a queue-operation or a queued_command attachment.
+    /// Starts outside the tail are not seen; that is accepted.
+    public static func backgroundTasks(_ text: String, now: Date) -> Int {
+        var running: [String: Date?] = [:]
+        for raw in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            // cheap prefilter: only lines that can start or finish a task get parsed
+            guard raw.contains("<task-notification>") || raw.contains("async_launched") || raw.contains("backgroundTaskId")
+                    || raw.contains("resumedAgentId") || raw.contains("Async agent launched")
+                    || raw.contains("running in background with ID") else { continue }
+            guard let obj = (try? JSONSerialization.jsonObject(with: Data(raw.utf8))) as? [String: Any] else { continue }
+            let type = obj["type"] as? String
+            let at = (obj["timestamp"] as? String).flatMap(parseISO)
+            if let (id, status) = notification(in: obj, type: type) {
+                if status != "running" { running.removeValue(forKey: id) }
+                continue
+            }
+            if type == "user" {
+                for id in startedIds(obj) { running.updateValue(at, forKey: id) }
+            }
+        }
+        return running.values.filter { start in
+            guard let start else { return true }
+            return now.timeIntervalSince(start) <= backgroundStaleAfter
+        }.count
+    }
+
+    /// Task id and status of a task notification (only lines Claude Code writes itself, never assistant text).
+    private static func notification(in obj: [String: Any], type: String?) -> (String, String)? {
+        let text: String?
+        switch type {
+        case "user": text = (obj["message"] as? [String: Any])?["content"] as? String
+        case "queue-operation": text = obj["operation"] as? String == "enqueue" ? obj["content"] as? String : nil
+        case "attachment": text = (obj["attachment"] as? [String: Any])?["prompt"] as? String
+        default: text = nil
+        }
+        guard let text, text.contains("<task-notification>"),
+              let id = tag("task-id", in: text), let status = tag("status", in: text) else { return nil }
+        return (id, status)
+    }
+
+    /// Ids of background tasks that a user line with tool_results starts.
+    private static func startedIds(_ obj: [String: Any]) -> [String] {
+        if let meta = obj["toolUseResult"] as? [String: Any] {
+            if meta["status"] as? String == "async_launched", let id = (meta["agentId"] as? String).nonEmpty { return [id] }
+            if let id = (meta["backgroundTaskId"] as? String).nonEmpty { return [id] }
+            if let id = (meta["resumedAgentId"] as? String).nonEmpty { return [id] }
+        }
+        guard let blocks = (obj["message"] as? [String: Any])?["content"] as? [Any] else { return [] }
+        var ids: [String] = []
+        for case let b as [String: Any] in blocks where b["type"] as? String == "tool_result" {
+            let text = (b["content"] as? String) ?? textOf(b["content"])
+            if text.hasPrefix("Async agent launched"), let id = match(#"agentId: ([\w-]+)"#, in: text) {
+                ids.append(id)
+            } else if let id = match(#"^Command running in background with ID: ([\w-]+)"#, in: text) {
+                ids.append(id)
+            }
+        }
+        return ids
+    }
+
+    private static func tag(_ name: String, in text: String) -> String? {
+        match("<\(name)>([^<]+)</\(name)>", in: text).map { $0.trimmingCharacters(in: .whitespaces) }.nonEmpty
+    }
+
+    private static func match(_ pattern: String, in text: String) -> String? {
+        guard let re = try? NSRegularExpression(pattern: pattern),
+              let m = re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let r = Range(m.range(at: 1), in: text) else { return nil }
+        return String(text[r])
+    }
+
     /// Text from a string or from the text blocks of a list.
     static func textOf(_ content: Any?) -> String {
         if let s = content as? String { return s.trimmingCharacters(in: .whitespacesAndNewlines) }
