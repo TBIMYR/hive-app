@@ -89,7 +89,33 @@ final class HiveTerminalView: LocalProcessTerminalView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        // Dateien und Bilder hineinziehen wie in iTerm: der Pfad wird getippt (Claude hängt Bilder dann an)
+        registerForDraggedTypes([.fileURL, .png, .tiff])
         takeFocusIfWanted()
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let board = sender.draggingPasteboard
+        var paths = (board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? [])
+            .map(\.path)
+        // Bild ohne Datei (z. B. aus dem Browser): als PNG in einen Temp-Ordner legen
+        if paths.isEmpty, let image = NSImage(pasteboard: board), let tiff = image.tiffRepresentation,
+           let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("hive-drop-\(UUID().uuidString.prefix(8)).png")
+            if (try? png.write(to: url)) != nil { paths = [url.path] }
+        }
+        guard !paths.isEmpty else { return false }
+        send(txt: paths.map(Self.shellEscaped).joined(separator: " ") + " ")
+        window?.makeFirstResponder(self)
+        return true
+    }
+
+    /// Pfad wie iTerm mit Backslashes vor Leer- und Sonderzeichen
+    static func shellEscaped(_ path: String) -> String {
+        let special = Set(" \\'\"()[]{}&;|<>*?$`!#~")
+        return String(path.flatMap { special.contains($0) ? ["\\", $0] : [$0] })
     }
 }
 
