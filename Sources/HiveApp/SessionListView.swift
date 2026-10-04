@@ -18,18 +18,18 @@ struct SessionListView: View {
             + SessionTree.grouped(items.filter { $0.status.rank < 3 }, session: \.session)
         let offline = SessionTree.grouped(items.filter { $0.status.rank == 3 }, session: \.session)
         LazyVStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(top.enumerated()), id: \.element.item.id) { i, r in row(r, index: i) }
+            ForEach(Array(top.enumerated()), id: \.element.item.id) { i, r in row(r, index: i, isFirst: i == 0 || top[i - 1].depth == 0) }
             if !offline.isEmpty {
                 SectionHeader(title: "Offline", count: offline.count, color: Hive.off, expanded: $showOffline)
                     .padding(.top, 22).padding(.bottom, 8)
                 if showOffline {
-                    ForEach(Array(offline.enumerated()), id: \.element.item.id) { i, r in row(r, index: i) }
+                    ForEach(Array(offline.enumerated()), id: \.element.item.id) { i, r in row(r, index: i, isFirst: i == 0 || offline[i - 1].depth == 0) }
                 }
             }
         }
     }
 
-    private func row(_ r: SessionTree.Row<OverviewItem>, index: Int) -> some View {
+    private func row(_ r: SessionTree.Row<OverviewItem>, index: Int, isFirst: Bool) -> some View {
         let it = r.item
         let indent: CGFloat = r.depth > 0 ? Self.indent : 0
         return SessionRow(item: it, isSelected: it.name == store.selected, striped: index.isMultiple(of: 2),
@@ -39,7 +39,7 @@ struct SessionListView: View {
             .padding(.leading, indent)
             .background(alignment: .leading) {
                 if r.depth > 0 {
-                    TreeLine(isLast: r.isLastInGroup).stroke(Hive.hair2, lineWidth: 1.5).frame(width: indent)
+                    TreeLine(isFirst: isFirst, isLast: r.isLastInGroup).stroke(Hive.hair2, lineWidth: 1.5).frame(width: indent)
                 }
             }
     }
@@ -48,18 +48,20 @@ struct SessionListView: View {
     static let indent: CGFloat = 28
 }
 
-/// Thin line to the left of an indented worker: vertical (for the last one only down to the middle), plus a short
-/// horizontal stroke to the row. Extends beyond the row spacing above and below so the line stays continuous.
+/// Vertical line under the PM's status dot that connects its workers: the first worker extends it up to just
+/// below the PM's dot, the last one ends it at its own middle. Rows have the same height, so half a row plus the
+/// row spacing reaches the PM's dot.
 private struct TreeLine: Shape {
+    let isFirst: Bool
     let isLast: Bool
 
     func path(in rect: CGRect) -> Path {
-        let x = rect.minX + 13, gap: CGFloat = 4
+        // same x as the status dot: row padding 14 + half of the 14 pt dot column
+        let x = rect.minX + 21, spacing: CGFloat = 4, dotGap: CGFloat = 9
+        let top = isFirst ? rect.minY - spacing - rect.height / 2 + dotGap : rect.minY - spacing
         var p = Path()
-        p.move(to: CGPoint(x: x, y: rect.minY - gap))
-        p.addLine(to: CGPoint(x: x, y: isLast ? rect.midY : rect.maxY + gap))
-        p.move(to: CGPoint(x: x, y: rect.midY))
-        p.addLine(to: CGPoint(x: x + 9, y: rect.midY))
+        p.move(to: CGPoint(x: x, y: top))
+        p.addLine(to: CGPoint(x: x, y: isLast ? rect.midY : rect.maxY))
         return p
     }
 }
