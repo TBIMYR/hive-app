@@ -2,6 +2,7 @@ import SwiftUI
 import HiveCore
 
 /// Ansicht „List“: eine Zeile je Session ohne Abschnitte, Offline eingeklappt am Ende.
+/// Worker stehen eingerückt unter ihrem PM (SessionTree), aktiv und offline je für sich.
 /// ScrollView + LazyVStack statt List, damit Hintergründe, Auswahlrahmen und Kontextmenü wie in den Karten bleiben.
 struct SessionListView: View {
     @EnvironmentObject private var store: StateStore
@@ -10,24 +11,52 @@ struct SessionListView: View {
     @Binding var showOffline: Bool
 
     var body: some View {
-        let active = items.filter { $0.status.rank < 3 }
-        let offline = items.filter { $0.status.rank == 3 }
+        let active = SessionTree.grouped(items.filter { $0.status.rank < 3 }, session: \.session)
+        let offline = SessionTree.grouped(items.filter { $0.status.rank == 3 }, session: \.session)
         LazyVStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(active.enumerated()), id: \.element.id) { i, it in row(it, index: i) }
+            ForEach(Array(active.enumerated()), id: \.element.item.id) { i, r in row(r, index: i) }
             if !offline.isEmpty {
                 SectionHeader(title: "Offline", count: offline.count, color: Hive.off, expanded: $showOffline)
                     .padding(.top, 22).padding(.bottom, 8)
                 if showOffline {
-                    ForEach(Array(offline.enumerated()), id: \.element.id) { i, it in row(it, index: i) }
+                    ForEach(Array(offline.enumerated()), id: \.element.item.id) { i, r in row(r, index: i) }
                 }
             }
         }
     }
 
-    private func row(_ it: OverviewItem, index: Int) -> some View {
-        SessionRow(item: it, isSelected: it.name == store.selected, striped: index.isMultiple(of: 2))
+    private func row(_ r: SessionTree.Row<OverviewItem>, index: Int) -> some View {
+        let it = r.item
+        let indent: CGFloat = r.depth > 0 ? Self.indent : 0
+        return SessionRow(item: it, isSelected: it.name == store.selected, striped: index.isMultiple(of: 2),
+                          nameWidth: SessionRow.nameWidth - indent)
             .onTapGesture { store.selected = it.name }
             .contextMenu { SessionMenu(store: store, session: it.session) }
+            .padding(.leading, indent)
+            .background(alignment: .leading) {
+                if r.depth > 0 {
+                    TreeLine(isLast: r.isLastInGroup).stroke(Hive.hair2, lineWidth: 1.5).frame(width: indent)
+                }
+            }
+    }
+
+    /// Einrückung der Worker unter ihrem PM
+    static let indent: CGFloat = 28
+}
+
+/// Feine Linie links von einem eingerückten Worker: senkrecht (beim letzten nur bis zur Mitte), dazu ein kurzer
+/// waagrechter Strich zur Zeile. Ragt oben und unten um den Zeilenabstand hinaus, damit die Linie durchgeht.
+private struct TreeLine: Shape {
+    let isLast: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let x = rect.minX + 13, gap: CGFloat = 4
+        var p = Path()
+        p.move(to: CGPoint(x: x, y: rect.minY - gap))
+        p.addLine(to: CGPoint(x: x, y: isLast ? rect.midY : rect.maxY + gap))
+        p.move(to: CGPoint(x: x, y: rect.midY))
+        p.addLine(to: CGPoint(x: x + 9, y: rect.midY))
+        return p
     }
 }
 
@@ -36,6 +65,11 @@ struct SessionRow: View {
     let isSelected: Bool
     /// abwechselnder Hintergrund (jede zweite Zeile)
     let striped: Bool
+    /// Breite der Namensspalte; eingerückte Zeilen bekommen sie um die Einrückung schmaler, damit die übrigen
+    /// Spalten bündig bleiben
+    var nameWidth: CGFloat = SessionRow.nameWidth
+
+    static let nameWidth: CGFloat = 140
 
     var body: some View {
         let st = item.status
@@ -44,7 +78,7 @@ struct SessionRow: View {
         HStack(spacing: 14) {
             Circle().fill(st.color).frame(width: 9, height: 9).frame(width: 14)
             Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink)
-                .frame(width: 140, alignment: .leading)
+                .frame(width: nameWidth, alignment: .leading)
             Text(loud ? [st.label, st.why].compactMap { $0 }.joined(separator: " · ") : st.label)
                 .font(.system(size: 12.5, weight: loud ? .semibold : .regular))
                 .foregroundStyle(loud ? st.color : Hive.ink2)
