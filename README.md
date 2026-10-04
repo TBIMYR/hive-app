@@ -4,9 +4,7 @@ Mac app for parallel Claude Code sessions: the overview of all sessions on the l
 terminal of the selected session (tmux) on the right. Grew out of the prototype in
 [hive](../hive) (`prototype/`); scripts (`cc-task`, `cc-spawn`, `cc-close`) and docs still live there.
 
-Names in docs, tests and examples are made up: projects `lumen`, `orbit`, `fjord`, `kiosk` with the
-session prefixes `lu`, `or`, `fj`, `ki`; "Mika" stands for the user. Please write new docs the same
-way, no real names or ticket numbers. Use `~/` for paths in commands so they work for everyone.
+Names in examples are made up.
 
 ## Features
 
