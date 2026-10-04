@@ -165,5 +165,21 @@ struct ContentView: View {
                 store.refreshSoon()
             }
         }
+        // Bestätigung für Close…/Restart… aus dem Rechtsklick-Menü
+        .alert(store.closeRequest?.title ?? "",
+               isPresented: Binding(get: { store.closeRequest != nil },
+                                    set: { if !$0 { store.closeRequest = nil } }),
+               presenting: store.closeRequest) { r in
+            Button(r.restart ? "Restart" : "Close", role: .destructive) { store.close(r) }
+            Button("Cancel", role: .cancel) {}
+        } message: { r in
+            Text(r.message)
+        }
+        .alert("Hive",
+               isPresented: Binding(get: { store.notice != nil }, set: { if !$0 { store.notice = nil } })) {
+            Button("OK") {}
+        } message: {
+            Text(store.notice ?? "")
+        }
     }
 }

@@ -16,5 +16,16 @@ struct SessionMenu: View {
                 store.newPreset = NewSessionPreset(name: next, dir: session.cwd)
             }
         }
+        Divider()
+        // Steuern geht nur über tmux, also nur für Sessions, die in hive laufen
+        let inHive = store.tmux(session) != nil
+        let help = inHive ? "" : "Only for sessions running in Hive"
+        Group {
+            Button("Write Handover") { store.writeHandover(session) }
+            Button("Restart…") { store.requestClose(session, restart: true) }
+            Button("Close…") { store.requestClose(session, restart: false) }
+        }
+        .disabled(!inHive)
+        .help(help)
     }
 }

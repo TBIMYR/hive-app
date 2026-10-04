@@ -38,7 +38,8 @@ struct SessionCardsView: View {
             ForEach(part) { it in
                 Tile(session: it.session, status: it.status, label: it.project, color: it.color,
                      inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now,
-                     isFavorite: it.isFavorite) { store.toggleFavorite(it.name) }
+                     isFavorite: it.isFavorite,
+                     canReply: it.status.rank == 0 && store.tmux(it.session) != nil) { store.toggleFavorite(it.name) }
                     .onTapGesture { store.selected = it.name }
                     .contextMenu { SessionMenu(store: store, session: it.session) }
             }
@@ -55,6 +56,8 @@ struct Tile: View {
     let isSelected: Bool
     let now: Date
     let isFavorite: Bool
+    /// Antwortfeld unten (nur „braucht dich“ und in tmux)
+    var canReply = false
     let toggleFavorite: () -> Void
 
     private var isPm: Bool { session.isPm == true }
@@ -115,6 +118,8 @@ struct Tile: View {
             .font(.system(size: 11.5))
             .foregroundStyle(Hive.muted)
             .padding(.top, 4)
+
+            if canReply { ReplyField(session: session) }
         }
         .padding(.horizontal, 20).padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -137,5 +142,56 @@ struct Tile: View {
         let flat = s.replacingOccurrences(of: "\n", with: " ")
         let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         return (try? AttributedString(markdown: flat, options: opts)) ?? AttributedString(flat)
+    }
+}
+
+/// Einzeiliges Antwortfeld in wartenden Karten: Enter tippt den Text per tmux in die Session.
+/// Ein Klick ins Feld holt nur den Fokus; die Karte wird dabei nicht ausgewählt (sonst nähme
+/// das Terminal der Auswahl den Fokus gleich wieder an sich).
+struct ReplyField: View {
+    @EnvironmentObject private var store: StateStore
+    let session: Session
+    @State private var text = ""
+    @State private var error: String?
+    @State private var sending = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            TextField("", text: $text, prompt: Text("Reply…").foregroundColor(Hive.muted))
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundStyle(Hive.ink)
+                .focused($focused)
+                .disabled(sending)
+                .onSubmit(send)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Hive.card)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(focused ? Hive.hair2 : Hive.hair, lineWidth: 1))
+                .contentShape(Rectangle())
+                .onTapGesture { focused = true }
+                .onChange(of: text) { error = nil }
+            if let error {
+                Text(error).font(.system(size: 11.5)).foregroundStyle(Hive.need).lineLimit(2)
+            }
+        }
+    }
+
+    private func send() {
+        guard SessionControl.replyText(text) != nil, !sending else { return }
+        sending = true
+        let sent = text
+        Task {
+            if let e = await store.reply(sent, to: session) {
+                error = "Not sent: \(e)"
+            } else {
+                text = ""
+            }
+            sending = false
+            focused = true
+        }
     }
 }

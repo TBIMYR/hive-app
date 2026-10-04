@@ -1,11 +1,12 @@
 import Foundation
+import HiveCore
 
 enum Tmux {
     static let path: String? = ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux", "/usr/bin/tmux"]
         .first { FileManager.default.isExecutableFile(atPath: $0) }
 
     /// tmux deutet ".01" in "al.01" sonst als Pane; "=name:" trifft genau die Session.
-    static func target(_ name: String) -> String { "=\(name):" }
+    static func target(_ name: String) -> String { SessionControl.target(name) }
 
     /// Eigener Server nur für die App (`tmux -L hive`), damit ihre Einstellungen nicht mit
     /// einem selbst gestarteten tmux kollidieren. `-f` gilt nur beim Start des Servers.
@@ -43,16 +44,18 @@ enum Tmux {
         var commands: [String: String] = [:]
         /// Pane-ID („%13“) → tmux-Session, für die Zuordnung über das Register
         var sessionOfPane: [String: String] = [:]
+        /// tmux-Session → Ordner ihrer ersten Pane (für „Restart“ bei Sessions ohne Register)
+        var paths: [String: String] = [:]
     }
 
     static func panes() -> Panes {
-        let r = run(["list-panes", "-a", "-F", "#{session_name}\t#{pane_id}\t#{pane_current_command}"])
+        let r = run(["list-panes", "-a", "-F", "#{session_name}\t#{pane_id}\t#{pane_current_command}\t#{pane_current_path}"])
         guard r.status == 0 else { return Panes() }   // kein tmux-Server = keine Sessions
         var p = Panes()
         for line in r.output.split(separator: "\n") {
-            let parts = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
-            guard parts.count == 3 else { continue }
-            if p.commands[parts[0]] == nil { p.commands[parts[0]] = parts[2] }
+            let parts = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 4 else { continue }
+            if p.commands[parts[0]] == nil { p.commands[parts[0]] = parts[2]; p.paths[parts[0]] = parts[3] }
             p.sessionOfPane[parts[1]] = parts[0]
         }
         return p
@@ -64,16 +67,41 @@ enum Tmux {
 
     /// Öffnet eine Shell in einer neuen tmux-Session im Ordner und tippt `claude -n <name>` vor,
     /// ohne Enter: man startet selbst und kann die Zeile vorher ändern (z. B. `codex`, `--resume`).
+    /// Mit `submit` (Restart) folgt Enter, Claude startet also gleich.
     /// `HIVE_SESSION` trägt den Namen, egal welcher Agent später läuft. Liefert eine Fehlermeldung oder nil.
-    static func newSession(name: String, dir: String) -> String? {
+    static func newSession(name: String, dir: String, submit: Bool = false) -> String? {
         scrubServer()
         let r = run(["new-session", "-d", "-s", name, "-c", dir, "-e", "HIVE_SESSION=\(name)"])
         guard r.status == 0 else { return r.output.isEmpty ? "tmux error \(r.status)" : r.output }
         // erst tippen, wenn die Shell ihre Startdateien gelesen hat
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.8) {
-            _ = run(["send-keys", "-t", target(name), "-l", "claude -n \(name)"])
+            let cmds = SessionControl.typeArgs(SessionControl.claudeCommand(name), into: name)
+            _ = run(cmds[0])
+            if submit { _ = run(cmds[1]) }
         }
         return nil
+    }
+
+    /// Tippt Text in die Session und schickt ihn mit Enter ab. Blockiert kurz, darum nicht auf dem
+    /// Main Thread aufrufen. Liefert eine Fehlermeldung oder nil.
+    static func type(_ text: String, into name: String) -> String? {
+        let cmds = SessionControl.typeArgs(text, into: name)
+        let r = run(cmds[0])
+        guard r.status == 0 else { return failure(r) }
+        // kurze Pause, damit Claude Code Enter nicht als Teil eines eingefügten Texts nimmt
+        Thread.sleep(forTimeInterval: 0.15)
+        let e = run(cmds[1])
+        return e.status == 0 ? nil : failure(e)
+    }
+
+    /// Beendet die tmux-Session (genau diese). Liefert eine Fehlermeldung oder nil.
+    static func kill(_ name: String) -> String? {
+        let r = run(SessionControl.killArgs(name))
+        return r.status == 0 ? nil : failure(r)
+    }
+
+    private static func failure(_ r: (status: Int32, output: String)) -> String {
+        r.output.isEmpty ? "tmux error \(r.status)" : r.output
     }
 
     /// Variablen einer Claude-Session, die nie in neue Sessions durchsickern dürfen

@@ -52,7 +52,7 @@ struct TerminalPane: View {
                                    description: Text("brew install tmux"))
                 .frame(maxHeight: .infinity)
         } else if let t = store.tmux(s) {
-            TmuxTerminal(name: t, focusRequest: store.focusRequest).id(t)
+            TmuxTerminal(name: t, focusRequest: store.focusRequest).id("\(t)#\(store.terminalEpoch)")
                 .padding(.horizontal, 28).padding(.top, 6)
         } else if s.alive == true {
             VStack(spacing: 12) {

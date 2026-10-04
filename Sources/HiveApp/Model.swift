@@ -58,6 +58,12 @@ final class StateStore: ObservableObject {
     @Published var newPreset: NewSessionPreset?
     /// Jede Erhöhung bittet das Terminal der Auswahl um den Tastaturfokus (siehe TmuxTerminal)
     @Published private(set) var focusRequest = 0
+    /// Offene Bestätigung „Close…“/„Restart…“
+    @Published var closeRequest: CloseRequest?
+    /// Hinweis als Alert (z. B. Session nach 15 s noch nicht beendet)
+    @Published var notice: String?
+    /// Erhöht nach einem Restart: das Terminal hängt sich an die neue tmux-Session gleichen Namens
+    @Published private(set) var terminalEpoch = 0
 
     private var timer: Timer?
     private var watcher: Watcher?
@@ -187,5 +193,93 @@ final class StateStore: ObservableObject {
     /// Handover der Session ohne Frontmatter, wie in der Seitenleiste des Dashboards. nil, wenn keins da ist.
     func handover(_ name: String) async -> String? {
         await Task.detached { Handover.body(name) }.value
+    }
+
+    // MARK: Session steuern (nur Sessions in tmux)
+
+    /// Antwortfeld der Karte: Text tippen und abschicken. Liefert eine Fehlermeldung oder nil.
+    func reply(_ raw: String, to s: Session) async -> String? {
+        guard let text = SessionControl.replyText(raw) else { return nil }
+        guard let t = tmux(s) else { return "Not running in Hive" }
+        let e = await Task.detached { Tmux.type(text, into: t) }.value
+        refreshSoon()
+        return e
+    }
+
+    /// Menü „Write Handover“: `/handover` + Enter.
+    func writeHandover(_ s: Session) {
+        guard let t = tmux(s) else { return }
+        Task {
+            if let e = await Task.detached(operation: { Tmux.type("/handover", into: t) }).value {
+                notice = "Could not write to \(s.name): \(e)"
+            }
+            refreshSoon()
+        }
+    }
+
+    /// Menü „Close…“/„Restart…“: erst bestätigen lassen (ContentView zeigt den Dialog).
+    func requestClose(_ s: Session, restart: Bool) {
+        guard let t = tmux(s) else { return }
+        closeRequest = CloseRequest(session: s, tmux: t, restart: restart)
+    }
+
+    /// `/exit` tippen, bis zu 15 s warten, bis der Agent weg ist, dann die tmux-Session beenden.
+    /// Bei Restart danach im selben Ordner unter demselben Namen `claude -n <name>` starten.
+    func close(_ r: CloseRequest) {
+        let s = r.session, t = r.tmux
+        let dir = s.cwd ?? tmuxPanes.paths[t]
+        Task {
+            if let e = await Task.detached(operation: { Tmux.type("/exit", into: t) }).value {
+                notice = "Could not write to \(s.name): \(e)"
+                return
+            }
+            let gone = await SessionControl.waitUntil(timeout: 15, interval: 0.5) {
+                await self.refresh()
+                let aliveNow = self.sessions.first { $0.id == s.id }?.alive == true
+                return SessionControl.hasExited(wasAlive: s.alive, aliveNow: aliveNow,
+                                                paneCommand: self.tmuxPanes.commands[t])
+            }
+            guard gone else {
+                notice = "\(s.name) is still running after 15 s. Its terminal stays open."
+                return
+            }
+            if tmuxPanes.commands[t] != nil,
+               let e = await Task.detached(operation: { Tmux.kill(t) }).value {
+                notice = "Could not close the terminal of \(s.name): \(e)"
+                return
+            }
+            if r.restart {
+                guard let dir, !dir.isEmpty else {
+                    notice = "No folder known for \(s.name), so it was not restarted."
+                    return
+                }
+                if let e = await Task.detached(operation: { Tmux.newSession(name: s.name, dir: dir, submit: true) }).value {
+                    notice = "Could not restart \(s.name): \(e)"
+                    return
+                }
+                // gleicher tmux-Name: das Terminal muss sich neu anhängen
+                terminalEpoch += 1
+                selected = s.name
+            }
+            await refresh()
+        }
+    }
+}
+
+/// Bestätigung für „Close…“/„Restart…“ (ContentView zeigt den Dialog).
+struct CloseRequest: Identifiable {
+    let session: Session
+    /// tmux-Session zum Zeitpunkt der Anfrage
+    let tmux: String
+    let restart: Bool
+
+    var id: String { session.id }
+    var title: String { "\(restart ? "Restart" : "Close") \(session.name)?" }
+    var message: String {
+        let what = restart
+            ? "Types /exit, closes its terminal and starts claude -n \(session.name) again in the same folder."
+            : "Types /exit and closes its terminal."
+        let warnings = SessionControl.closeWarnings(session).map { $0 + "." }
+        return ([what] + warnings).joined(separator: "\n")
     }
 }
