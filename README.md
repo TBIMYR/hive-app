@@ -14,7 +14,7 @@ Names in examples are made up.
 - Notifications and a dock badge count for sessions that need you
 - Floating todo list (⌘T), stored in `~/.claude/hive/todos.md`
 - Quick reply and reply buttons in the cards view
-- Write Handover / Restart… / Close… in the right-click menu
+- Write Handover / Restart… / Close… / Force Quit… in the right-click menu
 - Drag & drop into the terminal
 
 ## Starting
@@ -23,7 +23,8 @@ Names in examples are made up.
 brew install tmux                  # once
 swift run HiveApp
 swift run HiveApp --select lu.04   # with a preselected session
-sh restart.sh                      # build, package as .build/HiveApp.app and restart
+sh restart.sh                      # release build, install as /Applications/Hive.app and restart
+                                    # (HIVE_INSTALL=~/Applications for another folder)
                                     # (quits only apps started from this folder, including the prototype)
 swift test                         # HiveCore tests
 scripts/compare-node.sh            # comparison with the old Node server, as long as it's running
