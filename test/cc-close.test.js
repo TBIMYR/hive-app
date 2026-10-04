@@ -21,28 +21,28 @@ const run = (home, args, env = {}) => spawnSync('sh', [BIN, ...args], {
   env: { PATH: process.env.PATH, HOME: os.homedir(), CC_HOME: home, CC_CLOSE_DRYRUN: '1', CLAUDE_PID: '1', ...env },
 });
 
-test('keine laufende Session → 1', () => {
+test('no running session → 1', () => {
   assert.equal(run(setup(null), ['lu.01']).status, 1);
   assert.equal(run(setup({ pid: 999999, name: 'lu.01', status: 'idle' }), ['lu.01']).status, 1);
 });
 
-test('arbeitende Session oder fehlendes Handover nur mit --force', () => {
+test('working session or missing handover only with --force', () => {
   const busy = setup({ pid: process.pid, name: 'lu.01', status: 'busy' });
   const r = run(busy, ['lu.01']);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /arbeitet gerade/);
+  assert.match(r.stderr, /is working right now/);
   const noHo = setup({ pid: process.pid, name: 'lu.01', status: 'idle' }, false);
-  assert.match(run(noHo, ['lu.01']).stderr, /kein Handover/);
+  assert.match(run(noHo, ['lu.01']).stderr, /has no handover/);
 });
 
-test('eigene Session wird abgelehnt', () => {
+test('own session is refused', () => {
   const home = setup({ pid: process.pid, name: 'lu.01', status: 'idle' });
   const r = run(home, ['--force', 'lu.01'], { CLAUDE_PID: String(process.pid) });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /eigene Session/);
+  assert.match(r.stderr, /your own session/);
 });
 
-test('ungültiger Name oder falsche Argumente → 2', () => {
+test('invalid name or wrong arguments → 2', () => {
   const home = setup(null);
   assert.equal(run(home, ['a/b']).status, 2);
   assert.equal(run(home, []).status, 2);

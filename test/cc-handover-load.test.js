@@ -26,49 +26,49 @@ function run(home, env = {}, input = '{"session_id":"sid-4242","hook_event_name"
   });
 }
 
-test('ohne Handover-Datei: keine Ausgabe, keine Datei, aber Marker, Exit 0', () => {
+test('without handover file: no output, no file, but marker, exit 0', () => {
   const home = setup();
   const r = run(home);
   assert.equal(r.status, 0);
   assert.equal(r.stdout, '');
   assert.equal(fs.existsSync(path.join(home, 'handover', 'lu.01.md')), false);
-  assert.ok(fs.existsSync(path.join(home, 'handover', '.loaded', 'sid-4242')), 'Marker wird bei erster Namensauflösung gesetzt');
+  assert.ok(fs.existsSync(path.join(home, 'handover', '.loaded', 'sid-4242')), 'marker is set on first name resolution');
 });
 
-test('Datei, die die Session später selbst anlegt, wird nicht als Vorgänger geladen', () => {
+test('a file the session creates itself later is not loaded as predecessor', () => {
   const home = setup();
   run(home);
-  const r1 = spawnSync('sh', [CC_TASK, 'eigener Auftrag'], {
+  const r1 = spawnSync('sh', [CC_TASK, 'own task'], {
     encoding: 'utf8', env: { PATH: process.env.PATH, HOME: os.homedir(), CC_HOME: home, CLAUDE_PID: '4242' },
   });
   assert.equal(r1.status, 0, r1.stderr);
   const r = run(home);
   assert.equal(r.stdout, '');
-  assert.match(fs.readFileSync(path.join(home, 'handover', 'lu.01.md'), 'utf8'), /task: eigener Auftrag/);
+  assert.match(fs.readFileSync(path.join(home, 'handover', 'lu.01.md'), 'utf8'), /task: own task/);
 });
 
-test('mit Handover-Datei: Inhalt ausgeben, Aufgaben-Zeile setzen, Marker anlegen', () => {
+test('with handover file: print content, set task line, create marker', () => {
   const home = setup();
-  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), '---\nsession: lu.01\ntask: alt\nstate: handover\n---\n# Handover lu.01\nInhalt\n');
+  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), '---\nsession: lu.01\ntask: old\nstate: handover\n---\n# Handover lu.01\nContent\n');
   const r = run(home);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /Handover der Vorgänger-Session lu\.01/);
-  assert.match(r.stdout, /Inhalt/);
+  assert.match(r.stdout, /Handover of the predecessor session lu\.01/);
+  assert.match(r.stdout, /Content/);
   const f = fs.readFileSync(path.join(home, 'handover', 'lu.01.md'), 'utf8');
   assert.match(f, /task: neu gestartet, Handover gelesen/);
   assert.match(f, /state: working/);
   assert.ok(fs.existsSync(path.join(home, 'handover', '.loaded', 'sid-4242')));
 });
 
-test('zweiter Aufruf derselben Session: nichts', () => {
+test('second call from the same session: nothing', () => {
   const home = setup();
-  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), '---\nsession: lu.01\ntask: alt\n---\nx\n');
+  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), '---\nsession: lu.01\ntask: old\n---\nx\n');
   run(home);
   const r = run(home);
   assert.equal(r.stdout, '');
 });
 
-test('Name fehlt noch: nichts, kein Marker (wird beim nächsten Prompt erneut versucht)', () => {
+test('name not yet known: nothing, no marker (retried on the next prompt)', () => {
   const home = setup({ named: false });
   const r = run(home);
   assert.equal(r.status, 0);
@@ -76,15 +76,15 @@ test('Name fehlt noch: nichts, kein Marker (wird beim nächsten Prompt erneut ve
   assert.equal(fs.existsSync(path.join(home, 'handover', '.loaded', 'sid-4242')), false);
 });
 
-test('abgeleiteter Name (nameSource derived): nichts', () => {
+test('derived name (nameSource derived): nothing', () => {
   const home = setup({ derived: true });
-  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), '---\nsession: lu.01\ntask: alt\n---\nx\n');
+  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), '---\nsession: lu.01\ntask: old\n---\nx\n');
   assert.equal(run(home).stdout, '');
 });
 
-test('ohne CLAUDE_PID: Register über session_id finden', () => {
+test('without CLAUDE_PID: find registry entry via session_id', () => {
   const home = setup();
-  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), '---\nsession: lu.01\ntask: alt\n---\nInhalt\n');
+  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), '---\nsession: lu.01\ntask: old\n---\nContent\n');
   const r = run(home, { CLAUDE_PID: '' });
-  assert.match(r.stdout, /Inhalt/);
+  assert.match(r.stdout, /Content/);
 });

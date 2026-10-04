@@ -1,10 +1,10 @@
 #!/bin/sh
-# cc-task — Aufgaben-Zeile und Handover-Datei einer Claude-Code-Session schreiben.
+# cc-task — write the task line and handover file of a Claude Code session.
 #
 #   cc-task [--name NAME] [--body FILE] [--archive] [--no-create] "TASK" [STATE]
 #
-# STATE: working | blocked | waiting | done | handover (ohne Angabe: bisheriger Wert, sonst working)
-# Umgebung: CC_HOME (Standard ~/.claude), CC_DEV_ROOT (Standard ~/Development), CLAUDE_PID
+# STATE: working | blocked | waiting | done | handover (if omitted: previous value, otherwise working)
+# Environment: CC_HOME (default ~/.claude), CC_DEV_ROOT (default ~/Development), CLAUDE_PID
 set -eu
 
 home="${CC_HOME:-$HOME/.claude}"
@@ -18,7 +18,7 @@ while [ $# -gt 0 ]; do
     --archive) archive=1; shift ;;
     --no-create) nocreate=1; shift ;;
     --) shift; break ;;
-    -*) echo "cc-task: unbekannte Option $1" >&2; exit 2 ;;
+    -*) echo "cc-task: unknown option $1" >&2; exit 2 ;;
     *) break ;;
   esac
 done
@@ -30,7 +30,7 @@ if [ -z "$task" ]; then
 fi
 task=$(printf '%s' "$task" | tr '\n\r' '  ')
 
-# --- Name und Register ---------------------------------------------------
+# --- Name and registry ---------------------------------------------------
 reg=""
 if [ -z "$name" ]; then
   if [ -n "${CLAUDE_PID:-}" ] && [ -f "$home/sessions/$CLAUDE_PID.json" ]; then
@@ -38,7 +38,7 @@ if [ -z "$name" ]; then
     name=$(jq -r '.name // empty' "$reg" 2>/dev/null || true)
   fi
   if [ -z "$name" ]; then
-    echo "cc-task: Session-Name unbekannt. Session mit 'claude -n <name>' starten oder --name angeben." >&2
+    echo "cc-task: session name unknown. Start the session with 'claude -n <name>' or pass --name." >&2
     exit 1
   fi
 else
@@ -49,7 +49,7 @@ else
 fi
 
 case "$name" in
-  *[!A-Za-z0-9._#-]*|*..*) echo "cc-task: ungültiger Name '$name'" >&2; exit 2 ;;
+  *[!A-Za-z0-9._#-]*|*..*) echo "cc-task: invalid name '$name'" >&2; exit 2 ;;
 esac
 
 project_from_cwd() {
@@ -64,7 +64,7 @@ if [ -n "$reg" ]; then
   project_reg=$(project_from_cwd "$(jq -r '.cwd // empty' "$reg" 2>/dev/null)")
 fi
 
-# --- Datei ----------------------------------------------------------------
+# --- File ------------------------------------------------------------------
 dir="$home/handover"
 file="$dir/$name.md"
 mkdir -p "$dir"
@@ -97,7 +97,7 @@ fi
 
 tmp=$(mktemp "$dir/.cc-task.XXXXXX")
 {
-  # printf statt echo: /bin/sh auf macOS interpretiert in echo Backslash-Sequenzen
+  # printf instead of echo: /bin/sh on macOS interprets backslash sequences in echo
   printf '%s\n' "---"
   printf 'session: %s\n' "$name"
   printf 'project: %s\n' "$project"

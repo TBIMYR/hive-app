@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Farben wie die Tokens in public/index.html (hell / dunkel).
+/// Colors like the tokens in public/index.html (light / dark).
 enum Hive {
     private static func dyn(_ light: UInt32, _ dark: UInt32) -> Color {
         Color(nsColor: NSColor(name: nil) { app in
@@ -26,7 +26,7 @@ enum Hive {
     static let idle = dyn(0xB4B4B0, 0x5C5C59)
     static let off = dyn(0xD4D4D0, 0x333331)
 
-    // Projektfarben: bewusst ohne Rot/Orange/Grün, damit sie nie wie ein Status aussehen
+    // Project colors: deliberately without red/orange/green so they never look like a status
     static let palette: [UInt32] = [0x2F6FED, 0x8B3DFF, 0xE0319A, 0x0A9FB5, 0x1B1B1B,
                                     0x6D4AFF, 0xC026D3, 0x0F766E, 0x4F46E5, 0x7C5C3B]
 
@@ -46,7 +46,7 @@ extension Font {
     }
 }
 
-/// „<1 min“, „12 min“, „3 h“, „2 d“ wie dur() im Dashboard.
+/// "<1 min", "12 min", "3 h", "2 d" like dur() in the dashboard.
 func dur(_ iso: String?, now: Date = Date()) -> String {
     guard let iso, let d = parseISO(iso) else { return "" }
     let s = max(0, now.timeIntervalSince(d))
@@ -58,7 +58,7 @@ func dur(_ iso: String?, now: Date = Date()) -> String {
 
 func ago(_ iso: String?, now: Date = Date()) -> String {
     let d = dur(iso, now: now)
-    return d.isEmpty ? "" : (d == "<1 min" ? "gerade eben" : "vor \(d)")
+    return d.isEmpty ? "" : (d == "<1 min" ? "just now" : "\(d) ago")
 }
 
 private let isoFrac: ISO8601DateFormatter = {

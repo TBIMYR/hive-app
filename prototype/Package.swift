@@ -5,7 +5,7 @@ let package = Package(
     name: "HiveApp",
     platforms: [.macOS(.v14)],
     dependencies: [
-        // 1.21 kündigt Breaking Changes an, darum auf 1.20.x festhalten
+        // 1.21 announces breaking changes, so pin to 1.20.x
         .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", .upToNextMinor(from: "1.20.0")),
     ],
     targets: [

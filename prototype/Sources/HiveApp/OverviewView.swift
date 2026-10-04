@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Übersicht: Abschnitte nach Dringlichkeit wie im Dashboard, aber ruhigere Karten und ohne Kopfleiste.
+/// Overview: sections by urgency as in the dashboard, but calmer cards and no header bar.
 struct OverviewView: View {
     @EnvironmentObject private var store: StateStore
     @Binding var selected: String?
@@ -9,13 +9,13 @@ struct OverviewView: View {
     @State private var tileHeight: CGFloat = 150
 
     private static let sections: [(rank: Int, title: String, color: Color)] = [
-        (0, "Braucht dich", Hive.need), (1, "Arbeitet", Hive.busy), (2, "Bereit", Hive.idle), (3, "Offline", Hive.off),
+        (0, "Needs you", Hive.need), (1, "Working", Hive.busy), (2, "Ready", Hive.idle), (3, "Offline", Hive.off),
     ]
 
     var body: some View {
         Group {
             if let error = store.error, store.sessions.isEmpty {
-                ContentUnavailableView("hive läuft nicht", systemImage: "hexagon", description: Text(error))
+                ContentUnavailableView("hive is not running", systemImage: "hexagon", description: Text(error))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 board
@@ -27,7 +27,7 @@ struct OverviewView: View {
     private var board: some View {
         let labels = store.labels
         let all = store.displaySessions.map { ($0, store.status($0)) }
-        // PMs stehen ohne eigenen Abschnitt bei den übrigen Karten; sie heben sich nur durch die Projektfarbe ab (Tile)
+        // PMs have no section of their own and sit among the other cards; only the project color sets them apart (Tile)
         let addRank = all.map(\.1.rank).filter { $0 != 3 }.min()
         return ScrollView {
             VStack(alignment: .leading, spacing: 34) {
@@ -59,18 +59,18 @@ struct OverviewView: View {
                     .onTapGesture { selected = s.name }
                     .contextMenu {
                         if let next = SessionNaming.nextName(in: store.sessions.filter { $0.groupKey == s.groupKey }) {
-                            Button("\(next) im selben Projekt starten") {
+                            Button("Start \(next) in the same project") {
                                 newPreset = NewSessionPreset(name: next, dir: s.cwd)
                             }
                         }
                     }
             }
-            // Neue Session als letzte Karte im ersten Worker-Abschnitt
+            // New session as the last card in the first worker section
             if add && Tmux.path != nil {
                 AddTile(height: tileHeight) { newPreset = NewSessionPreset() }
             }
         }
-        // Höhe der höchsten Karte im eigenen Abschnitt an „Neue Session“ weitergeben (LazyVGrid streckt nicht)
+        // pass the height of the tallest card in this section on to "New session" (LazyVGrid does not stretch)
         .onPreferenceChange(TileHeightKey.self) { h in if add && h > 0 { tileHeight = h } }
     }
 
@@ -89,7 +89,7 @@ struct OverviewView: View {
         .onTapGesture { if collapsible { showOffline.toggle() } }
     }
 
-    /// Reihenfolge wie im Dashboard: „Braucht dich“ nach Wartezeit, sonst Rückmeldung zuerst, dann Projekt, PM, Name.
+    /// Order as in the dashboard: "Needs you" by waiting time, otherwise waiting-for-feedback first, then project, PM, name.
     private func sorted(_ items: [(Session, Status)], rank: Int, labels: [String: String]) -> [(Session, Status)] {
         items.sorted { a, b in
             if rank == 0 {
@@ -104,9 +104,9 @@ struct OverviewView: View {
     }
 }
 
-// MARK: Bausteine
+// MARK: Building blocks
 
-/// Höhe der höchsten Karte eines Abschnitts (auch mit Hinweiszeile), für die Karte „Neue Session“.
+/// Height of the tallest card in a section (including the hint line), for the "New session" card.
 struct TileHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -114,7 +114,7 @@ struct TileHeightKey: PreferenceKey {
     }
 }
 
-/// Gestrichelte Karte „Neue Session“ im Raster.
+/// Dashed "New session" card in the grid.
 struct AddTile: View {
     var height: CGFloat = 150
     let action: () -> Void
@@ -124,7 +124,7 @@ struct AddTile: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Image(systemName: "plus").font(.system(size: 22, weight: .medium))
-                Text("Neue Session").font(.system(size: 13, weight: .medium))
+                Text("New session").font(.system(size: 13, weight: .medium))
             }
             .foregroundStyle(hover ? Hive.ink : Hive.muted)
             .frame(maxWidth: .infinity, minHeight: height)
@@ -138,11 +138,11 @@ struct AddTile: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-        .help("Neue Session in tmux starten (⌘N)")
+        .help("Start a new session in tmux (⌘N)")
     }
 }
 
-/// Langsam pulsierender Rahmen für arbeitende Sessions; bei „Bewegung reduzieren“ ruhig.
+/// Slowly pulsing border for working sessions; static with "Reduce motion".
 struct PulsingBorder: View {
     let color: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -152,7 +152,7 @@ struct PulsingBorder: View {
             shape(opacity: 0.6)
         } else {
             TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
-                // 2,4 s pro Atemzug, Deckkraft 0,2 … 0,85
+                // 2.4 s per breath, opacity 0.2 … 0.85
                 let t = ctx.date.timeIntervalSinceReferenceDate
                 let phase = (sin(t * 2 * .pi / 2.4) + 1) / 2
                 shape(opacity: 0.2 + 0.65 * phase)
@@ -183,7 +183,7 @@ struct Token: View {
     }
 }
 
-/// Status als Punkt + Text; nur „braucht dich“ wird eine gefüllte Pille.
+/// Status as dot + text; only "needs you" becomes a filled pill.
 struct StatusLabel: View {
     let status: Status
     var since: String = ""
@@ -216,7 +216,7 @@ struct Tile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Name und Status
+            // Name and status
             HStack(spacing: 7) {
                 if isPm { Token(text: session.abbr, color: color) }
                 Text(session.name).font(.hiveMono(isPm ? 16 : 15, .semibold)).lineLimit(1).fixedSize()
@@ -229,19 +229,19 @@ struct Tile: View {
                 Text(why).font(.system(size: 12.5, weight: .medium)).foregroundStyle(status.color).lineLimit(1)
             }
 
-            // Aufgabe
-            Text(session.task?.text ?? "Keine Aufgaben-Zeile")
+            // Task
+            Text(session.task?.text ?? "No task line")
                 .font(.system(size: 13.5, weight: .medium))
                 .foregroundStyle(session.task?.text == nil ? Hive.muted : Hive.ink)
                 .lineLimit(2, reservesSpace: true)
 
-            // Letzte Antwort
+            // Last reply
             Text(plain(session.lastAssistant?.text) ?? AttributedString(" "))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Hive.ink2)
                 .lineSpacing(3).lineLimit(2, reservesSpace: true)
 
-            // Meta: Projekt · Branch · Zeit, rechts wo die Session läuft
+            // Meta: project · branch · time, on the right where the session runs
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 7, height: 7)
                 Text(label)
@@ -255,7 +255,7 @@ struct Tile: View {
                 }
                 Spacer(minLength: 6)
                 if inTmux {
-                    Image(systemName: "terminal").help("Läuft in der App")
+                    Image(systemName: "terminal").help("Runs in the app")
                 } else if session.alive == true && session.kind != "bg" {
                     Text("iTerm").fixedSize()
                 }
@@ -280,7 +280,7 @@ struct Tile: View {
         .contentShape(Rectangle())
     }
 
-    /// Markdown der Antwort (fett, Code …) als formatierter Text statt mit Sternchen; Zeilenumbrüche raus.
+    /// The reply's Markdown (bold, code …) as formatted text instead of asterisks; line breaks removed.
     private func plain(_ s: String?) -> AttributedString? {
         guard let s, !s.isEmpty else { return nil }
         let flat = s.replacingOccurrences(of: "\n", with: " ")

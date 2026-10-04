@@ -1,29 +1,29 @@
 #!/bin/sh
-# cc-spawn — neue Claude-Code-Session in einem iTerm-Tab starten.
+# cc-spawn — start a new Claude Code session in an iTerm tab.
 #
-#   cc-spawn NAME DIR ["ERSTER AUFTRAG"]
+#   cc-spawn NAME DIR ["FIRST TASK"]
 #
-# Startet `claude -n NAME ["AUFTRAG"]` in DIR, entweder
-#   - hive: als Session im tmux-Server der hive-App (`tmux -L hive`), sichtbar in der App, oder
-#   - iterm: in einem neuen Tab des vordersten iTerm-Fensters.
-# Ziel: CC_SPAWN_TARGET=hive|iterm; ohne Angabe hive, wenn der Aufrufer selbst in hive läuft, sonst iterm.
-# Der Start-Hook lädt das Handover zu NAME. Lehnt ab, wenn unter NAME schon eine Session läuft.
-# Umgebung: CC_HOME (Standard ~/.claude), CC_SPAWN_DRYRUN=1 gibt den Befehl nur aus.
+# Starts `claude -n NAME ["TASK"]` in DIR, either
+#   - hive: as a session in the hive app's tmux server (`tmux -L hive`), visible in the app, or
+#   - iterm: in a new tab of the frontmost iTerm window.
+# Target: CC_SPAWN_TARGET=hive|iterm; if unset, hive when the caller itself runs in hive, otherwise iterm.
+# The start hook loads the handover for NAME. Refuses if a session named NAME is already running.
+# Environment: CC_HOME (default ~/.claude), CC_SPAWN_DRYRUN=1 only prints the command.
 set -eu
 
 home="${CC_HOME:-$HOME/.claude}"
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
-  echo "usage: cc-spawn NAME DIR [\"ERSTER AUFTRAG\"]" >&2
+  echo "usage: cc-spawn NAME DIR [\"FIRST TASK\"]" >&2
   exit 2
 fi
 name="$1"; dir="$2"; prompt="${3:-}"
 
 case "$name" in
-  ""|*[!A-Za-z0-9._#-]*|*..*) echo "cc-spawn: ungültiger Name '$name'" >&2; exit 2 ;;
+  ""|*[!A-Za-z0-9._#-]*|*..*) echo "cc-spawn: invalid name '$name'" >&2; exit 2 ;;
 esac
 if [ ! -d "$dir" ]; then
-  echo "cc-spawn: Verzeichnis '$dir' gibt es nicht" >&2
+  echo "cc-spawn: directory '$dir' does not exist" >&2
   exit 2
 fi
 dir=$(cd "$dir" && pwd)
@@ -33,17 +33,17 @@ for f in "$home"/sessions/*.json; do
   [ "$(jq -r '.name // empty' "$f" 2>/dev/null)" = "$name" ] || continue
   pid=$(jq -r '.pid // empty' "$f" 2>/dev/null)
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-    echo "cc-spawn: Session '$name' läuft schon (PID $pid)" >&2
+    echo "cc-spawn: session '$name' is already running (PID $pid)" >&2
     exit 1
   fi
 done
 
 target="${CC_SPAWN_TARGET:-}"
 if [ -z "$target" ]; then
-  # $TMUX = "<socket>,<pid>,<n>"; der Socket der App heißt .../hive
+  # $TMUX = "<socket>,<pid>,<n>"; the app's socket is named .../hive
   case "${TMUX%%,*}" in */hive) target=hive ;; *) target=iterm ;; esac
 fi
-case "$target" in hive|iterm) ;; *) echo "cc-spawn: CC_SPAWN_TARGET muss hive oder iterm sein" >&2; exit 2 ;; esac
+case "$target" in hive|iterm) ;; *) echo "cc-spawn: CC_SPAWN_TARGET must be hive or iterm" >&2; exit 2 ;; esac
 
 if [ "${CC_SPAWN_DRYRUN:-}" = "1" ]; then
   printf '[%s] cd %s && claude -n %s' "$target" "$dir" "$name"
@@ -55,8 +55,8 @@ fi
 if [ "$target" = "hive" ]; then
   tmux_bin=$(command -v tmux || echo /opt/homebrew/bin/tmux)
   conf="$HOME/Library/Application Support/hive/tmux.conf"
-  # Variablen der aufrufenden Claude-Session dürfen nicht in die neue Session durchsickern
-  # (sonst hält sie sich für deren Kind: Session-ID, Nachrichten-Socket …), siehe Tmux.swift.
+  # Variables of the calling Claude session must not leak into the new session
+  # (otherwise it thinks it is that session's child: session ID, message socket …), see Tmux.swift.
   unset_args=""
   for k in $(env | sed -nE 's/^(CLAUDE[A-Za-z0-9_]*|AI_AGENT|TMUX|TMUX_PANE)=.*/\1/p'); do
     unset_args="$unset_args -u $k"
@@ -77,11 +77,11 @@ if [ "$target" = "hive" ]; then
   else
     ht new-session -d -s "$name" -c "$dir" "$claude_bin" -n "$name"
   fi
-  echo "cc-spawn: $name gestartet in $dir (hive)"
+  echo "cc-spawn: $name started in $dir (hive)"
   exit 0
 fi
 
-# Argumente über argv statt Interpolation, quoted form schützt vor Sonderzeichen im Pfad oder Auftrag
+# Arguments via argv instead of interpolation; quoted form guards against special characters in path or task
 osascript - "$dir" "$name" "$prompt" <<'EOF' >/dev/null
 on run argv
   set d to item 1 of argv
@@ -100,4 +100,4 @@ on run argv
   end tell
 end run
 EOF
-echo "cc-spawn: $name gestartet in $dir"
+echo "cc-spawn: $name started in $dir"

@@ -1,29 +1,29 @@
 ---
 name: handover
-description: Schreibt das Handover dieser Session nach ~/.claude/handover/<name>.md, damit eine Nachfolger-Session mit demselben Namen es beim Start liest. Aufrufen vor jedem geplanten Ende oder Neustart, oder wenn der User /handover sagt.
+description: Writes this session's handover to ~/.claude/handover/<name>.md so that a successor session with the same name reads it at startup. Invoke before every planned end or restart, or when the user says /handover.
 ---
 
-1. Schreibe den Handover-Text mit `Write` in eine Datei im Scratchpad (z. B. `<scratchpad>/handover.md`). Aufbau:
+1. Use `Write` to put the handover text into a file in the scratchpad (e.g. `<scratchpad>/handover.md`). Keep the three section headings in German exactly as shown. Structure:
 
-       # Handover <name> — Stand <Datum>
+       # Handover <name> — Stand <date>
 
        ## Lage
-       Repo-Stand, Branches, was gemergt/gepusht ist, laufende Server. Gemessen, nicht vermutet.
+       Repo state, branches, what is merged/pushed, running servers. Measured, not assumed.
 
        ## Offen
-       Was fehlt, wer entscheiden muss, welche Berechtigungen fehlen. Mit Ticket/PR-Nummern.
+       What is missing, who has to decide, which permissions are missing. With ticket/PR numbers.
 
        ## Regeln und Lehren
-       Was in dieser Session dazukam oder schiefging und der Nachfolger wissen muss.
+       What was added or went wrong in this session that the successor needs to know.
 
-   Gibt es im Projekt noch eine alte Handoff-Datei im bisherigen Format (z. B. `HANDOFF-<name>.md` oder `handoff/<datum>/…`), verweise im Abschnitt „Lage“ einmalig auf ihren Pfad.
+   If the project still has an old handoff file in the previous format (e.g. `HANDOFF-<name>.md` or `handoff/<date>/…`), point to its path once in the "Lage" section.
 
-2. Führe genau einen Bash-Aufruf aus:
+2. Run exactly one Bash call:
 
-       ~/.claude/bin/cc-task --archive --body <scratchpad>/handover.md "<eine Zeile Kurzfassung, was der Nachfolger zuerst tun soll>" handover
+       ~/.claude/bin/cc-task --archive --body <scratchpad>/handover.md "<one-line summary of what the successor should do first>" handover
 
-   Das archiviert die Vorversion und schreibt Frontmatter und Body in einem Schritt.
+   This archives the previous version and writes frontmatter and body in one step.
 
-3. Bestätige dem User in einem Satz mit dem Pfad `~/.claude/handover/<name>.md`.
+3. Confirm to the user in one sentence, with the path `~/.claude/handover/<name>.md`.
 
-Fasse die Handover-Datei nie direkt mit `Write` oder `Edit` an; `cc-task` ist der einzige Schreiber.
+Never touch the handover file directly with `Write` or `Edit`; `cc-task` is the only writer.

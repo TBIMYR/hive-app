@@ -1,13 +1,13 @@
 #!/bin/sh
-# cc-close — laufende Claude-Code-Session sauber beenden und ihren iTerm-Tab schließen.
+# cc-close — cleanly end a running Claude Code session and close its iTerm tab.
 #
 #   cc-close [--force] NAME
 #
-# Tippt `/exit` in die Session (gefunden über ihr Terminal: tmux-Pane im Server der hive-App bzw.
-# im Standard-Server, sonst iTerm-Tab), wartet auf das Ende des Prozesses und schließt
-# die tmux-Session bzw. den Tab. Ohne --force abgelehnt, wenn die Session gerade arbeitet
-# oder kein Handover hat. Die eigene Session lässt sich nicht schließen.
-# Umgebung: CC_HOME (Standard ~/.claude), CLAUDE_PID, CC_CLOSE_DRYRUN=1 prüft nur.
+# Types `/exit` into the session (found via its terminal: tmux pane in the hive app's server or
+# the default server, otherwise iTerm tab), waits for the process to end and closes
+# the tmux session or the tab. Without --force, refuses if the session is currently working
+# or has no handover. The own session cannot be closed.
+# Environment: CC_HOME (default ~/.claude), CLAUDE_PID, CC_CLOSE_DRYRUN=1 only checks.
 set -eu
 
 home="${CC_HOME:-$HOME/.claude}"
@@ -19,7 +19,7 @@ if [ $# -ne 1 ]; then
 fi
 name="$1"
 case "$name" in
-  ""|*[!A-Za-z0-9._#-]*|*..*) echo "cc-close: ungültiger Name '$name'" >&2; exit 2 ;;
+  ""|*[!A-Za-z0-9._#-]*|*..*) echo "cc-close: invalid name '$name'" >&2; exit 2 ;;
 esac
 
 pid=""; status=""
@@ -32,31 +32,31 @@ for f in "$home"/sessions/*.json; do
   fi
 done
 if [ -z "$pid" ]; then
-  echo "cc-close: keine laufende Session '$name'" >&2
+  echo "cc-close: no running session '$name'" >&2
   exit 1
 fi
 if [ "$pid" = "${CLAUDE_PID:-}" ]; then
-  echo "cc-close: die eigene Session lässt sich nicht schließen" >&2
+  echo "cc-close: cannot close your own session" >&2
   exit 1
 fi
 if [ "$force" -eq 0 ] && [ "$status" = "busy" ]; then
-  echo "cc-close: '$name' arbeitet gerade; erst fertig werden lassen oder --force" >&2
+  echo "cc-close: '$name' is working right now; let it finish first or use --force" >&2
   exit 1
 fi
 if [ "$force" -eq 0 ] && [ ! -f "$home/handover/$name.md" ]; then
-  echo "cc-close: '$name' hat kein Handover; erst /handover schreiben lassen oder --force" >&2
+  echo "cc-close: '$name' has no handover; have it write /handover first or use --force" >&2
   exit 1
 fi
 
 tty=$(ps -o tty= -p "$pid" | tr -d ' ')
 if [ -z "$tty" ] || [ "$tty" = "??" ]; then
-  echo "cc-close: '$name' hat kein Terminal" >&2
+  echo "cc-close: '$name' has no terminal" >&2
   exit 1
 fi
 tty="/dev/${tty#/dev/}"
 
 if [ "${CC_CLOSE_DRYRUN:-}" = "1" ]; then
-  echo "cc-close: würde '$name' (PID $pid, $tty) beenden"
+  echo "cc-close: would end '$name' (PID $pid, $tty)"
   exit 0
 fi
 
@@ -69,7 +69,7 @@ waitexit() {
   done
 }
 
-# Läuft die Session in tmux (Server der hive-App oder Standard-Server)? Dann über tmux beenden.
+# Is the session running in tmux (hive app server or default server)? Then end it via tmux.
 tmux_bin=$(command -v tmux || true)
 if [ -n "$tmux_bin" ]; then
   for server in hive default; do
@@ -79,11 +79,11 @@ if [ -n "$tmux_bin" ]; then
     env -u TMUX "$tmux_bin" -L "$server" send-keys -t "=$sess:" -l "/exit"
     env -u TMUX "$tmux_bin" -L "$server" send-keys -t "=$sess:" Enter
     if ! waitexit; then
-      echo "cc-close: '$name' hat sich nach 15 s nicht beendet; tmux-Session bleibt" >&2
+      echo "cc-close: '$name' did not exit after 15 s; tmux session stays" >&2
       exit 1
     fi
     env -u TMUX "$tmux_bin" -L "$server" kill-session -t "=$sess:" 2>/dev/null || true
-    echo "cc-close: $name beendet (tmux $server)"
+    echo "cc-close: $name ended (tmux $server)"
     exit 0
   done
 fi
@@ -115,12 +115,12 @@ EOF
 }
 
 if [ "$(itermdo exit)" != "ok" ]; then
-  echo "cc-close: kein iTerm-Tab mit $tty gefunden" >&2
+  echo "cc-close: no iTerm tab found for $tty" >&2
   exit 1
 fi
 if ! waitexit; then
-  echo "cc-close: '$name' hat sich nach 15 s nicht beendet; Tab bleibt offen" >&2
+  echo "cc-close: '$name' did not exit after 15 s; tab stays open" >&2
   exit 1
 fi
 itermdo close >/dev/null || true
-echo "cc-close: $name beendet"
+echo "cc-close: $name ended"

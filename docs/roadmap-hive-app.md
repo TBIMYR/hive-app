@@ -1,82 +1,82 @@
-# Roadmap: hive als Mac-App (Stand 2026-10-03)
+# Roadmap: hive as a Mac app (as of 2026-10-03)
 
-Der Wegwerf-Prototyp (`prototype/`) hat bestätigt, dass Übersicht und Terminal in einem Fenster
-tragen. Diese Roadmap beschreibt den Weg zur echten App. Jede Etappe bekommt eine eigene Spec unter
-`superpowers/specs/`, gebaut wird erst nach Mikas Alltagstest des Prototyps.
+The throwaway prototype (`prototype/`) confirmed that overview and terminal in one window
+work. This roadmap describes the path to the real app. Each stage gets its own spec under
+`specs/`; building starts only after Mika's daily-use test of the prototype.
 
-## Ausgangslage
+## Starting point
 
-- Prototyp: SwiftUI + SwiftTerm + eigener tmux-Server (`tmux -L hive`). Die Daten kommen vom
-  Node-Server (`server.js`, `lib/*.js`, etwa 370 Zeilen Logik) über `/api/state`.
-- Der eigentliche Wert ist das **Statusmodell**: Aufgaben-Zeile (`cc-task`), PM/Worker, Handover pro
-  Name, `cc-spawn`/`cc-close`. Terminal und Fenster sind Mittel zum Zweck.
-- **Größtes Risiko:** `~/.claude/sessions/*.json` und das JSONL-Format der Gesprächsprotokolle sind
-  keine offizielle Schnittstelle von Claude Code. Sie können sich mit jedem Update ändern.
+- Prototype: SwiftUI + SwiftTerm + own tmux server (`tmux -L hive`). The data comes from the
+  Node server (`server.js`, `lib/*.js`, about 370 lines of logic) via `/api/state`.
+- The real value is the **status model**: task line (`cc-task`), PM/worker, handover per
+  name, `cc-spawn`/`cc-close`. Terminal and window are means to an end.
+- **Biggest risk:** `~/.claude/sessions/*.json` and the JSONL transcript format are not an
+  official Claude Code interface. They can change with any update.
 
-## Etappe 1: Alltagstauglich für Mika (1–2 Wochen)
+## Stage 1: fit for daily use by Mika (1–2 weeks)
 
-Ziel: Mika arbeitet täglich in der App statt mit Dashboard und iTerm.
+Goal: Mika works in the app every day instead of the dashboard and iTerm.
 
-1. **hive-Logik in Swift.** Register, Handover, Gesprächsprotokoll und Projektzuordnung als
-   Swift-Modul mit Tests. Dateiüberwachung (FSEvents) statt Abfrage alle 2 s. Die App braucht den
-   Node-Server nicht mehr. Das Web-Dashboard bleibt vorerst unverändert parallel bestehen.
-2. **Mitteilungen.** macOS-Mitteilung und Zahl am Dock-Symbol, sobald eine Session dich braucht
-   (wartet auf dich, blockiert, wartet beim Start). Ein Klick auf die Mitteilung wählt die Session.
-3. **Session-Lebenszyklus in der App.** Starten (vorhanden), Beenden (`/exit`, wie `cc-close`),
-   Neustart mit Handover, iTerm-Session in die App umziehen (beenden und in tmux neu starten).
-   App und `cc-spawn`/`cc-close` nutzen dieselben Regeln (Server `hive`, gefilterte Umgebung).
-4. **Terminal-Grundlagen.** ⌘1–9 und ↑↓ zum Wechseln, ⌘+/− für die Schriftgröße. Den Befund zu
-   Markieren und Kopieren unter tmux aus dem Alltagstest einarbeiten.
-5. **Dialoge in der Karte.** Freigabe- und Start-Abfragen per `tmux capture-pane -e` erkennen, Frage
-   und Optionen in der Karte als normalen Text mit Knöpfen zeigen. Erst Mikas Klick tippt die
-   Antwort per `send-keys`, es gibt keine automatischen Antworten. Solange das Terminal den Fokus
-   hat, sind die Knöpfe gesperrt (sonst kollidiert es mit der eigenen Eingabe). Das Erkennen am
-   Text ist anfällig: Unbekannte Dialoge fallen auf „wartet auf dich“ zurück.
-6. **Agentenoffen, tmux als führende Liste.** Neue Sessions starten als Shell mit vorgetipptem
-   `claude -n <name>` (seit 03.10. im Prototyp). Damit kann jeder Agent laufen (Codex, Claude mit
-   `--resume` …). Folgen:
-   - Die Liste der Sessions kommt aus tmux, ihr Name ist der tmux-Name. Die Zuordnung zum Agenten
-     läuft über die Prozess-ID des Bereichs. Bei Claude ergänzen Register, Hooks und
-     Gesprächsprotokoll wie bisher.
-   - Andere Agenten bekommen ein Teil-Statusmodell: Aktivität über tmux, Aufgaben-Zeile über
-     `cc-task` (Regel in `AGENTS.md`). „Wartet auf dich“ nur über den Bildschirmtext oder über Codex'
-     eigenen Benachrichtigungs-Mechanismus (noch zu prüfen).
-   - Die App setzt `HIVE_SESSION=<name>` in jeder Session. `cc-task` sollte den Namen künftig daraus
-     lesen können.
-   **Neu (03.10.), kommt direkt nach den Mitteilungen:** Sessions oben anpinnen, gepinnte Sessions
-   gern reduziert dargestellt; allgemein mehrere Ansichten. Eigener Entwurf mit Mika.
-7. **Robustheit.** Wenn Register oder Gesprächsprotokoll unerwartet aussehen, zeigt die App das
-   sichtbar an (statt still falsch). Wo möglich `claude agents --json` als zweite Quelle.
+1. **hive logic in Swift.** Registry, handover, transcript and project mapping as a
+   Swift module with tests. File watching (FSEvents) instead of polling every 2 s. The app no longer
+   needs the Node server. The web dashboard stays in parallel, unchanged, for now.
+2. **Notifications.** macOS notification and a badge on the Dock icon as soon as a session needs you
+   (waiting for you, blocked, waiting at start). A click on the notification selects the session.
+3. **Session lifecycle in the app.** Start (exists), quit (`/exit`, like `cc-close`),
+   restart with handover, move an iTerm session into the app (quit and restart in tmux).
+   App and `cc-spawn`/`cc-close` use the same rules (server `hive`, filtered environment).
+4. **Terminal basics.** ⌘1–9 and ↑↓ for switching, ⌘+/− for font size. Incorporate the findings on
+   selection and copy under tmux from the daily-use test.
+5. **Dialogs in the card.** Detect permission and start prompts via `tmux capture-pane -e`, show the
+   question and options in the card as normal text with buttons. Only Mika's click types the
+   answer via `send-keys`; there are no automatic answers. While the terminal has focus, the
+   buttons are disabled (otherwise it collides with one's own input). Detection by text is
+   fragile: unknown dialogs fall back to "waiting for you".
+6. **Agent-agnostic, tmux as the leading list.** New sessions start as a shell with a pre-typed
+   `claude -n <name>` (in the prototype since 03.10.). That way any agent can run (Codex, Claude with
+   `--resume` …). Consequences:
+   - The session list comes from tmux, its name is the tmux name. The mapping to the agent
+     goes via the pane's process ID. For Claude, registry, hooks and transcript supplement it
+     as before.
+   - Other agents get a partial status model: activity via tmux, task line via
+     `cc-task` (rule in `AGENTS.md`). "Waiting for you" only via the screen text or via Codex's
+     own notification mechanism (still to check).
+   - The app sets `HIVE_SESSION=<name>` in every session. `cc-task` should be able to read the name
+     from it in future.
+   **New (03.10.), comes right after notifications:** pin sessions at the top, pinned sessions
+   preferably shown in reduced form; multiple views in general. Separate design with Mika.
+7. **Robustness.** If the registry or transcript look unexpected, the app shows this
+   visibly (instead of being silently wrong). Where possible, `claude agents --json` as a second source.
 
-## Etappe 2: Vollständige App (1–2 Wochen)
+## Stage 2: complete app (1–2 weeks)
 
-- Handover und Details der Session ansehen (wie die Seitenleiste im Dashboard).
-- Suche und Filter, Einstellungsfenster (Entwicklungsordner, Pfade, Schrift, Layout der PMs).
-- Xcode-Projekt mit App-Bundle, Waben-Icon, Menüleiste, Fensterzustand merken.
-- Entscheidung SwiftTerm oder libghostty, falls das Terminal im Alltag nicht reicht.
-- **Terminal-Darstellung:** ANSI-Palette (16 Farben) an die hive-Farben anpassen, Markierungsfarbe
-  (tmux `mode-style`), Innenabstand. Optional Claude-Theme „nur ANSI-Farben“, damit die Palette das
-  ganze Farbbild bestimmt. Zeilenabstand in SwiftTerm prüfen.
+- View the handover and session details (like the sidebar in the dashboard).
+- Search and filters, settings window (development folder, paths, font, PM layout).
+- Xcode project with app bundle, honeycomb icon, menu bar, remembered window state.
+- Decide between SwiftTerm and libghostty if the terminal isn't enough in daily use.
+- **Terminal appearance:** adapt the ANSI palette (16 colors) to the hive colors, selection color
+  (tmux `mode-style`), padding. Optionally a Claude theme "ANSI colors only", so the palette
+  determines the whole color scheme. Check line spacing in SwiftTerm.
 
-## Etappe 3: Open Source (2–3 Wochen)
+## Stage 3: open source (2–3 weeks)
 
-- Eigenes Repo, MIT-Lizenz, englische Oberfläche mit deutscher Übersetzung.
-- Auf Mika Zugeschnittenes wird einstellbar: `~/Development`, Namensschema `xx.pm`/`xx.01`,
-  iTerm-Sprung.
-- Einrichtung beim ersten Start statt `install.sh`: prüft tmux, installiert `cc-task`, die Hooks und
-  den CLAUDE.md-Abschnitt (mit Zustimmung, zeigt vorher die Änderungen).
-- Dokumentation der Konventionen (Aufgaben-Zeile, Handover, PM/Worker) für Fremde, README mit
-  Screenshots, CI-Build, Tests.
-- Signieren und Notarisieren (Apple-Developer-Account, 99 $/Jahr), automatische Updates (Sparkle).
+- Own repo, MIT license, English UI with German translation.
+- Things tailored to Mika become configurable: `~/Development`, naming scheme `xx.pm`/`xx.01`,
+  iTerm jump.
+- Setup on first launch instead of `install.sh`: checks tmux, installs `cc-task`, the hooks and
+  the CLAUDE.md section (with consent, showing the changes first).
+- Documentation of the conventions (task line, handover, PM/worker) for others, README with
+  screenshots, CI build, tests.
+- Signing and notarization (Apple Developer account, $99/year), automatic updates (Sparkle).
 
-## Entschieden
+## Decided
 
-- PM-Darstellung: kein eigener Abschnitt. PMs stehen bei den Karten nach Status und heben sich durch
-  Projektfarbe und Kürzel ab (03.10., `4349150`).
-- Chat-Ansicht statt Terminal: verworfen. Fließtext gibt es nur außerhalb des Terminals (Karten, Dialoge).
+- PM presentation: no separate section. PMs appear among the cards by status and stand out through
+  project color and abbreviation (03.10., `4349150`).
+- Chat view instead of terminal: rejected. Prose exists only outside the terminal (cards, dialogs).
 
-## Offene Entscheidungen
+## Open decisions
 
-- Web-Dashboard: nach Etappe 1 abschalten, weiterführen (dann gemeinsame Logik?) oder als
-  Fernansicht behalten.
-- Eigenes Repo schon ab Etappe 1 oder erst ab Etappe 3.
+- Web dashboard: switch off after stage 1, keep developing (shared logic then?) or keep as a
+  remote view.
+- Own repo from stage 1 or only from stage 3.

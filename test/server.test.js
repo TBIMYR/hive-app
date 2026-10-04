@@ -12,14 +12,14 @@ async function withServer(fn, focusPid) {
   try { await fn(base); } finally { await new Promise(r => srv.close(r)); }
 }
 
-test('GET / liefert HTML', () => withServer(async base => {
+test('GET / serves HTML', () => withServer(async base => {
   const res = await fetch(base + '/');
   assert.equal(res.status, 200);
   assert.match(res.headers.get('content-type'), /text\/html/);
   assert.match(await res.text(), /<html/i);
 }));
 
-test('GET /api/state liefert Sessions', () => withServer(async base => {
+test('GET /api/state returns sessions', () => withServer(async base => {
   const res = await fetch(base + '/api/state');
   assert.equal(res.status, 200);
   const j = await res.json();
@@ -28,7 +28,7 @@ test('GET /api/state liefert Sessions', () => withServer(async base => {
   assert.ok(j.generatedAt);
 }));
 
-test('GET /api/handover/<name> liefert Markdown, 404 wenn fehlend, 400 bei ungültigem Namen', () => withServer(async base => {
+test('GET /api/handover/<name> returns Markdown, 404 if missing, 400 for invalid name', () => withServer(async base => {
   const ok = await fetch(base + '/api/handover/lu.01');
   assert.equal(ok.status, 200);
   assert.match(ok.headers.get('content-type'), /text\/markdown/);
@@ -38,11 +38,11 @@ test('GET /api/handover/<name> liefert Markdown, 404 wenn fehlend, 400 bei ungü
   assert.equal((await fetch(base + '/api/handover/a%2Fb')).status, 400);
 }));
 
-test('unbekannte Route → 404', () => withServer(async base => {
+test('unknown route → 404', () => withServer(async base => {
   assert.equal((await fetch(base + '/nope')).status, 404);
 }));
 
-test('Icons werden ausgeliefert, andere Dateien unter /icons/ nicht', () => withServer(async base => {
+test('icons are served, other files under /icons/ are not', () => withServer(async base => {
   const touch = await fetch(base + '/apple-touch-icon.png');
   assert.equal(touch.status, 200);
   assert.equal(touch.headers.get('content-type'), 'image/png');
@@ -53,7 +53,7 @@ test('Icons werden ausgeliefert, andere Dateien unter /icons/ nicht', () => with
   assert.equal((await fetch(base + '/icons/nope.png')).status, 404);
 }));
 
-test('POST /api/focus/<pid> ruft focusPid für lebende Session mit Fenster', async () => {
+test('POST /api/focus/<pid> calls focusPid for a live session with a window', async () => {
   const calls = [];
   await withServer(async base => {
     const res = await fetch(base + '/api/focus/100', { method: 'POST' });
@@ -63,7 +63,7 @@ test('POST /api/focus/<pid> ruft focusPid für lebende Session mit Fenster', asy
   assert.deepEqual(calls, [100]);
 });
 
-test('focus: Hintergrund-Session → 409, unbekannte PID → 404, Unsinn → 400, GET → 405', async () => {
+test('focus: background session → 409, unknown PID → 404, garbage → 400, GET → 405', async () => {
   const calls = [];
   await withServer(async base => {
     assert.equal((await fetch(base + '/api/focus/103', { method: 'POST' })).status, 409);
@@ -74,17 +74,17 @@ test('focus: Hintergrund-Session → 409, unbekannte PID → 404, Unsinn → 400
   assert.deepEqual(calls, []);
 });
 
-test('focus: fremder Origin → 403', async () => {
+test('focus: foreign origin → 403', async () => {
   await withServer(async base => {
     const res = await fetch(base + '/api/focus/100', { method: 'POST', headers: { origin: 'https://evil.example' } });
     assert.equal(res.status, 403);
   }, async () => ({ ok: true }));
 });
 
-test('focus: Fehlschlag wird als 422 mit Grund gemeldet', async () => {
+test('focus: failure is reported as 422 with reason', async () => {
   await withServer(async base => {
     const res = await fetch(base + '/api/focus/100', { method: 'POST' });
     assert.equal(res.status, 422);
-    assert.match((await res.json()).reason, /kein iTerm-Tab/);
-  }, async () => ({ ok: false, reason: 'kein iTerm-Tab mit /dev/ttys001' }));
+    assert.match((await res.json()).reason, /no iTerm tab/);
+  }, async () => ({ ok: false, reason: 'no iTerm tab for /dev/ttys001' }));
 });

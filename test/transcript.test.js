@@ -6,34 +6,34 @@ const { readTail, parseTail } = require('../lib/transcript');
 
 const FILE = path.join(__dirname, 'fixtures', 'transcript.jsonl');
 
-test('parseTail: letzte Assistant-Textantwort, nicht tool_use/thinking', () => {
+test('parseTail: last assistant text reply, not tool_use/thinking', () => {
   const r = parseTail(fs.readFileSync(FILE, 'utf8'));
   assert.equal(r.lastAssistant.text, 'Ich fange mit dem Layout an.');
   assert.equal(r.lastAssistant.at, '2026-09-30T10:00:02.000Z');
 });
 
-test('parseTail: letzter echter Prompt, nicht isMeta, nicht <…>, nicht tool_result', () => {
+test('parseTail: last real prompt, not isMeta, not <…>, not tool_result', () => {
   const r = parseTail(fs.readFileSync(FILE, 'utf8'));
   assert.equal(r.lastUser.text, 'Bitte die Kalender-Ansicht umbauen');
 });
 
-test('parseTail: Branch aus der jüngsten Zeile mit gitBranch', () => {
+test('parseTail: branch from the newest line with gitBranch', () => {
   const r = parseTail(fs.readFileSync(FILE, 'utf8'));
   assert.equal(r.branch, 'feat/kalender');
 });
 
-test('parseTail: leerer Text → null-Felder', () => {
+test('parseTail: empty text → null fields', () => {
   assert.deepEqual(parseTail(''), { lastAssistant: null, lastUser: null, branch: null });
 });
 
-test('readTail: liest höchstens N Bytes und schneidet an Zeilengrenze', () => {
+test('readTail: reads at most N bytes and cuts at a line boundary', () => {
   const t = readTail(FILE, 200);
   assert.ok(Buffer.byteLength(t) <= 200);
-  assert.ok(!t.startsWith('{') || t.split('\n')[0].startsWith('{"type"'), 'erste Zeile vollständig oder verworfen');
+  assert.ok(!t.startsWith('{') || t.split('\n')[0].startsWith('{"type"'), 'first line complete or discarded');
   const full = readTail(FILE, 1 << 20);
   assert.equal(full, fs.readFileSync(FILE, 'utf8'));
 });
 
-test('readTail: fehlende Datei → leerer String', () => {
+test('readTail: missing file → empty string', () => {
   assert.equal(readTail('/nonexistent.jsonl', 100), '');
 });

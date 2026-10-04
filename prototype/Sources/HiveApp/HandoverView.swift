@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Handover einer Session lesen, wie die Seitenleiste im Dashboard.
-/// Einfaches Markdown: Überschriften, Aufzählungen (auch eingerückt), Absätze mit Inline-Formatierung.
+/// Read a session's handover, like the sidebar in the dashboard.
+/// Simple Markdown: headings, bullet lists (including indented), paragraphs with inline formatting.
 struct HandoverView: View {
     @EnvironmentObject private var store: StateStore
     let name: String
@@ -14,7 +14,7 @@ struct HandoverView: View {
                 if let text {
                     ForEach(Array(Self.blocks(text).enumerated()), id: \.offset) { _, b in row(b) }
                 } else if loaded {
-                    Text("Kein Handover vorhanden.").foregroundStyle(Hive.muted)
+                    Text("No handover available.").foregroundStyle(Hive.muted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

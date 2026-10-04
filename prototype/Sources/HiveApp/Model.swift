@@ -34,10 +34,10 @@ struct Session: Decodable, Identifiable, Equatable {
 
     var id: String { name }
 
-    /// Gruppenschlüssel wie im Dashboard (hive gruppiert nach Namensanfang).
+    /// Group key as in the dashboard (hive groups by name prefix).
     var groupKey: String { group ?? name }
 
-    /// Projektkürzel wie abbr() im Dashboard.
+    /// Project abbreviation like abbr() in the dashboard.
     var abbr: String {
         if let i = name.firstIndex(of: "."), i != name.startIndex { return String(name[..<i]) }
         let p = (project ?? group ?? "?").filter { $0.isLetter || $0.isNumber }
@@ -45,7 +45,7 @@ struct Session: Decodable, Identifiable, Equatable {
     }
 }
 
-/// Gleiche Reihenfolge wie classify() in public/index.html.
+/// Same order as classify() in public/index.html.
 struct Status {
     let rank: Int
     let cls: String
@@ -54,33 +54,33 @@ struct Status {
     let solid: Bool
     let why: String?
 
-    /// `tmuxCommand`: was in der tmux-Session vorn läuft (nil = nicht im hive-tmux-Server).
-    /// Steht die Session nicht (lebend) im Claude-Register, entscheidet dieser Befehl:
-    /// Shell → „Shell“, Claude → hängt vor dem Start (meist Vertrauensabfrage), sonst anderer Agent.
+    /// `tmuxCommand`: what runs in the foreground of the tmux session (nil = not in the hive tmux server).
+    /// If the session is not (alive) in the Claude registry, this command decides:
+    /// shell → "Shell", Claude → stuck before startup (usually the trust prompt), otherwise another agent.
     init(_ s: Session, tmuxCommand: String? = nil) {
         let state = s.task?.state
         switch true {
         case tmuxCommand.map(Tmux.isShell) == true && s.alive != true:
             self.init(2, "shell", "Shell", Hive.shell, false)
         case tmuxCommand?.hasPrefix("claude") == true && s.alive != true:
-            self.init(0, "need", "wartet beim Start", Hive.need, true, why: "Start-Abfrage im Terminal beantworten")
+            self.init(0, "need", "waiting at startup", Hive.need, true, why: "Answer the startup prompt in the terminal")
         case tmuxCommand != nil && s.alive != true:
             self.init(2, "agent", tmuxCommand!, Hive.ink2, false)
         case s.status == "offline":
             self.init(3, "off", "offline", Hive.off, false)
         case s.status == "waiting":
-            self.init(0, "need", "wartet auf dich", Hive.need, true, why: s.waitingFor ?? "Eingabe nötig")
+            self.init(0, "need", "waiting for you", Hive.need, true, why: s.waitingFor ?? "Input needed")
         case s.status == "busy":
-            // wer gerade arbeitet, ist nicht blockiert, auch wenn die Aufgaben-Zeile noch „blocked“ sagt
-            self.init(1, "busy", "arbeitet", Hive.busy, true)
+            // a session that is working is not blocked, even if its task line still says "blocked"
+            self.init(1, "busy", "working", Hive.busy, true)
         case state == "blocked":
-            self.init(0, "block", "blockiert", Hive.block, true, why: "Blockiert – braucht eine Entscheidung")
+            self.init(0, "block", "blocked", Hive.block, true, why: "Blocked – needs a decision")
         case state == "waiting":
-            self.init(2, "wait", "wartet auf Rückmeldung", Hive.wait, true)
+            self.init(2, "wait", "waiting for feedback", Hive.wait, true)
         case s.status == "shell":
             self.init(2, "shell", "Shell", Hive.shell, false)
         default:
-            self.init(2, "idle", "bereit", Hive.idle, false)
+            self.init(2, "idle", "ready", Hive.idle, false)
         }
     }
 
@@ -98,13 +98,13 @@ struct Status {
 final class StateStore: ObservableObject {
     @Published private(set) var sessions: [Session] = []
     @Published private(set) var error: String?
-    /// Sekundentakt für „vor x min“, auch wenn sich die Daten nicht ändern
+    /// One-second tick for "x min ago", even when the data does not change
     @Published private(set) var now = Date()
-    /// Laufende tmux-Sessions → Befehl vorn (einmal je Abfrage geholt)
+    /// Running tmux sessions → foreground command (fetched once per poll)
     @Published private(set) var tmuxPanes: [String: String] = [:]
     var tmuxNames: Set<String> { Set(tmuxPanes.keys) }
 
-    /// Nach dem Anlegen sofort neu laden, statt bis zu 2 s zu warten.
+    /// Reload right after creating a session instead of waiting up to 2 s.
     func refreshSoon() { Task { await refresh() } }
     private var timer: Timer?
 
@@ -126,15 +126,15 @@ final class StateStore: ObservableObject {
             let panes = await Task.detached { Tmux.panes() }.value
             if panes != tmuxPanes { tmuxPanes = panes }
         } catch {
-            self.error = "hive nicht erreichbar (\(hiveURL.absoluteString)): \(error.localizedDescription)"
+            self.error = "hive not reachable (\(hiveURL.absoluteString)): \(error.localizedDescription)"
         }
         now = Date()
     }
 
-    /// Status mit Blick auf tmux (siehe Status.init).
+    /// Status taking tmux into account (see Status.init).
     func status(_ s: Session) -> Status { Status(s, tmuxCommand: tmuxPanes[s.name]) }
 
-    /// Sessions aus hive plus tmux-Sessions, die hive noch nicht kennt (kein Register, kein Handover).
+    /// Sessions from hive plus tmux sessions hive does not know yet (no registry entry, no handover).
     var displaySessions: [Session] {
         let known = Set(sessions.map(\.name))
         let extra = tmuxNames.subtracting(known).sorted().map { name in
@@ -145,7 +145,7 @@ final class StateStore: ObservableObject {
         return sessions + extra
     }
 
-    /// Projektname je Gruppe, wie groupLabels() im Dashboard (PM bestimmt den Namen).
+    /// Project name per group, like groupLabels() in the dashboard (the PM determines the name).
     var labels: [String: String] {
         var m: [String: String] = [:]
         for s in sessions {
@@ -155,14 +155,14 @@ final class StateStore: ObservableObject {
         return m
     }
 
-    /// Farbe je Gruppe: Gruppen alphabetisch, Palette der Reihe nach.
+    /// Color per group: groups alphabetically, palette in order.
     func color(for group: String) -> Color {
         let keys = labels.keys.sorted()
         guard let i = keys.firstIndex(of: group) else { return Color(nsColor: NSColor(hex: 0x1B1B1B)) }
         return Color(nsColor: NSColor(hex: Hive.palette[i % Hive.palette.count]))
     }
 
-    /// Handover der Session ohne Frontmatter, wie in der Seitenleiste des Dashboards. nil, wenn keins da ist.
+    /// The session's handover without frontmatter, as in the dashboard sidebar. nil if there is none.
     func handover(_ name: String) async -> String? {
         guard let (data, res) = try? await URLSession.shared.data(from: hiveURL.appending(path: "api/handover/\(name)")),
               (res as? HTTPURLResponse)?.statusCode == 200 else { return nil }
@@ -172,18 +172,18 @@ final class StateStore: ObservableObject {
         return String(text[end.upperBound...])
     }
 
-    /// Springt wie das Dashboard in den iTerm-Tab der Session. Liefert eine Fehlermeldung oder nil.
+    /// Jumps to the session's iTerm tab, like the dashboard. Returns an error message or nil.
     func focusInITerm(_ s: Session) async -> String? {
-        guard let pid = s.pid else { return "keine PID" }
+        guard let pid = s.pid else { return "no PID" }
         var req = URLRequest(url: hiveURL.appending(path: "api/focus/\(pid)"))
         req.httpMethod = "POST"
         do {
             let (data, res) = try await URLSession.shared.data(for: req)
             if (res as? HTTPURLResponse)?.statusCode == 200 { return nil }
             let reason = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["reason"] as? String
-            return reason ?? "Springen nicht möglich"
+            return reason ?? "Cannot jump to tab"
         } catch {
-            return "hive nicht erreichbar"
+            return "hive not reachable"
         }
     }
 }

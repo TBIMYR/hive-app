@@ -1,32 +1,32 @@
-# hive-App (Wegwerf-Prototyp)
+# hive app (throwaway prototype)
 
-Links die hive-Übersicht, rechts das echte Terminal der gewählten Session (tmux). Soll klären, ob
-Übersicht und Terminal in einem Fenster besser sind als Dashboard plus iTerm.
-Spec: [`../docs/superpowers/specs/2026-10-03-app-prototype-design.md`](../docs/superpowers/specs/2026-10-03-app-prototype-design.md).
+The hive overview on the left, the real terminal of the selected session (tmux) on the right. Meant to
+find out whether overview and terminal in one window beat dashboard plus iTerm.
+Spec: [`../docs/specs/2026-10-03-app-prototype-design.md`](../docs/specs/2026-10-03-app-prototype-design.md).
 
-## Starten
+## Running
 
 ```sh
-brew install tmux          # einmalig
+brew install tmux          # once
 cd prototype
-swift run HiveApp          # hive muss auf 127.0.0.1:7777 laufen
-swift run HiveApp --select lu.04   # mit vorgewählter Session
+swift run HiveApp          # hive must be running on 127.0.0.1:7777
+swift run HiveApp --select lu.04   # with a preselected session
 ```
 
-## Bedienung
+## Usage
 
-- Kachel anklicken → rechts das Terminal, wenn die Session in tmux läuft.
-- Sessions, die noch in iTerm laufen, zeigen „In iTerm zeigen“ (springt wie das Dashboard).
-- „Neue Session“ startet `claude -n <name>` in tmux (ohne tmux-Statusleiste).
-- Rechts oben „Handover“ schaltet zwischen Terminal und Handover der Session um; offline zeigt die App das Handover direkt.
-- Trennlinie zwischen links und rechts ist ziehbar. Fenster schließen beendet keine Session.
-- Von außen: `tmux attach -t '=<name>:'` (Doppelpunkt nötig, sonst liest tmux `.01` als Pane).
+- Click a tile → its terminal on the right, if the session runs in tmux.
+- Sessions still running in iTerm show "Show in iTerm" (jumps there like the dashboard).
+- "New session" starts `claude -n <name>` in tmux (without the tmux status bar).
+- "Handover" at the top right toggles between the session's terminal and handover; for offline sessions the app shows the handover directly.
+- The divider between left and right can be dragged. Closing the window does not end any session.
+- From outside: `tmux attach -t '=<name>:'` (the colon is required, otherwise tmux reads `.01` as a pane).
 
-## Grenzen
+## Limits
 
-Keine Live-Zeilen in den Kacheln, keine Tastenkürzel, kein App-Bundle, keine Tests.
+No live lines in the tiles, no keyboard shortcuts, no app bundle, no tests.
 
-## Befund
+## Findings
 
-_Nach einem Tag Nutzung hier eintragen: Fenster besser als Dashboard + iTerm? Mausrad und Markieren
-unter tmux erträglich?_
+_Fill in after a day of use: is the window better than dashboard + iTerm? Are scroll wheel and selection
+bearable under tmux?_

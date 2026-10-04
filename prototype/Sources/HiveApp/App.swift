@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-// Ohne App-Bundle (swift run) wäre das Fenster sonst ohne Tastaturfokus und Menüleiste.
+// Without an app bundle (swift run) the window would otherwise get no keyboard focus and no menu bar.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -28,7 +28,7 @@ struct HiveApp: App {
 
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
-    // `--select <name>` wählt beim Start eine Session (zum Ausprobieren)
+    // `--select <name>` selects a session at launch (for trying things out)
     @State private var selected: String? = {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--select"), i + 1 < args.count else { return nil }
@@ -38,23 +38,23 @@ struct ContentView: View {
     @State private var newPreset: NewSessionPreset?
 
     var body: some View {
-        // Übersicht ⅔, Terminal fest ⅓ (wie besprochen; die Übersicht soll Platz behalten)
+        // Overview ⅔, terminal fixed at ⅓ (as agreed; the overview should keep its room)
         GeometryReader { geo in
             HStack(spacing: 0) {
                 OverviewView(selected: $selected, newPreset: $newPreset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Rectangle().fill(Hive.hair2).frame(width: 1)
                 TerminalPane(session: store.displaySessions.first { $0.name == selected })
-                    // ganze Punkte: sonst liegt das Terminal zwischen zwei Pixeln und der Text wird unscharf
+                    // whole points: otherwise the terminal sits between two pixels and the text gets blurry
                     .frame(width: max(340, (geo.size.width / 3).rounded()))
                     .frame(maxHeight: .infinity)
             }
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { newPreset = NewSessionPreset() } label: { Label("Neue Session", systemImage: "plus") }
+                Button { newPreset = NewSessionPreset() } label: { Label("New session", systemImage: "plus") }
                     .disabled(Tmux.path == nil)
-                    .help("Neue Session in tmux starten (⌘N)")
+                    .help("Start a new session in tmux (⌘N)")
                     .keyboardShortcut("n")
             }
         }

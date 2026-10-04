@@ -1,14 +1,14 @@
 ---
 name: status
-description: Setzt die Aufgaben-Zeile dieser Session für das Session-Dashboard. Nur wenn der User /status ausdrücklich aufruft. Für die automatische Pflege cc-task direkt per Bash nutzen (Regel in der globalen CLAUDE.md), nicht diesen Skill.
+description: Sets this session's task line for the session dashboard. Only when the user explicitly invokes /status. For automatic updates, call cc-task directly via Bash (rule in the global CLAUDE.md), not this skill.
 ---
 
-Führe genau einen Bash-Aufruf aus, sonst nichts:
+Run exactly one Bash call, nothing else:
 
-    ~/.claude/bin/cc-task "<eine Zeile: was du gerade tust, mit Ticket/PR-Nummer falls vorhanden>" <state>
+    ~/.claude/bin/cc-task "<one line: what you are doing right now, with ticket/PR number if any>" <state>
 
-`state` ist `working` (Auftrag läuft), `blocked` (kommt ohne Entscheidung oder Freigabe des Nutzers nicht weiter), `waiting` (eigene Arbeit fertig, wartet nur noch auf Rückmeldung von Menschen oder einer anderen Session) oder `done` (Auftrag abgeschlossen, wartet auf den nächsten).
+`state` is `working` (task in progress), `blocked` (cannot continue without a decision or approval from the user), `waiting` (own work done, only waiting for feedback from a person or another session) or `done` (task finished, waiting for the next one).
 
-Wurde ein Text als Argument übergeben, nimm ihn unverändert. Keine Rückfrage, keine Erklärung, keine weitere Ausgabe außer einer Zeile Bestätigung.
+If a text was passed as an argument, use it unchanged. No follow-up questions, no explanation, no output other than a one-line confirmation.
 
-Meldet das Skript „Session-Name unbekannt“, sag dem User in einem Satz, dass die Session mit `claude -n <name>` gestartet werden muss, und mach weiter.
+If the script reports that the session name is unknown, tell the user in one sentence that the session has to be started with `claude -n <name>`, and carry on.

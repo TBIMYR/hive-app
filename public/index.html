@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -56,7 +56,7 @@
   h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
   .grow { flex: 1; }
 
-  /* Status-Umschalter: ein Segment-Band */
+  /* Status switch: a segmented band */
   .seg { display: flex; border: 1px solid var(--ink); border-radius: 10px; overflow: hidden; }
   .seg button { all: unset; cursor: pointer; display: flex; align-items: center; gap: 8px;
                 padding: 7px 14px; font-size: 14px; font-weight: 600; border-left: 1px solid var(--ink); }
@@ -91,12 +91,12 @@
   .txtbtn:hover { color: var(--ink); background: var(--soft); }
   .txtbtn.on { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
-  /* Projekt-Kürzel: die Identitätsfarbe */
+  /* Project abbreviation: the identity color */
   .tok { display: inline-grid; place-items: center; flex: none; height: 22px; min-width: 22px; padding: 0 5px;
          border-radius: 6px; background: var(--p); color: #fff; font: 700 11px/1 var(--mono); letter-spacing: .02em; text-transform: uppercase; }
   .tok.lg { height: 30px; min-width: 30px; border-radius: 8px; font-size: 12px; padding: 0 7px; }
 
-  /* ═════════ Fläche ═════════ */
+  /* ═════════ Board ═════════ */
   main { display: grid; grid-template-columns: minmax(0, 1fr); }
   main.with-side { grid-template-columns: minmax(0, 1fr) minmax(400px, 36%); }
   #board { padding: 10px 28px 80px; }
@@ -111,7 +111,7 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(370px, 1fr)); gap: 16px; align-items: stretch; }
   .grid > .tile { height: 100%; }
 
-  /* ═════════ Karte ═════════ */
+  /* ═════════ Tile ═════════ */
   .tile { position: relative; display: flex; flex-direction: column; min-width: 0; overflow: hidden;
           background: var(--card); border: 1px solid var(--hair); border-radius: 12px; cursor: pointer;
           transition: border-color .15s, box-shadow .15s, transform .15s; }
@@ -178,7 +178,7 @@
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .intro .tile, .s-busy .pill .d { animation: none; } }
 
-  /* ═════════ Seitenleiste ═════════ */
+  /* ═════════ Sidebar ═════════ */
   aside { border-left: 1px solid var(--ink); background: var(--card); min-width: 0;
           position: sticky; top: var(--hh, 111px); height: calc(100vh - var(--hh, 111px)); overflow: auto; }
   .s-head { position: sticky; top: 0; z-index: 1; background: var(--card); border-bottom: 1px solid var(--hair); }
@@ -222,13 +222,13 @@
     <h1>Sessions</h1>
     <nav class="seg" id="seg"></nav>
     <div class="grow"></div>
-    <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" placeholder="Session, Aufgabe, Branch…" autocomplete="off"><kbd>/</kbd></label>
+    <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" placeholder="Session, task, branch…" autocomplete="off"><kbd>/</kbd></label>
     <span class="clock" id="clock">…</span>
   </div>
   <div class="row proj" id="projects"></div>
 </header>
 <main id="main">
-  <div id="board" class="intro"><div class="empty">Lade…</div></div>
+  <div id="board" class="intro"><div class="empty">Loading…</div></div>
   <aside id="side" hidden></aside>
 </main>
 <script>
@@ -242,7 +242,7 @@
     close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   };
 
-  // ---------- Filter (pro Browser gemerkt) ----------
+  // ---------- Filters (remembered per browser) ----------
   const store = {
     get() { try { return JSON.parse(localStorage.getItem('hive-filter')) || {}; } catch { return {}; } },
     set(v) { try { localStorage.setItem('hive-filter', JSON.stringify(v)); } catch {} },
@@ -254,8 +254,8 @@
 
   let state = null, lastJson = '', selected = null, firstPaint = true, lastPaint = 0;
 
-  // ---------- Projektfarben (Identität) ----------
-  // Kräftige Töne, bewusst ohne Rot/Orange/Grün, damit sie nie wie ein Status aussehen.
+  // ---------- Project colors (identity) ----------
+  // Strong hues, deliberately without red/orange/green so they never look like a status.
   const PALETTE = ['#2f6fed', '#8b3dff', '#e0319a', '#0a9fb5', '#1b1b1b', '#6d4aff', '#c026d3', '#0f766e', '#4f46e5', '#7c5c3b'];
   let colorOf = new Map();
   const pcolor = g => colorOf.get(g) || '#1b1b1b';
@@ -266,25 +266,25 @@
     return p.slice(0, 2);
   };
 
-  // ---------- Einordnung ----------
+  // ---------- Classification ----------
   function classify(s) {
     if (s.status === 'offline') return { rank: 3, cls: 'off', label: 'offline', c: 'var(--off)', solid: false };
-    if (s.status === 'waiting') return { rank: 0, cls: 'need', label: 'wartet auf dich', c: 'var(--need)', solid: true, why: s.waitingFor || 'Eingabe nötig' };
-    // wer gerade arbeitet, ist nicht blockiert, auch wenn die Aufgaben-Zeile noch „blocked“ sagt (Antwort kam schon)
-    if (s.status === 'busy') return { rank: 1, cls: 'busy', label: 'arbeitet', c: 'var(--busy)', solid: true };
-    if (s.task && s.task.state === 'blocked') return { rank: 0, cls: 'block', label: 'blockiert', c: 'var(--block)', solid: true, why: 'Blockiert – braucht eine Entscheidung' };
-    // fertig, wartet auf Rückmeldung von Menschen: braucht dich nicht direkt, steht aber vorn unter „Bereit“
-    if (s.task && s.task.state === 'waiting') return { rank: 2, cls: 'wait', label: 'wartet auf Rückmeldung', c: 'var(--wait)', solid: true };
+    if (s.status === 'waiting') return { rank: 0, cls: 'need', label: 'waiting for you', c: 'var(--need)', solid: true, why: s.waitingFor || 'input needed' };
+    // a session that is working is not blocked, even if the task line still says "blocked" (the answer already came)
+    if (s.status === 'busy') return { rank: 1, cls: 'busy', label: 'working', c: 'var(--busy)', solid: true };
+    if (s.task && s.task.state === 'blocked') return { rank: 0, cls: 'block', label: 'blocked', c: 'var(--block)', solid: true, why: 'Blocked – needs a decision' };
+    // done, waiting for feedback from people: doesn't need you directly, but is listed first under "Ready"
+    if (s.task && s.task.state === 'waiting') return { rank: 2, cls: 'wait', label: 'waiting for feedback', c: 'var(--wait)', solid: true };
     if (s.status === 'shell') return { rank: 2, cls: 'shell', label: 'Shell', c: 'var(--shell)', solid: false };
-    return { rank: 2, cls: 'idle', label: 'bereit', c: 'var(--idle)', solid: false };
+    return { rank: 2, cls: 'idle', label: 'ready', c: 'var(--idle)', solid: false };
   }
   const SECTIONS = [
-    { rank: 0, title: 'Braucht dich', c: 'var(--need)' },
-    { rank: 1, title: 'Arbeitet', c: 'var(--busy)' },
-    { rank: 2, title: 'Bereit', c: 'var(--idle)' },
+    { rank: 0, title: 'Needs you', c: 'var(--need)' },
+    { rank: 1, title: 'Working', c: 'var(--busy)' },
+    { rank: 2, title: 'Ready', c: 'var(--idle)' },
     { rank: 3, title: 'Offline', c: 'var(--off)' },
   ];
-  const STATE_DE = { working: 'in Arbeit', blocked: 'blockiert', waiting: 'wartet', done: 'erledigt', handover: 'übergeben' };
+  const STATE_LABEL = { working: 'in progress', blocked: 'blocked', waiting: 'waiting', done: 'done', handover: 'handed over' };
 
   function groupLabels(sessions) {
     const m = new Map();
@@ -302,7 +302,7 @@
     if (s < 86400) return `${Math.round(s / 3600)} h`;
     return `${Math.round(s / 86400)} d`;
   }
-  const ago = (iso, now) => { const d = dur(iso, now); return d ? (d === '<1 min' ? 'gerade eben' : `vor ${d}`) : ''; };
+  const ago = (iso, now) => { const d = dur(iso, now); return d ? (d === '<1 min' ? 'just now' : `${d} ago`) : ''; };
 
   function visible(s, k) {
     if (f.hidden.includes(s.group)) return false;
@@ -315,13 +315,13 @@
     return true;
   }
 
-  // ---------- Bausteine ----------
+  // ---------- Building blocks ----------
   function head(s, k, labels, now, extra = '') {
     return `<div class="t-head">
         <span class="tok lg" style="--p:${pcolor(s.group)}">${esc(abbr(s))}</span>
         <span class="t-name">${esc(s.name)}</span>
         ${s.isPm ? '<span class="t-tag">PM</span>' : ''}
-        ${s.kind === 'bg' ? `<span class="t-tag bg" title="Hintergrund-Session ohne Fenster, PID ${esc(s.pid)}">bg</span>` : ''}
+        ${s.kind === 'bg' ? `<span class="t-tag bg" title="Background session without a window, PID ${esc(s.pid)}">bg</span>` : ''}
         ${pill(s, k, now)}${extra}
       </div>
       <div class="t-sub"><span>${esc(labels.get(s.group) || s.group)}</span>${s.branch && s.branch !== 'HEAD' ? `<span>·</span><span class="br">${esc(s.branch)}</span>` : ''}</div>`;
@@ -331,10 +331,10 @@
     return `<span class="pill ${k.solid ? 'solid' : 'soft'}" style="--c:${k.c}"><span class="d"></span>${esc(k.label)}${d ? `<span class="t">${esc(d)}</span>` : ''}</span>`;
   }
   function taskBlock(s) {
-    if (!s.task) return `<div><div class="lbl">Aufgabe</div><div class="task none">noch keine Aufgaben-Zeile</div></div>`;
+    if (!s.task) return `<div><div class="lbl">Task</div><div class="task none">no task line yet</div></div>`;
     const st = s.task.state || '';
-    const old = s.task.stale ? '<span class="st" title="Aufgaben-Zeile seit über 60 min nicht aktualisiert">älter als 1 h</span>' : '';
-    return `<div><div class="lbl">Aufgabe${st ? `<span class="st ${esc(st)}">${esc(STATE_DE[st] || st)}</span>` : ''}${old}</div><div class="task">${esc(s.task.text)}</div></div>`;
+    const old = s.task.stale ? '<span class="st" title="Task line not updated for over 60 min">older than 1 h</span>' : '';
+    return `<div><div class="lbl">Task${st ? `<span class="st ${esc(st)}">${esc(STATE_LABEL[st] || st)}</span>` : ''}${old}</div><div class="task">${esc(s.task.text)}</div></div>`;
   }
   const canJump = s => s.alive && s.pid && s.kind !== 'bg';
 
@@ -350,20 +350,20 @@
       const res = await fetch(`/api/focus/${s.pid}`, { method: 'POST' });
       const r = await res.json().catch(() => ({}));
       if (res.ok) toast(`→ ${s.name} in iTerm`);
-      else toast(`${s.name}: ${r.reason || 'Springen nicht möglich'}`, true);
-    } catch { toast('Server nicht erreichbar', true); }
+      else toast(`${s.name}: ${r.reason || 'cannot jump'}`, true);
+    } catch { toast('server unreachable', true); }
   }
 
   function tile(s, k, labels, now, i) {
     const lastText = s.lastAssistant ? s.lastAssistant.text : '';
-    const last = s.alive ? `<div><div class="lbl">Zuletzt</div><div class="last${lastText ? '' : ' none'}">${esc(lastText || 'keine Antwort im sichtbaren Verlauf')}</div></div>` : '';
+    const last = s.alive ? `<div><div class="lbl">Latest</div><div class="last${lastText ? '' : ' none'}">${esc(lastText || 'no reply in the visible history')}</div></div>` : '';
     const when = s.lastAssistant?.at || s.task?.updatedAt;
-    const errs = s.errors && s.errors.length ? `<span class="err" title="${esc(s.errors.join(' · '))}">Lesefehler</span>` : '';
-    return `<article class="tile s-${k.cls}${selected === s.name ? ' sel' : ''}" data-open="${esc(s.name)}" title="${canJump(s) ? 'Klick: zur Session in iTerm springen' : 'Klick: Details'}" style="--i:${i};--c:${k.c}">
+    const errs = s.errors && s.errors.length ? `<span class="err" title="${esc(s.errors.join(' · '))}">read error</span>` : '';
+    return `<article class="tile s-${k.cls}${selected === s.name ? ' sel' : ''}" data-open="${esc(s.name)}" title="${canJump(s) ? 'Click: jump to the session in iTerm' : 'Click: details'}" style="--i:${i};--c:${k.c}">
       ${head(s, k, labels, now)}
       ${k.why ? `<div class="t-alert">${ICON.alert}${esc(k.why)}</div>` : ''}
       <div class="t-body">${taskBlock(s)}${last}</div>
-      <div class="t-foot"><span>${when ? esc('letzte Antwort ' + ago(when, now)) : ''}</span><span class="sp"></span>${errs}
+      <div class="t-foot"><span>${when ? esc('last reply ' + ago(when, now)) : ''}</span><span class="sp"></span>${errs}
         ${canJump(s) ? '<span class="jump">↗ iTerm</span>' : ''}
         <button class="ho" data-details="${esc(s.name)}">${ICON.doc}${s.hasHandover ? 'Handover' : 'Details'}</button></div>
     </article>`;
@@ -375,10 +375,10 @@
     const live = all.filter(x => x.k.rank !== 3).length;
     const need = n(0);
     const segs = [
-      [null, 'Alle', live, null],
-      [0, 'Braucht dich', need, 'var(--need)'],
-      [1, 'Arbeitet', n(1), 'var(--busy)'],
-      [2, 'Bereit', n(2), 'var(--idle)'],
+      [null, 'All', live, null],
+      [0, 'Needs you', need, 'var(--need)'],
+      [1, 'Working', n(1), 'var(--busy)'],
+      [2, 'Ready', n(2), 'var(--idle)'],
     ];
     $('#seg').innerHTML = segs.map(([r, l, v, c]) =>
       `<button data-only="${r === null ? '' : r}" class="${f.only === r ? 'on' : ''}${r === 0 && v ? ' alarm' : ''}" ${c ? `style="--c:${c}"` : ''}>
@@ -390,20 +390,20 @@
     const offCount = n(3);
     const sample = new Map(all.map(x => [x.s.group, x.s]));
     const items = [...labels].sort((a, b) => a[1].localeCompare(b[1])).map(([key, lbl]) =>
-      `<button class="pbtn${f.hidden.includes(key) ? ' off' : ''}" data-proj="${esc(key)}" title="Klick: ein/aus · Alt-Klick: nur dieses">
+      `<button class="pbtn${f.hidden.includes(key) ? ' off' : ''}" data-proj="${esc(key)}" title="Click: on/off · Alt-click: only this one">
          <span class="tok" style="--p:${pcolor(key)}">${esc(abbr(sample.get(key)))}</span><span class="name">${esc(lbl)}</span><span class="c">${counts.get(key) || 0}</span></button>`).join('');
-    $('#projects').innerHTML = `<span class="lbl-h">Projekte</span>${items}<span class="grow"></span>
-      ${offCount ? `<button class="txtbtn${f.offline ? ' on' : ''}" data-toggle="offline">${offCount} offline ${f.offline ? 'ausblenden' : 'zeigen'}</button>` : ''}
-      ${f.hidden.length || f.q || f.only !== null ? '<button class="txtbtn" data-reset>Filter zurücksetzen</button>' : ''}`;
+    $('#projects').innerHTML = `<span class="lbl-h">Projects</span>${items}<span class="grow"></span>
+      ${offCount ? `<button class="txtbtn${f.offline ? ' on' : ''}" data-toggle="offline">${offCount} offline ${f.offline ? 'hide' : 'show'}</button>` : ''}
+      ${f.hidden.length || f.q || f.only !== null ? '<button class="txtbtn" data-reset>Reset filters</button>' : ''}`;
 
     const errs = state.errors && state.errors.length;
     const clock = $('#clock');
     clock.className = 'clock' + (errs ? ' err' : '');
     clock.textContent = new Date(state.generatedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    clock.title = errs ? `${errs} Register-Fehler` : 'letzte Aktualisierung';
+    clock.title = errs ? `${errs} registry errors` : 'last update';
   }
 
-  // ---------- Rendern ----------
+  // ---------- Rendering ----------
   function render() {
     if (!state) return;
     const now = Date.now();
@@ -424,8 +424,8 @@
         <div class="grid">${items.map(x => tile(x.s, x.k, labels, now, i++)).join('')}</div></section>`;
     }
     const hidden = all.length - shown.length;
-    if (!html) html = '<div class="empty">Keine Session passt zu den Filtern.</div>';
-    if (hidden) html += `<div class="hidden-note">${hidden} ausgeblendet</div>`;
+    if (!html) html = '<div class="empty">No session matches the filters.</div>';
+    if (hidden) html += `<div class="hidden-note">${hidden} hidden</div>`;
     const board = $('#board');
     board.innerHTML = html;
     if (firstPaint) { firstPaint = false; setTimeout(() => board.classList.remove('intro'), 1200); }
@@ -438,13 +438,13 @@
       const res = await fetch('/api/state', { cache: 'no-store' });
       const text = await res.text();
       if (text !== lastJson) { lastJson = text; state = JSON.parse(text); render(); lastPaint = Date.now(); }
-      else if (state && Date.now() - lastPaint > 30000) { render(); lastPaint = Date.now(); }  // Dauern weiterzählen
+      else if (state && Date.now() - lastPaint > 30000) { render(); lastPaint = Date.now(); }  // keep durations ticking
     } catch {
-      const c = $('#clock'); c.className = 'clock err'; c.textContent = 'offline'; c.title = 'Server nicht erreichbar';
+      const c = $('#clock'); c.className = 'clock err'; c.textContent = 'offline'; c.title = 'server unreachable';
     }
   }
 
-  // ---------- Seitenleiste ----------
+  // ---------- Sidebar ----------
   function md(src) {
     const lines = src.split('\n');
     let out = '', inCode = false, list = null, fm = lines[0] === '---';
@@ -475,14 +475,14 @@
     const labels = groupLabels(state.sessions), k = classify(s), now = Date.now();
     const meta = [s.cwd, s.pid ? `PID ${s.pid}` : ''].filter(Boolean).join(' · ');
     return `<div class="s-head" style="--c:${k.c}">
-        ${head(s, k, labels, now, `<button class="s-close" data-close title="Schließen (Esc)">${ICON.close}</button>`)}</div>
+        ${head(s, k, labels, now, `<button class="s-close" data-close title="Close (Esc)">${ICON.close}</button>`)}</div>
       <div class="s-body" style="--c:${k.c}">
         ${k.why ? `<div class="t-alert">${ICON.alert}${esc(k.why)}</div>` : ''}
         <div class="s-block">${taskBlock(s)}</div>
-        ${s.lastUser ? `<div class="s-block"><div class="lbl">Letzter Prompt · ${esc(ago(s.lastUser.at, now))}</div><div class="quote">${esc(s.lastUser.text)}</div></div>` : ''}
-        ${s.lastAssistant ? `<div class="s-block"><div class="lbl">Letzte Antwort · ${esc(ago(s.lastAssistant.at, now))}</div><div class="quote">${esc(s.lastAssistant.text)}</div></div>` : ''}
+        ${s.lastUser ? `<div class="s-block"><div class="lbl">Last prompt · ${esc(ago(s.lastUser.at, now))}</div><div class="quote">${esc(s.lastUser.text)}</div></div>` : ''}
+        ${s.lastAssistant ? `<div class="s-block"><div class="lbl">Last reply · ${esc(ago(s.lastAssistant.at, now))}</div><div class="quote">${esc(s.lastAssistant.text)}</div></div>` : ''}
         <div class="s-block"><div class="lbl">Handover</div><div class="md">${sideHandover}</div></div>
-        ${meta ? `<div class="s-block"><div class="lbl">Prozess</div><div class="mono" style="font-size:12px;color:var(--muted);overflow-wrap:anywhere">${esc(meta)}</div></div>` : ''}
+        ${meta ? `<div class="s-block"><div class="lbl">Process</div><div class="mono" style="font-size:12px;color:var(--muted);overflow-wrap:anywhere">${esc(meta)}</div></div>` : ''}
       </div>`;
   }
   function refreshSide() {
@@ -495,7 +495,7 @@
     const s = state && state.sessions.find(x => x.name === name);
     if (!s) return;
     selected = name;
-    sideHandover = s.hasHandover ? '<span style="color:var(--muted)">Lade…</span>' : '<span style="color:var(--muted);font-style:italic">Noch kein Handover.</span>';
+    sideHandover = s.hasHandover ? '<span style="color:var(--muted)">Loading…</span>' : '<span style="color:var(--muted);font-style:italic">No handover yet.</span>';
     const side = $('#side');
     side.hidden = false; side.scrollTop = 0;
     $('#main').classList.add('with-side');
@@ -503,14 +503,14 @@
     if (s.hasHandover) {
       try {
         const res = await fetch(`/api/handover/${encodeURIComponent(name)}`, { cache: 'no-store' });
-        sideHandover = res.ok ? md(await res.text()) : '<span style="color:var(--muted)">Nicht lesbar.</span>';
-      } catch { sideHandover = '<span style="color:var(--muted)">Nicht lesbar.</span>'; }
+        sideHandover = res.ok ? md(await res.text()) : '<span style="color:var(--muted)">Not readable.</span>';
+      } catch { sideHandover = '<span style="color:var(--muted)">Not readable.</span>'; }
       if (selected === name) refreshSide();
     }
   }
   function closeSide() { selected = null; $('#side').hidden = true; $('#main').classList.remove('with-side'); render(); }
 
-  // ---------- Ereignisse ----------
+  // ---------- Events ----------
   document.addEventListener('click', e => {
     const t = e.target;
     if (t.closest('[data-close]')) return closeSide();

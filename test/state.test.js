@@ -11,7 +11,7 @@ function build(overrides = {}) {
   return buildState({ claudeHome: HOME, devRoot: DEV, now: NOW, isAlive: () => true, ...overrides });
 }
 
-test('lebende Sessions + Offline-Zeile aus Handover, jeder Name einmal', () => {
+test('live sessions + offline row from handover, each name once', () => {
   const s = build();
   const names = s.sessions.map(x => x.name);
   assert.deepEqual([...names].sort(), ['lu.01', 'lu.01#101', 'lu.pm', 'lu.pm#103', 'or.pm']);
@@ -22,7 +22,7 @@ test('lebende Sessions + Offline-Zeile aus Handover, jeder Name einmal', () => {
   assert.equal(off.project, 'orbit');
 });
 
-test('Transkript-Felder und Handover werden verknüpft', () => {
+test('transcript fields and handover are joined', () => {
   const pm = build().sessions.find(x => x.name === 'lu.pm');
   assert.equal(pm.lastAssistant.text, 'Ich fange mit dem Layout an.');
   assert.equal(pm.branch, 'feat/kalender');
@@ -34,10 +34,10 @@ test('Transkript-Felder und Handover werden verknüpft', () => {
   const w = build().sessions.find(x => x.name === 'lu.01');
   assert.equal(w.hasHandover, true);
   assert.equal(w.task.state, 'working');
-  assert.equal(w.lastAssistant, null, 'kein Transkript für sid-102 → null, kein Fehler');
+  assert.equal(w.lastAssistant, null, 'no transcript for sid-102 → null, no error');
 });
 
-test('stale: busy und task älter als 60 min', () => {
+test('stale: busy and task older than 60 min', () => {
   const s = build({ now: new Date('2026-09-30T18:00:00+02:00') });
   const w = s.sessions.find(x => x.name === 'lu.01');
   assert.equal(w.status, 'busy');
@@ -46,17 +46,17 @@ test('stale: busy und task älter als 60 min', () => {
   assert.equal(s2.sessions.find(x => x.name === 'lu.01').task.stale, false);
 });
 
-test('Sortierung: Gruppe, PM zuerst, dann Name', () => {
+test('sorting: group, PM first, then name', () => {
   const s = build();
   assert.deepEqual(s.sessions.map(x => x.name), ['lu.pm', 'lu.01', 'lu.01#101', 'lu.pm#103', 'or.pm']);
 });
 
-test('tote Register-Einträge ohne Handover fallen weg', () => {
+test('dead registry entries without handover are dropped', () => {
   const s = build({ isAlive: pid => pid !== 100 && pid !== 103 });
   assert.equal(s.sessions.find(x => x.name.startsWith('lu.pm')), undefined);
 });
 
-test('kind wird durchgereicht, Offline-Zeilen haben kind null', () => {
+test('kind is passed through, offline rows have kind null', () => {
   const s = build();
   assert.equal(s.sessions.find(x => x.name === 'lu.pm').kind, 'interactive');
   assert.equal(s.sessions.find(x => x.name === 'lu.pm#103').kind, 'bg');

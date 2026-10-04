@@ -1,45 +1,45 @@
 # hive
 
-Lokales Dashboard für alle laufenden Claude-Code-Sessions plus ein globaler
-Handover-Ort je Session-Name. Keine Abhängigkeiten, ein Node-Prozess.
+Local dashboard for all running Claude Code sessions, plus one global handover
+location per session name. No dependencies, a single Node process.
 
-Design: `docs/superpowers/specs/2026-09-30-session-dashboard-design.md`
-Was die Master-Session `keeper` geändert hat (auch außerhalb des Repos): `docs/keeper-log.md`
-Gültige Session-Regeln für die globale CLAUDE.md: `docs/claude-md-session-status.md`
+Design: `docs/specs/2026-09-30-session-dashboard-design.md`
+What the master session `keeper` changed (including outside the repo): `docs/keeper-log.md`
+Current session rules for the global CLAUDE.md: `docs/claude-md-session-status.md`
 
-Namen in Dokus, Tests und Beispielen sind ausgedacht: Projekte `lumen`, `orbit`, `fjord`,
-`kiosk` mit den Session-Kürzeln `lu`, `or`, `fj`, `ki`; „Mika“ steht für den Nutzer.
-Neue Dokus bitte ebenso schreiben, keine echten Namen oder Ticketnummern. Pfade in Befehlen
-mit `~/` (z. B. `git -C ~/Development/hive-app …`), dann laufen sie bei jedem.
+Names in docs, tests and examples are made up: projects `lumen`, `orbit`, `fjord`,
+`kiosk` with the session prefixes `lu`, `or`, `fj`, `ki`; "Mika" stands for the user.
+Please write new docs the same way, no real names or ticket numbers. Use `~/` for paths in
+commands (e.g. `git -C ~/Development/hive-app …`) so they work for everyone.
 
 ## Start
 
 ```sh
-node server.js              # http://127.0.0.1:7777, PORT überschreibbar
-sh install.sh               # Symlinks nach ~/.claude, Hook, CLAUDE.md-Abschnitt
-sh install.sh --launchd     # zusätzlich als LaunchAgent (läuft nach Login immer)
-node --test                 # alle Tests, keine Tokens
+node server.js              # http://127.0.0.1:7777, PORT can be overridden
+sh install.sh               # symlinks into ~/.claude, hook, CLAUDE.md section
+sh install.sh --launchd     # additionally as a LaunchAgent (always runs after login)
+node --test                 # all tests, no tokens
 ```
 
-Logs des LaunchAgents: `/tmp/hive.log`, `/tmp/hive.err`.
-Neustart nach Änderungen an `server.js`: `launchctl kickstart -k gui/$(id -u)/io.github.tbimyr.hive`.
-`public/index.html` wird bei jedem Abruf neu gelesen, dafür ist kein Neustart nötig.
+LaunchAgent logs: `/tmp/hive.log`, `/tmp/hive.err`.
+Restart after changes to `server.js`: `launchctl kickstart -k gui/$(id -u)/io.github.tbimyr.hive`.
+`public/index.html` is re-read on every request, so it needs no restart.
 
-## Datenquellen
+## Data sources
 
-| Quelle | Liefert | Wer schreibt |
+| Source | Provides | Written by |
 |---|---|---|
-| `~/.claude/sessions/<pid>.json` | Name, Verzeichnis, Status (busy/idle/waiting/shell), waitingFor | Claude Code |
-| Transkript `~/.claude/projects/<slug>/<sessionId>.jsonl` (letzte 64 KB) | letzte Antwort, letzter Prompt, Branch | Claude Code |
-| `~/.claude/handover/<name>.md` | Aufgaben-Zeile (Frontmatter) und Handover (Body) | die Session per `cc-task` |
+| `~/.claude/sessions/<pid>.json` | name, directory, status (busy/idle/waiting/shell), waitingFor | Claude Code |
+| Transcript `~/.claude/projects/<slug>/<sessionId>.jsonl` (last 64 KB) | last reply, last prompt, branch | Claude Code |
+| `~/.claude/handover/<name>.md` | task line (frontmatter) and handover (body) | the session via `cc-task` |
 
-## Handover-Datei
+## Handover file
 
 ```markdown
 ---
 session: lu.01
 project: lumen
-task: Kalender-Ansicht Layout #41, PR offen
+task: Calendar view layout #41, PR open
 state: working        # working | blocked | waiting | done | handover
 updated: 2026-09-30T16:09:00+02:00
 ---
@@ -49,54 +49,55 @@ updated: 2026-09-30T16:09:00+02:00
 ## Regeln und Lehren
 ```
 
-Der Name ist der Schlüssel: Eine neue Session mit `claude -n lu.01` bekommt die
-Datei beim Start als Kontext (Hook `cc-handover-load`), und die Aufgaben-Zeile
-steht auf „neu gestartet“. Vorversionen liegen unter
-`~/.claude/handover/archive/<name>/`.
+The name is the key: a new session started with `claude -n lu.01` gets the file
+as context at startup (hook `cc-handover-load`), and its task line is set to
+"neu gestartet" ("restarted"). Previous versions live under
+`~/.claude/handover/archive/<name>/`. The handover template (title line and the three
+section headings) stays German on purpose.
 
-## Session-Seite
-
-```sh
-cc-task "Text" [state]                       # Aufgaben-Zeile setzen (Body bleibt)
-cc-task --name or.02 "Text" done             # fremde Session setzen (PM)
-cc-task --archive --body datei.md "Kurz" handover   # Handover schreiben
-cc-task --no-create "Text"                   # nur wenn Datei existiert (Hook)
-```
-
-Einordnung im Dashboard (in dieser Reihenfolge): wartet auf Eingabe → „Braucht dich“;
-arbeitet (`busy`) → „Arbeitet“, auch wenn die Zeile noch `blocked` sagt; Zeile `blocked` →
-„Braucht dich“; Zeile `waiting` → vorn unter „Bereit“ (violett); sonst „Bereit“.
+## Session side
 
 ```sh
-cc-spawn lu.01 ~/Development/lumen/worktrees/x "Ticket #17: …"   # neuer iTerm-Tab mit claude -n
-cc-close lu.01                     # /exit tippen, Tab schließen; nicht bei busy/ohne Handover
-cc-close --force lu.01             # trotzdem
+cc-task "Text" [state]                       # set the task line (body is kept)
+cc-task --name or.02 "Text" done             # set another session's line (PM)
+cc-task --archive --body file.md "Short" handover   # write a handover
+cc-task --no-create "Text"                   # only if the file exists (hook)
 ```
 
-`cc-task` ermittelt den Namen über `$CLAUDE_PID` und das Register. Sessions mit
-abgeleitetem Namen (ohne `-n`) bekommen kein Handover.
+Dashboard grouping (in this order): waiting for input → "Needs you";
+working (`busy`) → "Working", even if the line still says `blocked`; line `blocked` →
+"Needs you"; line `waiting` → top of "Ready" (violet); otherwise "Ready".
 
-Skills (global, Symlinks nach `~/.claude/skills/`):
+```sh
+cc-spawn lu.01 ~/Development/lumen/worktrees/x "Ticket #17: …"   # new iTerm tab with claude -n
+cc-close lu.01                     # type /exit, close the tab; refused when busy or without handover
+cc-close --force lu.01             # close anyway
+```
 
-- `/status`: ruft `cc-task` mit einer Zeile auf, nur für den manuellen Gebrauch.
-  Automatisch rufen Sessions `cc-task` direkt per Bash auf, gebündelt mit einem
-  ohnehin anstehenden Tool-Aufruf (Regel in `~/.claude/CLAUDE.md`). Grund: Jede
-  zusätzliche Modell-Anfrage liest den ganzen Kontext erneut (am 30.09.2026 im
-  Schnitt knapp 500.000 Tokens pro Anfrage); über den Skill wären es zwei.
-- `/handover`: schreibt den Body ins Scratchpad und übergibt ihn an `cc-task --archive --body`.
+`cc-task` finds the name via `$CLAUDE_PID` and the registry. Sessions with a
+derived name (no `-n`) get no handover.
+
+Skills (global, symlinked into `~/.claude/skills/`):
+
+- `/status`: calls `cc-task` with one line, for manual use only.
+  For automatic updates, sessions call `cc-task` directly via Bash, bundled with a
+  tool call that is due anyway (rule in `~/.claude/CLAUDE.md`). Reason: every
+  extra model request re-reads the whole context (on 2026-09-30 just under
+  500,000 tokens per request on average); going through the skill would mean two.
+- `/handover`: writes the body to the scratchpad and passes it to `cc-task --archive --body`.
 
 ## API
 
-- `GET /api/state`: alle Sessions als JSON, bei jedem Abruf frisch.
+- `GET /api/state`: all sessions as JSON, fresh on every request.
 - `GET /icons/hive.svg`, `/icons/hive-512.png`, `/icons/favicon-32.png`, `/apple-touch-icon.png`,
-  `/favicon.ico`: Waben-Icon (feste Liste, keine Verzeichnis-Auslieferung).
-- `GET /api/handover/<name>`: die rohe Handover-Datei.
-- `POST /api/focus/<pid>`: holt das iTerm-Fenster und den Tab der Session nach vorn
-  (PID → tty per `ps`, dann AppleScript). Nur für lebende Sessions aus dem Register,
-  nicht für Hintergrund-Sessions, nur von dieser Seite selbst (Origin-Prüfung).
-  Im Dashboard: Klick auf die Kachel springt nach iTerm, der Knopf „Handover“ bzw.
-  „Details“ öffnet die Seitenleiste.
+  `/favicon.ico`: honeycomb icon (fixed list, no directory serving).
+- `GET /api/handover/<name>`: the raw handover file.
+- `POST /api/focus/<pid>`: brings the session's iTerm window and tab to the front
+  (PID → tty via `ps`, then AppleScript). Only for live sessions from the registry,
+  not for background sessions, and only from this page itself (origin check).
+  In the dashboard: clicking a tile jumps to iTerm; the "Handover" or
+  "Details" button opens the sidebar.
 
-Sessions ohne lebenden Prozess, aber mit Handover-Datei, erscheinen als
-`offline`. Die Zeile verschwindet, wenn die Datei gelöscht oder die Session
-neu gestartet wird.
+Sessions without a live process but with a handover file show up as
+`offline`. The row disappears when the file is deleted or the session is
+restarted.

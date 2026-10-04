@@ -1,6 +1,6 @@
 #!/bin/sh
-# install.sh [--launchd] — verlinkt bin/ und skills/ nach ~/.claude, trägt den Hook ein,
-# ergänzt die globale CLAUDE.md. Idempotent.
+# install.sh [--launchd] — links bin/ and skills/ into ~/.claude, registers the hook,
+# extends the global CLAUDE.md. Idempotent.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 home="${CC_HOME:-$HOME/.claude}"
@@ -28,19 +28,19 @@ if [ -f "$settings" ]; then
       .hooks.SessionStart = ((.hooks.SessionStart // []) + [{"hooks":[{"type":"command","command":$c}]}]) |
       .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{"hooks":[{"type":"command","command":$c}]}])
     ' "$settings" > "$tmp" && mv "$tmp" "$settings"
-    echo "hook: eingetragen in $settings (SessionStart + UserPromptSubmit)"
+    echo "hook: registered in $settings (SessionStart + UserPromptSubmit)"
   else
-    echo "hook: bereits eingetragen"
+    echo "hook: already registered"
   fi
 else
-  echo "hook: $settings fehlt, nicht eingetragen" >&2
+  echo "hook: $settings missing, not registered" >&2
 fi
 
 if ! grep -q '^# Session-Status' "$claude_md" 2>/dev/null; then
   { printf '\n'; cat "$here/docs/claude-md-session-status.md"; } >> "$claude_md"
-  echo "CLAUDE.md: Abschnitt Session-Status angehängt"
+  echo "CLAUDE.md: Session-Status section appended"
 else
-  echo "CLAUDE.md: Abschnitt vorhanden"
+  echo "CLAUDE.md: section already present"
 fi
 
 if [ "${1:-}" = "--launchd" ]; then
@@ -48,5 +48,5 @@ if [ "${1:-}" = "--launchd" ]; then
   sed -e "s|__NODE__|$(command -v node)|g" -e "s|__DIR__|$here|g" "$here/launchd/io.github.tbimyr.hive.plist.template" > "$plist"
   launchctl unload "$plist" 2>/dev/null || true
   launchctl load "$plist"
-  echo "launchd: $plist geladen, http://127.0.0.1:7777"
+  echo "launchd: $plist loaded, http://127.0.0.1:7777"
 fi

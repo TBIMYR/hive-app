@@ -10,7 +10,7 @@ const { focusPid: defaultFocusPid } = require('./lib/focus');
 const NAME_RE = /^[A-Za-z0-9._-]+$/;
 const INDEX = path.join(__dirname, 'public', 'index.html');
 const ICON_DIR = path.join(__dirname, 'public', 'icons');
-// feste Liste statt Verzeichnis-Auslieferung; /apple-touch-icon.png und /favicon.ico fragen Browser von selbst ab
+// fixed list instead of serving a directory; browsers request /apple-touch-icon.png and /favicon.ico on their own
 const ICONS = {
   '/icons/hive.svg': ['hive.svg', 'image/svg+xml'],
   '/icons/hive-512.png': ['hive-512.png', 'image/png'],
@@ -26,8 +26,8 @@ function send(res, status, type, body) {
 
 const json = (res, status, obj) => send(res, status, 'application/json; charset=utf-8', JSON.stringify(obj));
 
-// Nur Anfragen ohne Origin (curl) oder von dieser Seite selbst; fremde Webseiten
-// dürfen keine Fenster nach vorn holen.
+// Only requests without Origin (curl) or from this page itself; foreign websites
+// must not bring windows to the front.
 function sameOrigin(req) {
   const o = req.headers.origin;
   if (!o) return true;
@@ -44,8 +44,8 @@ async function handleFocus(req, res, pidStr, { claudeHome, isAlive, focusPid }) 
   const pid = Number(pidStr);
   const entry = readRegistry(path.join(claudeHome, 'sessions'), isAlive ? { isAlive } : undefined)
     .entries.find(e => e.pid === pid && e.alive);
-  if (!entry) return json(res, 404, { ok: false, reason: 'keine laufende Session mit dieser PID' });
-  if (entry.kind === 'bg') return json(res, 409, { ok: false, reason: 'Hintergrund-Session ohne Fenster' });
+  if (!entry) return json(res, 404, { ok: false, reason: 'no running session with this PID' });
+  if (entry.kind === 'bg') return json(res, 409, { ok: false, reason: 'background session without a window' });
   const r = await focusPid(pid);
   return json(res, r.ok ? 200 : 422, r);
 }

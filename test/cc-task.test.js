@@ -26,67 +26,67 @@ function run(home, args, env = {}) {
 
 const read = (home, name = 'lu.01') => fs.readFileSync(path.join(home, 'handover', `${name}.md`), 'utf8');
 
-test('legt Datei mit Frontmatter und Vorlage an', () => {
+test('creates file with frontmatter and template', () => {
   const home = setup();
-  const r = run(home, ['Layout umbauen']);
+  const r = run(home, ['rework layout']);
   assert.equal(r.status, 0, r.stderr);
   const { fields, body } = parseFrontmatter(read(home));
   assert.equal(fields.session, 'lu.01');
   assert.equal(fields.project, 'lumen');
-  assert.equal(fields.task, 'Layout umbauen');
+  assert.equal(fields.task, 'rework layout');
   assert.equal(fields.state, 'working');
   assert.match(fields.updated, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$/);
   assert.match(body, /^# Handover lu\.01\n\n## Lage\n\n## Offen\n\n## Regeln und Lehren\n$/);
 });
 
-test('aktualisiert Felder, Body bleibt byte-gleich, fremde Felder bleiben', () => {
+test('updates fields, body stays byte-identical, other fields are kept', () => {
   const home = setup();
   fs.mkdirSync(path.join(home, 'handover'));
-  const body = '# Mein Body\n\nZeile ohne Umbruch am Ende';
-  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), `---\nsession: lu.01\nproject: alt\nextra: bleibt\ntask: alt\nstate: blocked\nupdated: 2020-01-01T00:00:00+00:00\n---\n${body}`);
-  const r = run(home, ['neu']);
+  const body = '# My body\n\nline without trailing newline';
+  fs.writeFileSync(path.join(home, 'handover', 'lu.01.md'), `---\nsession: lu.01\nproject: old\nextra: kept\ntask: old\nstate: blocked\nupdated: 2020-01-01T00:00:00+00:00\n---\n${body}`);
+  const r = run(home, ['new']);
   assert.equal(r.status, 0, r.stderr);
   const { fields, body: b2 } = parseFrontmatter(read(home));
-  assert.equal(fields.task, 'neu');
-  assert.equal(fields.state, 'blocked', 'state ohne Argument bleibt');
-  assert.equal(fields.project, 'alt', 'vorhandenes project bleibt');
-  assert.equal(fields.extra, 'bleibt');
+  assert.equal(fields.task, 'new');
+  assert.equal(fields.state, 'blocked', 'state without argument is kept');
+  assert.equal(fields.project, 'old', 'existing project is kept');
+  assert.equal(fields.extra, 'kept');
   assert.equal(b2, body);
 });
 
-test('--body ersetzt den Body, --archive legt Kopie ab', () => {
+test('--body replaces the body, --archive stores a copy', () => {
   const home = setup();
-  run(home, ['erst']);
-  const nb = path.join(home, 'neu.md');
-  fs.writeFileSync(nb, '# Neu\n');
-  const r = run(home, ['--archive', '--body', nb, 'Handover geschrieben', 'handover']);
+  run(home, ['first']);
+  const nb = path.join(home, 'new.md');
+  fs.writeFileSync(nb, '# New\n');
+  const r = run(home, ['--archive', '--body', nb, 'handover written', 'handover']);
   assert.equal(r.status, 0, r.stderr);
   const { fields, body } = parseFrontmatter(read(home));
-  assert.equal(body, '# Neu\n');
+  assert.equal(body, '# New\n');
   assert.equal(fields.state, 'handover');
   const arch = fs.readdirSync(path.join(home, 'handover', 'archive', 'lu.01'));
   assert.equal(arch.length, 1);
   assert.match(arch[0], /^\d{4}-\d\d-\d\dT\d\d-\d\d\.md$/);
-  assert.match(fs.readFileSync(path.join(home, 'handover', 'archive', 'lu.01', arch[0]), 'utf8'), /task: erst/);
+  assert.match(fs.readFileSync(path.join(home, 'handover', 'archive', 'lu.01', arch[0]), 'utf8'), /task: first/);
 });
 
-test('--no-create ohne Datei: nichts, Exit 0', () => {
+test('--no-create without file: nothing, exit 0', () => {
   const home = setup();
   const r = run(home, ['--no-create', 'x']);
   assert.equal(r.status, 0);
   assert.equal(fs.existsSync(path.join(home, 'handover', 'lu.01.md')), false);
 });
 
-test('ohne Namen → Exit 1 mit Hinweis', () => {
+test('no name → exit 1 with hint', () => {
   const home = setup();
   const r = run(home, ['x'], { CLAUDE_PID: '9999' });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /claude -n/);
 });
 
-test('--name setzt fremde Datei; unbekannte Session → project leer', () => {
+test('--name writes another session\'s file; unknown session → project empty', () => {
   const home = setup();
-  const r = run(home, ['--name', 'or.02', 'fremd', 'done']);
+  const r = run(home, ['--name', 'or.02', 'other', 'done']);
   assert.equal(r.status, 0, r.stderr);
   const { fields } = parseFrontmatter(read(home, 'or.02'));
   assert.equal(fields.session, 'or.02');
@@ -94,7 +94,7 @@ test('--name setzt fremde Datei; unbekannte Session → project leer', () => {
   assert.equal(fields.state, 'done');
 });
 
-test('Zeilenumbrüche im Task werden zu Leerzeichen, Backslashes bleiben', () => {
+test('line breaks in the task become spaces, backslashes are kept', () => {
   const home = setup();
   run(home, ['a\nb \\n c']);
   assert.equal(parseFrontmatter(read(home)).fields.task, 'a b \\n c');

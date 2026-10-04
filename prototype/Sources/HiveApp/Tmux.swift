@@ -4,25 +4,25 @@ enum Tmux {
     static let path: String? = ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux", "/usr/bin/tmux"]
         .first { FileManager.default.isExecutableFile(atPath: $0) }
 
-    /// tmux deutet ".01" in "lu.01" sonst als Pane; "=name:" trifft genau die Session.
+    /// tmux would otherwise read ".01" in "lu.01" as a pane; "=name:" matches exactly the session.
     static func target(_ name: String) -> String { "=\(name):" }
 
-    /// Eigener Server nur für die App (`tmux -L hive`), damit ihre Einstellungen nicht mit
-    /// einem selbst gestarteten tmux kollidieren. `-f` gilt nur beim Start des Servers.
+    /// Dedicated server just for the app (`tmux -L hive`), so its settings do not clash with
+    /// a tmux you started yourself. `-f` only applies when the server starts.
     static let socket = "hive"
 
     static let config = """
-    # von der hive-App geschrieben, wird bei jedem Start überschrieben
-    set -g status off                       # verdeckt sonst die unterste Zeile von Claude Code
-    set -g mouse on                         # Mausrad blättert im Verlauf statt in der Eingabe-Historie
-    set -sg escape-time 0                   # Esc sofort an Claude durchreichen
+    # written by the hive app, overwritten on every launch
+    set -g status off                       # otherwise hides Claude Code's bottom line
+    set -g mouse on                         # mouse wheel scrolls the scrollback instead of the input history
+    set -sg escape-time 0                   # pass Esc to Claude immediately
     set -g history-limit 50000
     set -g default-terminal "tmux-256color"
-    set -as terminal-features ",xterm-256color:RGB"   # True Color statt 256 Farben
-    set -s extended-keys on                 # Shift+Enter u. a. unterscheidbar
+    set -as terminal-features ",xterm-256color:RGB"   # true color instead of 256 colors
+    set -s extended-keys on                 # makes Shift+Enter etc. distinguishable
     set -g focus-events on
-    set -s set-clipboard on                 # Kopieren per OSC 52 ins System
-    set -g aggressive-resize on             # Größe folgt dem gerade angezeigten Terminal
+    set -s set-clipboard on                 # copy to the system clipboard via OSC 52
+    set -g aggressive-resize on             # size follows the currently displayed terminal
     """
 
     static let configPath: String = {
@@ -38,10 +38,10 @@ enum Tmux {
 
     static func attachArgs(_ name: String) -> [String] { serverArgs + ["attach-session", "-t", target(name)] }
 
-    /// Laufende tmux-Sessions mit dem Befehl, der gerade vorn läuft („claude.exe“, „zsh“, „codex“ …).
+    /// Running tmux sessions with their current foreground command ("claude.exe", "zsh", "codex" …).
     static func panes() -> [String: String] {
         let r = run(["list-panes", "-a", "-F", "#{session_name}\t#{pane_current_command}"])
-        guard r.status == 0 else { return [:] }   // kein tmux-Server = keine Sessions
+        guard r.status == 0 else { return [:] }   // no tmux server = no sessions
         var m: [String: String] = [:]
         for line in r.output.split(separator: "\n") {
             let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
@@ -54,14 +54,14 @@ enum Tmux {
         run(["has-session", "-t", target(name)]).status == 0
     }
 
-    /// Öffnet eine Shell in einer neuen tmux-Session im Ordner und tippt `claude -n <name>` vor,
-    /// ohne Enter: man startet selbst und kann die Zeile vorher ändern (z. B. `codex`, `--resume`).
-    /// `HIVE_SESSION` trägt den Namen, egal welcher Agent später läuft. Liefert eine Fehlermeldung oder nil.
+    /// Opens a shell in a new tmux session in the folder and pre-types `claude -n <name>`,
+    /// without Enter: you start it yourself and can edit the line first (e.g. `codex`, `--resume`).
+    /// `HIVE_SESSION` carries the name, whichever agent runs later. Returns an error message or nil.
     static func newSession(name: String, dir: String) -> String? {
         scrubServer()
         let r = run(["new-session", "-d", "-s", name, "-c", dir, "-e", "HIVE_SESSION=\(name)"])
-        guard r.status == 0 else { return r.output.isEmpty ? "tmux-Fehler \(r.status)" : r.output }
-        // erst tippen, wenn die Shell ihre Startdateien gelesen hat
+        guard r.status == 0 else { return r.output.isEmpty ? "tmux error \(r.status)" : r.output }
+        // only type once the shell has read its startup files
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.8) {
             _ = run(["send-keys", "-t", target(name), "-l", "claude -n \(name)"])
         }
@@ -72,14 +72,14 @@ enum Tmux {
         ["zsh", "bash", "fish", "sh", "-zsh", "-bash", "login"].contains(command)
     }
 
-    /// Variablen einer Claude-Session, die nie in neue Sessions durchsickern dürfen
-    /// (sonst hält sich die neue Session für ein Kind der startenden: Session-ID, Nachrichten-Socket …).
+    /// Variables of a Claude session that must never leak into new sessions
+    /// (otherwise the new session thinks it is a child of the launching one: session ID, message socket …).
     static func isInherited(_ key: String) -> Bool {
         key.hasPrefix("CLAUDE") || key == "AI_AGENT" || key == "TMUX" || key == "TMUX_PANE"
     }
 
-    /// Der tmux-Server übernimmt die Umgebung dessen, der ihn startet, und gibt sie an jede neue
-    /// Session weiter. Darum vor jedem Start die Claude-Variablen aus seiner globalen Umgebung entfernen.
+    /// The tmux server inherits the environment of whoever starts it and passes it on to every new
+    /// session. So remove the Claude variables from its global environment before each start.
     static func scrubServer() {
         let r = run(["show-environment", "-g"])
         guard r.status == 0 else { return }
@@ -89,7 +89,7 @@ enum Tmux {
         }
     }
 
-    /// Umgebung für tmux-Aufrufe: ohne TMUX (sonst verweigert tmux das Verschachteln) und ohne Claude-Variablen.
+    /// Environment for tmux calls: without TMUX (otherwise tmux refuses to nest) and without Claude variables.
     static func environment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment.filter { !isInherited($0.key) }
         env["TERM"] = "xterm-256color"
@@ -100,7 +100,7 @@ enum Tmux {
 
     static func environmentList() -> [String] { environment().map { "\($0.key)=\($0.value)" } }
 
-    // Aus dem Dock gestartet erbt die App keinen Login-PATH; den holen wir einmal aus zsh.
+    // Launched from the Dock, the app inherits no login PATH; fetch it once from zsh.
     private static let loginPath: String? = shell("print -r -- $PATH")
 
     private static func shell(_ cmd: String) -> String? {
@@ -118,7 +118,7 @@ enum Tmux {
     }
 
     private static func run(_ args: [String]) -> (status: Int32, output: String) {
-        guard let path else { return (-1, "tmux nicht installiert") }
+        guard let path else { return (-1, "tmux not installed") }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: path)
         p.arguments = serverArgs + args

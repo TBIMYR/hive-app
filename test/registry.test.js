@@ -6,14 +6,14 @@ const { readRegistry } = require('../lib/registry');
 const DIR = path.join(__dirname, 'fixtures', 'sessions');
 const allAlive = () => true;
 
-test('liest Einträge, überspringt defekte Dateien', () => {
+test('reads entries, skips broken files', () => {
   const r = readRegistry(DIR, { isAlive: allAlive });
   assert.equal(r.entries.length, 4);
   assert.equal(r.errors.length, 1);
   assert.match(r.errors[0], /broken\.json/);
 });
 
-test('Felder werden übernommen, waitingFor optional', () => {
+test('fields are taken over, waitingFor optional', () => {
   const r = readRegistry(DIR, { isAlive: allAlive });
   const pm = r.entries.find(e => e.pid === 100);
   assert.equal(pm.name, 'lu.pm');
@@ -26,25 +26,25 @@ test('Felder werden übernommen, waitingFor optional', () => {
   assert.equal(w.waitingFor, 'input needed');
 });
 
-test('Vorrats-Prozesse (spare) sind keine Sessions', () => {
+test('spare processes are not sessions', () => {
   const r = readRegistry(DIR, { isAlive: allAlive });
   assert.equal(r.entries.find(e => e.pid === 104), undefined);
 });
 
-test('tmuxPane: Pane-ID aus dem Feld tmux, sonst null', () => {
+test('tmuxPane: pane ID from the tmux field, otherwise null', () => {
   const r = readRegistry(DIR, { isAlive: allAlive });
   assert.equal(r.entries.find(e => e.pid === 100).tmuxPane, '%1');
   assert.equal(r.entries.find(e => e.pid === 101).tmuxPane, null);
 });
 
-test('Duplikat-Name: jüngstes startedAt behält den Namen', () => {
+test('duplicate name: newest startedAt keeps the name', () => {
   const r = readRegistry(DIR, { isAlive: allAlive });
   const names = r.entries.map(e => e.name).sort();
   assert.deepEqual(names, ['lu.01', 'lu.01#101', 'lu.pm', 'lu.pm#103']);
   assert.equal(r.entries.find(e => e.name === 'lu.01').pid, 102);
 });
 
-test('Duplikat-Name: Session mit Fenster schlägt jüngere Hintergrund-Session', () => {
+test('duplicate name: session with window beats newer background session', () => {
   const r = readRegistry(DIR, { isAlive: allAlive });
   assert.equal(r.entries.find(e => e.name === 'lu.pm').pid, 100);
   const bg = r.entries.find(e => e.pid === 103);
@@ -53,22 +53,22 @@ test('Duplikat-Name: Session mit Fenster schlägt jüngere Hintergrund-Session',
   assert.equal(r.entries.find(e => e.pid === 100).kind, 'interactive');
 });
 
-test('Duplikat-Name: tote Einträge zählen nicht', () => {
+test('duplicate name: dead entries do not count', () => {
   const r = readRegistry(DIR, { isAlive: pid => pid !== 102 });
   assert.equal(r.entries.find(e => e.pid === 101).name, 'lu.01');
 });
 
-test('tote Prozesse werden als alive=false markiert', () => {
+test('dead processes are marked alive=false', () => {
   const r = readRegistry(DIR, { isAlive: pid => pid !== 101 });
   assert.equal(r.entries.find(e => e.pid === 101).alive, false);
 });
 
-test('fehlendes Verzeichnis → leer, kein Fehler', () => {
+test('missing directory → empty, no error', () => {
   const r = readRegistry('/nonexistent/dir', { isAlive: allAlive });
   assert.deepEqual(r.entries, []);
 });
 
-test('Fenster mit übergebenem Gespräch (parkedJobId): eine Session mit dem Status der Hintergrund-Session', () => {
+test('window with handed-over conversation (parkedJobId): one session with the background session\'s status', () => {
   const r = readRegistry(path.join(__dirname, 'fixtures', 'sessions-parked'), { isAlive: allAlive });
   assert.equal(r.entries.length, 1);
   const e = r.entries[0];
