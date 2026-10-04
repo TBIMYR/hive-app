@@ -66,7 +66,6 @@ struct Tile: View {
     let toggleFavorite: () -> Void
 
     private var isPm: Bool { session.isPm == true }
-    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -130,54 +129,9 @@ struct Tile: View {
         }
         .padding(.horizontal, 20).padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background { cardSurface }
-        .overlay { ring }
+        .cardBackground(status: status, isSelected: isSelected)
         .opacity(status.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
-    }
-
-    private static let radius: CGFloat = 16
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: Self.radius) }
-    private var dark: Bool { scheme == .dark }
-
-    /// White surface with a soft two-layer shadow; on dark, where shadows vanish, a hairline instead.
-    /// Waiting cards get a faint red glow instead of the gray shadow.
-    @ViewBuilder private var cardSurface: some View {
-        let needs = status.rank == 0
-        shape.fill(Hive.card)
-            .shadow(color: dark ? .clear : .black.opacity(needs ? 0.03 : 0.05), radius: 1, y: 1)
-            .shadow(color: needs ? Hive.need.opacity(dark ? 0.25 : 0.14) : (dark ? .clear : .black.opacity(0.04)),
-                    radius: 9, y: 6)
-            .overlay { if dark && !needs { shape.strokeBorder(Hive.hair, lineWidth: 1) } }
-    }
-
-    /// Selected: dark ring 3 pt. Waiting for you: red ring 1.5 pt. Working: a quiet green ring (static, no pulsing).
-    @ViewBuilder private var ring: some View {
-        if isSelected {
-            shape.strokeBorder(Hive.ink, lineWidth: 3).allowsHitTesting(false)
-        } else if status.rank == 0 {
-            shape.strokeBorder(Hive.need, lineWidth: 1.5).allowsHitTesting(false)
-        } else if status.rank == 1 {
-            shape.strokeBorder(Hive.busy.opacity(dark ? 0.45 : 0.35), lineWidth: 1).allowsHitTesting(false)
-        }
-    }
-}
-
-/// Card status without a pill: dot and text, "waiting for you · 4 min". Semibold in the status color while
-/// waiting or working, muted otherwise.
-struct CardStatus: View {
-    let status: Status
-    var since: String = ""
-
-    var body: some View {
-        let loud = status.rank <= 1
-        HStack(spacing: 6) {
-            Circle().fill(status.color).frame(width: 8, height: 8)
-            Text(since.isEmpty ? status.label : "\(status.label) · \(since)")
-                .lineLimit(1).truncationMode(.tail)
-        }
-        .font(.system(size: 12, weight: loud ? .semibold : .medium))
-        .foregroundStyle(loud ? status.color : Hive.muted)
     }
 }
 

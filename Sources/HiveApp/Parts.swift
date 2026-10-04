@@ -39,6 +39,91 @@ struct StatusLabel: View {
     }
 }
 
+/// Card status without a pill: dot and text, "waiting for you · 4 min". Semibold in the status color while
+/// waiting or working, muted otherwise. `text` replaces the label (List: "waiting for you · reason").
+struct CardStatus: View {
+    let status: Status
+    var since: String = ""
+    var text: String? = nil
+    var size: CGFloat = 12
+    /// false: text only (List, where the row's leading dot already shows the status)
+    var dot = true
+
+    var body: some View {
+        let loud = status.rank <= 1
+        let label = text ?? status.label
+        HStack(spacing: 6) {
+            if dot { Circle().fill(status.color).frame(width: 8, height: 8) }
+            Text(since.isEmpty ? label : "\(label) · \(since)")
+                .lineLimit(1).truncationMode(.tail)
+        }
+        .font(.system(size: size, weight: loud ? .semibold : .medium))
+        .foregroundStyle(loud ? status.color : Hive.muted)
+    }
+}
+
+// MARK: Card look (Cards, Tiles, List)
+
+/// The calm card surface: white, borderless, soft two-layer shadow; on dark, where shadows vanish, a hairline
+/// instead. `glow`: waiting for you – a faint red glow replaces the gray shadow.
+struct CardSurface<S: InsettableShape>: View {
+    let shape: S
+    var glow = false
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let dark = scheme == .dark
+        shape.fill(Hive.card)
+            .shadow(color: dark ? .clear : .black.opacity(glow ? 0.03 : 0.05), radius: 1, y: 1)
+            .shadow(color: glow ? Hive.need.opacity(dark ? 0.25 : 0.14) : (dark ? .clear : .black.opacity(0.04)),
+                    radius: 9, y: 6)
+            .overlay { if dark && !glow { shape.strokeBorder(Hive.hair, lineWidth: 1) } }
+    }
+}
+
+/// Ring on top of a card: selected = dark 3 pt, waiting for you = red 1.5 pt, working = a quiet green 1 pt
+/// (static, no pulsing; `working: false` leaves it out).
+struct CardRing<S: InsettableShape>: View {
+    let shape: S
+    let status: Status
+    let isSelected: Bool
+    var working = true
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Group {
+            if isSelected {
+                shape.strokeBorder(Hive.ink, lineWidth: 3)
+            } else if status.rank == 0 {
+                shape.strokeBorder(Hive.need, lineWidth: 1.5)
+            } else if status.rank == 1 && working {
+                shape.strokeBorder(Hive.busy.opacity(scheme == .dark ? 0.45 : 0.35), lineWidth: 1)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Card surface plus status ring, shared by the cards and the tiles.
+struct CardBackground: ViewModifier {
+    let status: Status
+    let isSelected: Bool
+    var radius: CGFloat = 16
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius)
+        content
+            .background { CardSurface(shape: shape, glow: status.rank == 0) }
+            .overlay { CardRing(shape: shape, status: status, isSelected: isSelected) }
+    }
+}
+
+extension View {
+    func cardBackground(status: Status, isSelected: Bool, radius: CGFloat = 16) -> some View {
+        modifier(CardBackground(status: status, isSelected: isSelected, radius: radius))
+    }
+}
+
 /// Pill for running background agents/shell commands: green capsule, slowly turning arrows and the count.
 /// Nothing when count is 0. Respects "Reduce motion".
 struct BackgroundBadge: View {

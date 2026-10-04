@@ -19,15 +19,15 @@ struct SessionTileGrid: View {
             grid(favorites + active)
             if !offline.isEmpty {
                 SectionHeader(title: "Offline", count: offline.count, color: Hive.off, expanded: $showOffline)
-                    .padding(.top, 22).padding(.bottom, 10)
+                    .padding(.top, 26).padding(.bottom, 12)
                 if showOffline { grid(offline) }
             }
         }
     }
 
     private func grid(_ part: [OverviewItem]) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 14, alignment: .top)],
-                  alignment: .leading, spacing: 14) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 16, alignment: .top)],
+                  alignment: .leading, spacing: 16) {
             ForEach(part) { it in
                 SmallTile(item: it, isSelected: it.name == store.selected) { store.toggleFavorite(it.name) }
                     .onTapGesture { store.selected = it.name }
@@ -37,6 +37,7 @@ struct SessionTileGrid: View {
     }
 }
 
+/// Small card in the same calm style as the cards: white surface, soft shadow, rings for selected/waiting/working.
 struct SmallTile: View {
     let item: OverviewItem
     let isSelected: Bool
@@ -49,11 +50,13 @@ struct SmallTile: View {
         let now = item.now
         // working/waiting: briefly the content of "Now", otherwise for "needs you" first the reason, then the task
         let text = loud ? [st.why, task].compactMap { $0 }.joined(separator: " – ") : (task ?? "No task line")
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 7) {
-                Circle().fill(st.color).frame(width: 9, height: 9)
+        VStack(alignment: .leading, spacing: 8) {
+            // name, then the status as dot + colored text like on the cards; the status gives way first
+            HStack(spacing: 8) {
                 Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink).lineLimit(1)
+                    .layoutPriority(1)
                 Spacer(minLength: 4)
+                CardStatus(status: st, size: 11.5).layoutPriority(-1)
                 BackgroundBadge(count: item.session.backgroundTasks)
                 StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)
@@ -63,7 +66,7 @@ struct SmallTile: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(now.text)
                         .font(.system(size: 13, weight: now.kind == .permission ? .semibold : .regular))
-                        .foregroundStyle(Hive.ink2)
+                        .foregroundStyle(now.kind == .permission ? Hive.ink : Hive.ink2)
                     Text(now.detail ?? " ").font(.hiveMono(11.5)).foregroundStyle(Hive.muted).truncationMode(.middle)
                 }
                 .lineLimit(1)
@@ -73,20 +76,16 @@ struct SmallTile: View {
                     .foregroundStyle(!loud && task == nil ? Hive.muted : Hive.ink2)
                     .lineLimit(2, reservesSpace: true)
             }
-            Text(item.since.isEmpty ? item.project : "\(item.project) · \(item.since)")
-                .font(.system(size: 11.5)).foregroundStyle(Hive.muted).lineLimit(1)
+            HStack(spacing: 6) {
+                Circle().fill(item.color).frame(width: 6, height: 6)
+                Text(item.since.isEmpty ? item.project : "\(item.project) · \(item.since)")
+            }
+            .font(.system(size: 11.5)).foregroundStyle(Hive.muted).lineLimit(1)
+            .padding(.top, 2)
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
+        .padding(.horizontal, 16).padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(loud ? st.color.opacity(0.06) : Color.clear)
-        .background(Hive.card)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            // working: a calm greenish border (no pulsing, too restless with many tiles)
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(isSelected ? Hive.ink : (loud ? st.color.opacity(0.5) : (st.rank == 1 ? st.color.opacity(0.4) : Hive.hair)),
-                              lineWidth: isSelected ? 3 : 1)
-        )
+        .cardBackground(status: st, isSelected: isSelected, radius: 14)
         .opacity(st.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
     }
