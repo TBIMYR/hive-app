@@ -1,0 +1,121 @@
+import Foundation
+import Testing
+@testable import HiveCore
+
+private let statusLine = """
+{"rate_limits":{"five_hour":{"used_percentage":19,"resets_at":1800003600},
+ "seven_day":{"used_percentage":78.5,"resets_at":1800100000}},"written_at":1800000000.25}
+"""
+
+// fake values; the real file holds much more (account, OAuth), which must be ignored
+private let claudeConfig = """
+{"oauthAccount":{"emailAddress":"mika@example.com"},"numStartups":3,
+ "cachedUsageUtilization":{"fetchedAtMs":1800000600000,"accountUuid":"00000000-0000-0000-0000-000000000000",
+  "utilization":{
+   "five_hour":{"utilization":21,"resets_at":"2027-01-15T09:00:00.600693+00:00"},
+   "seven_day":{"utilization":80,"resets_at":"2027-01-16T10:00:00+00:00"},
+   "seven_day_opus":null,
+   "limits":[
+    {"kind":"session","percent":21,"severity":"normal","resets_at":"2027-01-15T09:00:00.600693+00:00","scope":null,"is_active":false},
+    {"kind":"weekly_all","percent":80,"severity":"warning","resets_at":"2027-01-16T10:00:00+00:00","scope":null,"is_active":true},
+    {"kind":"weekly_scoped","percent":11,"severity":"normal","resets_at":"2027-01-16T10:00:00.600925+00:00",
+     "scope":{"model":{"id":null,"display_name":"Lyra"},"surface":null},"is_active":false}]}}}
+"""
+
+private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
+
+@Test func parsesStatusLineFile() throws {
+    let l = try #require(PlanLimits.fromStatusLine(Data(statusLine.utf8)))
+    #expect(l.source == .statusLine)
+    #expect(l.fiveHour == .init(percent: 19, resetsAt: at(1800003600)))
+    #expect(l.sevenDay == .init(percent: 78.5, resetsAt: at(1800100000)))
+    #expect(l.fetchedAt == at(1800000000.25))
+    #expect(l.scoped.isEmpty)
+}
+
+@Test func statusLineWithOneWindowOrNone() {
+    let one = PlanLimits.fromStatusLine(Data(#"{"rate_limits":{"seven_day":{"used_percentage":5,"resets_at":1}},"written_at":1}"#.utf8))
+    #expect(one?.fiveHour == nil)
+    #expect(one?.sevenDay?.percent == 5)
+    #expect(PlanLimits.fromStatusLine(Data(#"{"rate_limits":{},"written_at":1}"#.utf8)) == nil)
+    #expect(PlanLimits.fromStatusLine(Data("not json".utf8)) == nil)
+}
+
+@Test func parsesOnlyTheCacheKeyOfClaudeConfig() throws {
+    let l = try #require(PlanLimits.fromClaudeConfig(Data(claudeConfig.utf8)))
+    #expect(l.source == .claudeCache)
+    #expect(l.fetchedAt == at(1800000600))
+    #expect(l.fiveHour?.percent == 21)
+    // six decimal places as Claude Code writes them
+    let reset = try #require(l.fiveHour?.resetsAt)
+    #expect(abs(reset.timeIntervalSince(parseISO("2027-01-15T09:00:00Z")!)) < 1)
+    #expect(l.sevenDay?.resetsAt == parseISO("2027-01-16T10:00:00Z"))
+    #expect(l.scoped.map(\.name) == ["Lyra"])
+    #expect(l.scoped.first?.window.percent == 11)
+}
+
+@Test func cacheFallsBackToLimitsList() throws {
+    let json = """
+    {"cachedUsageUtilization":{"fetchedAtMs":1000,"limits":[
+     {"kind":"session","percent":40,"resets_at":"2027-01-15T09:00:00Z"},
+     {"kind":"weekly_all","percent":60,"resets_at":"2027-01-16T10:00:00Z"}]}}
+    """
+    let l = try #require(PlanLimits.fromClaudeConfig(Data(json.utf8)))
+    #expect(l.fiveHour?.percent == 40)
+    #expect(l.sevenDay?.percent == 60)
+    #expect(PlanLimits.fromClaudeConfig(Data(#"{"other":1}"#.utf8)) == nil)
+}
+
+@Test func expiredWindowsAreDropped() throws {
+    let l = try #require(PlanLimits.fromStatusLine(Data(statusLine.utf8)))
+    let mid = try #require(l.droppingExpired(now: at(1800050000)))
+    #expect(mid.fiveHour == nil)
+    #expect(mid.sevenDay != nil)
+    #expect(l.droppingExpired(now: at(1800100000)) == nil)
+}
+
+@Test func newerSourceWins() throws {
+    let line = try #require(PlanLimits.fromStatusLine(Data(statusLine.utf8)))   // written 1800000000
+    let cache = try #require(PlanLimits.fromClaudeConfig(Data(claudeConfig.utf8)))  // fetched 1800000600
+    let now = at(1800001000)
+    #expect(PlanLimits.choose(statusLine: line, cache: cache, now: now)?.source == .claudeCache)
+
+    let newerLine = PlanLimits(fiveHour: .init(percent: 30, resetsAt: at(1800003600)), sevenDay: nil,
+                               source: .statusLine, fetchedAt: at(1800000900))
+    let chosen = try #require(PlanLimits.choose(statusLine: newerLine, cache: cache, now: now))
+    #expect(chosen.source == .statusLine)
+    #expect(chosen.fiveHour?.percent == 30)
+    // the model-scoped limit only exists in the cache and is carried over
+    #expect(chosen.scoped.map(\.name) == ["Lyra"])
+
+    #expect(PlanLimits.choose(statusLine: nil, cache: cache, now: now)?.source == .claudeCache)
+    #expect(PlanLimits.choose(statusLine: line, cache: nil, now: now)?.source == .statusLine)
+    #expect(PlanLimits.choose(statusLine: nil, cache: nil, now: now) == nil)
+}
+
+@Test func olderSourceWinsWhenNewerIsExpired() throws {
+    let cache = try #require(PlanLimits.fromClaudeConfig(Data(claudeConfig.utf8)))
+    let expired = PlanLimits(fiveHour: .init(percent: 30, resetsAt: at(1800000950)), sevenDay: nil,
+                             source: .statusLine, fetchedAt: at(1800000900))
+    #expect(PlanLimits.choose(statusLine: expired, cache: cache, now: at(1800001000))?.source == .claudeCache)
+}
+
+@Test func countdownFormat() {
+    #expect(UsageFormat.countdown(-5) == "<1m")
+    #expect(UsageFormat.countdown(59) == "<1m")
+    #expect(UsageFormat.countdown(45 * 60 + 30) == "45m")
+    #expect(UsageFormat.countdown(2 * 3600 + 14 * 60) == "2h 14m")
+    #expect(UsageFormat.countdown(27 * 3600 + 5 * 60) == "1d 3h")
+}
+
+@Test func levelsAndTokenFormat() {
+    #expect(UsageFormat.level(69.9) == .normal)
+    #expect(UsageFormat.level(70) == .warning)
+    #expect(UsageFormat.level(89) == .warning)
+    #expect(UsageFormat.level(90) == .critical)
+    #expect(UsageFormat.tokens(812) == "812")
+    #expect(UsageFormat.tokens(45_230) == "45.2k")
+    #expect(UsageFormat.tokens(3_100_000) == "3.1M")
+    #expect(UsageFormat.tokens(250_000_000) == "250M")
+    #expect(UsageFormat.age(125) == "2 min")
+}
