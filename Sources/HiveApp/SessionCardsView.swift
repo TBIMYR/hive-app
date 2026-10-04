@@ -16,7 +16,7 @@ struct SessionCardsView: View {
     ]
 
     var body: some View {
-        // PMs have no section of their own among the remaining cards; they stand out only by the project color (Tile)
+        // PMs have no section of their own among the remaining cards; they stand out by the project chip next to the name (Tile)
         VStack(alignment: .leading, spacing: 34) {
             if !favorites.isEmpty { grid(favorites) }
             ForEach(Self.sections, id: \.rank) { sec in
@@ -66,15 +66,16 @@ struct Tile: View {
     let toggleFavorite: () -> Void
 
     private var isPm: Bool { session.isPm == true }
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
             // Name and status
-            HStack(spacing: 7) {
+            HStack(spacing: 8) {
                 if isPm { Token(text: session.abbr, color: color) }
-                Text(session.name).font(.hiveMono(isPm ? 16 : 15, .semibold)).lineLimit(1).fixedSize()
+                Text(session.name).font(.hiveMono(17, .medium)).foregroundStyle(Hive.ink).lineLimit(1).fixedSize()
                 Spacer(minLength: 8)
-                StatusLabel(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
+                CardStatus(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
                     .layoutPriority(-1)
                 BackgroundBadge(count: session.backgroundTasks)
                 StarButton(isOn: isFavorite, toggle: toggleFavorite)
@@ -82,28 +83,30 @@ struct Tile: View {
             }
 
             let line = NowLine(session, rank: status.rank)
-            // red background only if the "Now" box doesn't show anything better
+            // reason in the status color only if the "Now" line doesn't show anything better
             if line == nil, let why = status.why {
-                Text(why).font(.system(size: 12.5, weight: .medium)).foregroundStyle(status.color).lineLimit(1)
+                Text(why).font(.system(size: 13, weight: .medium)).foregroundStyle(status.color).lineLimit(1)
+                    .padding(.top, 12)
             }
 
             // task: gray if it's noticeably older than the last activity
             let outdated = session.taskOutdated
             Text(session.task?.text ?? "No task line")
-                .font(.system(size: 13.5, weight: session.task?.text == nil || outdated ? .medium : .semibold))
+                .font(.system(size: 15, weight: session.task?.text == nil || outdated ? .medium : .semibold))
                 .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
                 .lineLimit(2)
+                .padding(.top, line == nil && status.why != nil ? 8 : 14)
 
             if let line {
-                NowBox(line: line, tint: status.rank == 0 ? status.color : (isPm ? color : nil), now: now,
-                       answerFor: canAnswer ? session : nil)
+                NowBox(line: line, now: now, answerFor: canAnswer ? session : nil)
+                    .padding(.top, 10)
             }
 
-            if canReply { ReplyField(session: session) }
+            if canReply { ReplyField(session: session).padding(.top, 12) }
 
             // Meta: project · branch, on the right where the session runs
             HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 7, height: 7)
+                Circle().fill(color).frame(width: 8, height: 8)
                 Text(label)
                 if let b = session.branch, b != "HEAD" {
                     Text("·")
@@ -121,32 +124,67 @@ struct Tile: View {
                 }
             }
             .lineLimit(1)
-            .font(.system(size: 11.5))
+            .font(.system(size: 12))
             .foregroundStyle(Hive.muted)
-            .padding(.top, 2)
+            .padding(.top, 16)
         }
         .padding(.horizontal, 20).padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(status.rank == 0 ? status.color.opacity(0.06) : (isPm ? color.opacity(0.07) : Color.clear))
-        .background(Hive.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isSelected ? Hive.ink : (status.rank == 0 ? status.color.opacity(0.5) : (isPm ? color.opacity(0.35) : Hive.hair)),
-                              lineWidth: isSelected ? 3 : 1)
-        )
-        .overlay { if status.rank == 1 && !isSelected { PulsingBorder(color: status.color) } }
+        .background { cardSurface }
+        .overlay { ring }
         .opacity(status.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
     }
+
+    private static let radius: CGFloat = 16
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: Self.radius) }
+    private var dark: Bool { scheme == .dark }
+
+    /// White surface with a soft two-layer shadow; on dark, where shadows vanish, a hairline instead.
+    /// Waiting cards get a faint red glow instead of the gray shadow.
+    @ViewBuilder private var cardSurface: some View {
+        let needs = status.rank == 0
+        shape.fill(Hive.card)
+            .shadow(color: dark ? .clear : .black.opacity(needs ? 0.03 : 0.05), radius: 1, y: 1)
+            .shadow(color: needs ? Hive.need.opacity(dark ? 0.25 : 0.14) : (dark ? .clear : .black.opacity(0.04)),
+                    radius: 9, y: 6)
+            .overlay { if dark && !needs { shape.strokeBorder(Hive.hair, lineWidth: 1) } }
+    }
+
+    /// Selected: dark ring 3 pt. Waiting for you: red ring 1.5 pt. Working: a quiet green ring (static, no pulsing).
+    @ViewBuilder private var ring: some View {
+        if isSelected {
+            shape.strokeBorder(Hive.ink, lineWidth: 3).allowsHitTesting(false)
+        } else if status.rank == 0 {
+            shape.strokeBorder(Hive.need, lineWidth: 1.5).allowsHitTesting(false)
+        } else if status.rank == 1 {
+            shape.strokeBorder(Hive.busy.opacity(dark ? 0.45 : 0.35), lineWidth: 1).allowsHitTesting(false)
+        }
+    }
 }
 
-/// "Now" box: when working, the last work step; when waiting, a permission or question; when ready, the last sentence.
-/// A light, semi-transparent background with a thin border so it stays calm even on tinted cards (PM, waiting).
+/// Card status without a pill: dot and text, "waiting for you · 4 min". Semibold in the status color while
+/// waiting or working, muted otherwise.
+struct CardStatus: View {
+    let status: Status
+    var since: String = ""
+
+    var body: some View {
+        let loud = status.rank <= 1
+        HStack(spacing: 6) {
+            Circle().fill(status.color).frame(width: 8, height: 8)
+            Text(since.isEmpty ? status.label : "\(status.label) · \(since)")
+                .lineLimit(1).truncationMode(.tail)
+        }
+        .font(.system(size: 12, weight: loud ? .semibold : .medium))
+        .foregroundStyle(loud ? status.color : Hive.muted)
+    }
+}
+
+/// "Now" line: when working, the last work step; when waiting, a permission or question; when ready, the last sentence.
+/// Plain icon and text without a box, so the card stays calm.
 struct NowBox: View {
     let line: NowLine
-    /// Card tint (status color when waiting, project color for PMs), nil = neutral
-    let tint: Color?
     let now: Date
     /// Session that can be answered via button; nil = no buttons
     var answerFor: Session? = nil
@@ -166,15 +204,15 @@ struct NowBox: View {
     }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 9) {
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Hive.ink2)
-                .frame(width: 18)
+                .foregroundStyle(Hive.muted)
+                .frame(width: 16)
             VStack(alignment: .leading, spacing: 4) {
                 Text(line.text)
                     .font(.system(size: 13, weight: line.kind == .permission ? .semibold : .regular))
-                    .foregroundStyle(Hive.ink)
+                    .foregroundStyle(line.kind == .permission ? Hive.ink : Hive.ink2)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 let since = line.kind == .working ? dur(line.at, now: now) : ""
@@ -198,10 +236,6 @@ struct NowBox: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 11).padding(.vertical, 9)
-        .background(Hive.card.opacity(0.65))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tint?.opacity(0.22) ?? Hive.hair, lineWidth: 1))
     }
 }
 

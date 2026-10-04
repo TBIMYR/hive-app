@@ -3,31 +3,6 @@ import HiveCore
 
 // MARK: Building blocks
 
-/// Slowly pulsing border for working sessions; calm when "reduce motion" is on.
-struct PulsingBorder: View {
-    let color: Color
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        if reduceMotion {
-            shape(opacity: 0.6)
-        } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
-                // 2.4 s per breath, opacity 0.2 … 0.85
-                let t = ctx.date.timeIntervalSinceReferenceDate
-                let phase = (sin(t * 2 * .pi / 2.4) + 1) / 2
-                shape(opacity: 0.2 + 0.65 * phase)
-            }
-        }
-    }
-
-    private func shape(opacity: Double) -> some View {
-        RoundedRectangle(cornerRadius: 12)
-            .strokeBorder(color.opacity(opacity), lineWidth: 2)
-            .allowsHitTesting(false)
-    }
-}
-
 struct Token: View {
     let text: String
     let color: Color
