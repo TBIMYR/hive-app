@@ -5,8 +5,8 @@
 #
 # Types `/exit` into the session (found via its terminal: tmux pane in the hive app's server or
 # the default server, otherwise iTerm tab), waits for the process to end and closes
-# the tmux session or the tab. Without --force, refuses if the session is currently working
-# or has no handover. The own session cannot be closed.
+# the tmux session or the tab. Without --force, refuses if the session is currently working,
+# still has background tasks running, or has no handover. The own session cannot be closed.
 # Environment: CC_HOME (default ~/.claude), CLAUDE_PID, CC_CLOSE_DRYRUN=1 only checks.
 set -eu
 
@@ -41,6 +41,11 @@ if [ "$pid" = "${CLAUDE_PID:-}" ]; then
 fi
 if [ "$force" -eq 0 ] && [ "$status" = "busy" ]; then
   echo "cc-close: '$name' is working right now; let it finish first or use --force" >&2
+  exit 1
+fi
+# "shell": the main loop is idle, but background shell commands (e.g. a CI watch) are still running
+if [ "$force" -eq 0 ] && [ "$status" = "shell" ]; then
+  echo "cc-close: '$name' still has background tasks running; let them finish first or use --force" >&2
   exit 1
 fi
 if [ "$force" -eq 0 ] && [ ! -f "$home/handover/$name.md" ]; then

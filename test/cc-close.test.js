@@ -31,6 +31,11 @@ test('working session or missing handover only with --force', () => {
   const r = run(busy, ['lu.01']);
   assert.equal(r.status, 1);
   assert.match(r.stderr, /is working right now/);
+  const shell = setup({ pid: process.pid, name: 'lu.01', status: 'shell' });
+  const s = run(shell, ['lu.01']);
+  assert.equal(s.status, 1);
+  assert.match(s.stderr, /background tasks running/);
+  assert.doesNotMatch(run(shell, ['--force', 'lu.01']).stderr, /background tasks running/);
   const noHo = setup({ pid: process.pid, name: 'lu.01', status: 'idle' }, false);
   assert.match(run(noHo, ['lu.01']).stderr, /has no handover/);
 });
