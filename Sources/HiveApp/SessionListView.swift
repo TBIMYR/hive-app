@@ -66,7 +66,7 @@ struct SessionListView: View {
         return SessionRow(item: it, isSelected: it.name == store.selected, first: index == 0, last: last,
                           nameWidth: SessionRow.nameWidth - indent, indent: indent) { store.toggleFavorite(it.name) }
             .onTapGesture { store.selected = it.name }
-            .contextMenu { SessionMenu(store: store, session: it.session) }
+            .sessionMenu(store, it.session)
             .overlay(alignment: .leading) {
                 if r.depth > 0 {
                     // the worker right below the PM extends the line up to the PM's dot

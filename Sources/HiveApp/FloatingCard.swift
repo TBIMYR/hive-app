@@ -27,6 +27,9 @@ final class FloatingCard {
 
     private var panel: NSPanel?
     private weak var anchor: NSView?
+    /// Pointer in screen coordinates for a card opened at the pointer (menu); nil = below the anchor
+    private var point: NSPoint?
+    private weak var window: NSWindow?
     private var monitors: [Any] = []
     private var observers: [NSObjectProtocol] = []
 
@@ -40,6 +43,18 @@ final class FloatingCard {
         close()
         guard let window = anchor.window else { return }
         self.anchor = anchor
+        open(in: window, content: content)
+    }
+
+    /// Top left corner at the pointer, like a menu; flips up or left where the window ends.
+    func show(at point: NSPoint, in window: NSWindow, content: () -> some View) {
+        close()
+        self.point = point
+        open(in: window, content: content)
+    }
+
+    private func open(in window: NSWindow, content: () -> some View) {
+        self.window = window
         let p = CardPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                           backing: .buffered, defer: false)
         p.isOpaque = false
@@ -67,14 +82,25 @@ final class FloatingCard {
             p.orderOut(nil)
         }
         panel = nil
+        point = nil
     }
 
     /// Centered below the anchor and below the title bar (on macOS 26 the item's glass capsule is taller
     /// than the item itself), kept inside the window.
     private func place(_ size: CGSize) {
-        guard let p = panel, let anchor, let window = anchor.window, size.width > 0, size.height > 0 else { return }
-        let a = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
+        guard let p = panel, let window, size.width > 0, size.height > 0 else { return }
         let m = Self.margin
+        if let point {
+            let f = window.frame
+            var x = point.x - m
+            if x + size.width - m > f.maxX - 8 { x = point.x - size.width + m }
+            var y = point.y + m - size.height
+            if y + m < f.minY + 8 { y = point.y - m }
+            p.setFrame(NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height), display: true)
+            return
+        }
+        guard let anchor else { return }
+        let a = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
         var x = a.midX - size.width / 2
         x = min(x, window.frame.maxX - 8 + m - size.width)
         x = max(x, window.frame.minX + 8 - m)

@@ -40,7 +40,7 @@ private struct TileGrid: View {
             ForEach(part) { it in
                 SmallTile(item: it, isSelected: it.name == store.selected, minBody: tallest) { store.toggleFavorite(it.name) }
                     .onTapGesture { store.selected = it.name }
-                    .contextMenu { SessionMenu(store: store, session: it.session) }
+                    .sessionMenu(store, it.session)
             }
         }
         .onPreferenceChange(TallestKey.self) { tallest = $0 }

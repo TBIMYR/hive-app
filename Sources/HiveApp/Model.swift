@@ -223,10 +223,15 @@ final class StateStore: ObservableObject {
     }
 
     /// "Write Handover" menu item: `/handover` + Enter.
-    func writeHandover(_ s: Session) {
+    func writeHandover(_ s: Session) { typeCommand("/handover", into: s) }
+
+    /// "Remote Control" menu item: `/remote-control` + Enter, so the session can be continued on claude.ai or the phone.
+    func remoteControl(_ s: Session) { typeCommand("/remote-control", into: s) }
+
+    private func typeCommand(_ command: String, into s: Session) {
         guard let t = tmux(s) else { return }
         Task {
-            if let e = await Task.detached(operation: { Tmux.type("/handover", into: t) }).value {
+            if let e = await Task.detached(operation: { Tmux.type(command, into: t) }).value {
                 notice = "Could not write to \(s.name): \(e)"
             }
             refreshSoon()

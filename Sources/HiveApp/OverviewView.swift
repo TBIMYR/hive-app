@@ -83,6 +83,18 @@ struct OverviewView: View {
             }
         }
         .background(Hive.bg)
+        #if DEBUG
+        // for screenshots of a test instance: HIVE_OPEN_MENU=<name> opens that session's menu at launch
+        .task {
+            guard let name = ProcessInfo.processInfo.environment["HIVE_OPEN_MENU"] else { return }
+            try? await Task.sleep(for: .seconds(3))
+            NSApp.activate(ignoringOtherApps: true)
+            try? await Task.sleep(for: .seconds(1))
+            guard let s = store.displaySessions.first(where: { $0.name == name }),
+                  let w = NSApp.keyWindow ?? NSApp.mainWindow else { return }
+            SessionMenuPresenter.shared.show(at: NSPoint(x: w.frame.minX + 300, y: w.frame.maxY - 200), store: store, session: s)
+        }
+        #endif
     }
 
     private var board: some View {
