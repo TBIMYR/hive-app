@@ -222,6 +222,7 @@ public enum Transcript {
 
     static let maxDetail = 80
     static let maxSentence = 140
+    static let maxQuestion = 2000
 
     static func describe(_ use: [String: Any], at: String?, pending: Bool) -> WorkAction {
         let tool = (use["name"] as? String).nonEmpty ?? "Tool"
@@ -258,7 +259,8 @@ public enum Transcript {
             let first = questions?.first as? [String: Any]
             questionCount = questions?.count
             multiSelect = first?["multiSelect"] as? Bool
-            text = (first?["question"] as? String).map(oneLine).nonEmpty.map { clip($0, maxSentence) } ?? tool
+            // whole question: without it the options can't be answered (only a guard against huge input)
+            text = (first?["question"] as? String).map(oneLine).nonEmpty.map { clip($0, maxQuestion) } ?? tool
             options = (first?["options"] as? [Any])?.compactMap { o in
                 ((o as? [String: Any])?["label"] as? String).map(oneLine).nonEmpty.map { clip($0, 60) }
             }

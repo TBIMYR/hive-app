@@ -196,7 +196,8 @@ struct NowBox: View {
                         Text(line.text)
                             .font(.system(size: 13, weight: line.kind == .permission ? .semibold : .regular))
                             .foregroundStyle(line.kind == .permission ? Hive.ink : Hive.ink2)
-                            .lineLimit(hasDetail ? 1 : 2)
+                            // an open question with options is shown whole, otherwise it can't be answered
+                            .lineLimit(line.kind == .choice ? nil : hasDetail ? 1 : 2)
                             .fixedSize(horizontal: false, vertical: true)
                         if hasDetail {
                             HStack(spacing: 5) {

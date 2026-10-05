@@ -89,6 +89,12 @@ private func action(_ lines: String...) -> WorkAction? { Transcript.parseTail(li
     #expect(action(toolUse("Bash", ["command": "ls"]))?.options == nil)
 }
 
+@Test func askUserQuestionKeepsLongQuestionWhole() {
+    let q = "Two new texts. First, when Nearby can't load: \"The places around you couldn't be loaded.\" "
+        + String(repeating: "Second, when the list is empty: \"Nothing here yet.\" ", count: 4) + "Do they fit?"
+    #expect(action(toolUse("AskUserQuestion", ["questions": [["question": q, "options": [["label": "Yes"]]]]]))?.text == q)
+}
+
 @Test func withoutToolUseNoWorkStep() {
     #expect(action(said("Fertig.")) == nil)
 }
