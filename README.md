@@ -14,7 +14,7 @@ Names in examples are made up.
 - Notifications and a dock badge count for sessions that need you
 - Floating todo list (⌘T), stored in `~/.claude/hive/todos.md`
 - Quick reply and reply buttons in the cards view
-- Write Handover / Restart… / Close… / Force Quit… in the right-click menu
+- Write Handover / Restart… / Close… / Force Quit… in the right-click menu, Wake Up for offline sessions
 - Drag & drop into the terminal
 
 ## Starting

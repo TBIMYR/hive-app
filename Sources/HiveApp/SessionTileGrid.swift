@@ -65,7 +65,7 @@ struct SmallTile: View {
         VStack(alignment: .leading, spacing: 8) {
             // name, then the status as dot + colored text like on the cards; the status gives way first
             HStack(spacing: 8) {
-                Text(item.name).font(.system(size: 14, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
+                Text(item.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
                     .layoutPriority(1)
                 Spacer(minLength: 4)
                 CardStatus(status: st, size: 11.5).layoutPriority(-1)

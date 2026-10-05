@@ -281,6 +281,37 @@ final class StateStore: ObservableObject {
         }
     }
 
+    /// "Wake Up" menu item for offline sessions: start `claude -n <name>` in Hive (tmux), in its
+    /// last folder; the start hook loads its handover. Reuses a tmux session of that name with a shell in front.
+    func wakeUp(_ s: Session) {
+        let name = s.name
+        Task {
+            if let cmd = tmuxPanes.commands[name] {
+                guard SessionStatus.isShell(cmd) else {
+                    notice = "\(name) already has a terminal in Hive running \(cmd)."
+                    return
+                }
+                if let e = await Task.detached(operation: { Tmux.type(SessionControl.claudeCommand(name), into: name) }).value {
+                    notice = "Could not wake up \(name): \(e)"
+                    return
+                }
+            } else {
+                let known = s.cwd.flatMap { $0.isEmpty ? nil : $0 }
+                guard let dir = await Task.detached(operation: { known ?? SessionFolder.find(name) }).value else {
+                    notice = "No folder known for \(name): no transcript of it in the last 90 days."
+                    return
+                }
+                if let e = await Task.detached(operation: { Tmux.newSession(name: name, dir: dir, submit: true) }).value {
+                    notice = "Could not wake up \(name): \(e)"
+                    return
+                }
+                terminalEpoch += 1
+            }
+            selected = name
+            await refresh()
+        }
+    }
+
     /// "Force Quit…" menu item: remember the process (PID + start time), then confirm.
     func requestForceQuit(_ s: Session) {
         guard let pid = s.pid else { return }

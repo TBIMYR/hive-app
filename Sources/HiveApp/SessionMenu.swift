@@ -16,6 +16,9 @@ struct SessionMenu: View {
                 store.newPreset = NewSessionPreset(name: next, dir: session.cwd)
             }
         }
+        if !session.alive {
+            Button("Wake Up") { store.wakeUp(session) }
+        }
         Divider()
         // control only works via tmux, so only for sessions running in hive
         let inHive = store.tmux(session) != nil

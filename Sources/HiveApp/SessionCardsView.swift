@@ -85,7 +85,7 @@ struct Tile: View {
                 // Name and status
                 HStack(spacing: 8) {
                     if isPm { Token(text: session.abbr, color: color) }
-                    Text(session.name).font(.system(size: 17, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1).fixedSize()
+                    Text(session.name).font(.system(size: 18, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1).fixedSize()
                     Spacer(minLength: 8)
                     CardStatus(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
                         .layoutPriority(-1)
