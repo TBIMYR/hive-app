@@ -177,6 +177,8 @@ struct UsagePopover: View {
                 Spacer()
                 Text("Output").frame(width: 64, alignment: .trailing)
                 Text("Total").frame(width: 64, alignment: .trailing)
+                Text("API $").frame(width: 64, alignment: .trailing)
+                    .help("What these tokens would cost at Anthropic's API list prices (input, output, cache writes and reads per model). Your plan is a flat fee.")
             }
             .font(.system(size: 11.5)).foregroundStyle(Hive.muted)
             TokenRow(name: "Today", tokens: s.today, bold: true)
@@ -201,9 +203,10 @@ struct UsagePopover: View {
 
     private func cacheNote(_ s: UsageStats) -> String {
         let t = s.last30Days
-        guard t.total > 0 else { return "Output per day over 30 days. Total includes cache reads." }
+        let api = "API $: value at Anthropic's API list prices; your plan is a flat fee."
+        guard t.total > 0 else { return "Output per day over 30 days. Total includes cache reads. " + api }
         let share = Int((Double(t.cacheRead) / Double(t.total) * 100).rounded())
-        return "Output per day over 30 days. Total includes cache reads (\(share) % of it)."
+        return "Output per day over 30 days. Total includes cache reads (\(share) % of it). " + api
     }
 
     private func section(_ title: String, _ rows: [UsageStats.Row]) -> some View {
@@ -323,6 +326,7 @@ private struct TokenRow: View {
             Spacer(minLength: 8)
             Text(UsageFormat.tokens(tokens.output)).frame(width: 64, alignment: .trailing).foregroundStyle(Hive.ink)
             Text(UsageFormat.tokens(tokens.total)).frame(width: 64, alignment: .trailing).foregroundStyle(Hive.muted)
+            Text(UsageFormat.usd(tokens.usd)).frame(width: 64, alignment: .trailing).foregroundStyle(Hive.ink2)
         }
         .font(.system(size: 12.5, weight: bold ? .medium : .regular))
         .monospacedDigit()

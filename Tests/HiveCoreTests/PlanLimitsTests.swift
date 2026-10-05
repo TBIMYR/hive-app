@@ -119,3 +119,10 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
     #expect(UsageFormat.tokens(250_000_000) == "250M")
     #expect(UsageFormat.age(125) == "2 min")
 }
+
+@Test func usdFormatting() {
+    #expect(UsageFormat.usd(0.001) == "$0")
+    #expect(UsageFormat.usd(0.42) == "$0.42")
+    #expect(UsageFormat.usd(38.4) == "$38")
+    #expect(UsageFormat.usd(1240.2) == "$1,240")
+}

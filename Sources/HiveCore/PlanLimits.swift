@@ -174,6 +174,17 @@ public enum UsageFormat {
         return short(d / 1_000_000_000, "B")
     }
 
+    /// "$0.42", "$38", "$1,240" (dollars at API list prices)
+    public static func usd(_ v: Double) -> String {
+        if v < 0.005 { return "$0" }
+        if v < 10 { return String(format: "$%.2f", v) }
+        let f = NumberFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        return "$" + (f.string(from: NSNumber(value: v.rounded())) ?? String(format: "%.0f", v))
+    }
+
     public enum Level: Equatable, Sendable { case normal, warning, critical }
 
     /// below 70 % normal, 70–89 % warning, from 90 % critical

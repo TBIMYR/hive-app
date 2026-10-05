@@ -5,13 +5,20 @@ public struct TokenCounts: Equatable, Sendable {
     public var input = 0
     public var output = 0
     public var cacheCreation = 0
+    /// part of `cacheCreation` written with the 1-hour TTL (priced higher)
+    public var cacheCreation1h = 0
     public var cacheRead = 0
+    /// value at API list prices (ModelPricing); only filled when aggregating
+    public var usd: Double = 0
 
-    public init(input: Int = 0, output: Int = 0, cacheCreation: Int = 0, cacheRead: Int = 0) {
+    public init(input: Int = 0, output: Int = 0, cacheCreation: Int = 0, cacheCreation1h: Int = 0, cacheRead: Int = 0,
+                usd: Double = 0) {
         self.input = input
         self.output = output
         self.cacheCreation = cacheCreation
+        self.cacheCreation1h = cacheCreation1h
         self.cacheRead = cacheRead
+        self.usd = usd
     }
 
     /// everything together; usually dominated by cache reads
@@ -19,7 +26,8 @@ public struct TokenCounts: Equatable, Sendable {
 
     public static func + (a: TokenCounts, b: TokenCounts) -> TokenCounts {
         TokenCounts(input: a.input + b.input, output: a.output + b.output,
-                    cacheCreation: a.cacheCreation + b.cacheCreation, cacheRead: a.cacheRead + b.cacheRead)
+                    cacheCreation: a.cacheCreation + b.cacheCreation, cacheCreation1h: a.cacheCreation1h + b.cacheCreation1h,
+                    cacheRead: a.cacheRead + b.cacheRead, usd: a.usd + b.usd)
     }
 
     public static func += (a: inout TokenCounts, b: TokenCounts) { a = a + b }
@@ -27,7 +35,8 @@ public struct TokenCounts: Equatable, Sendable {
     /// Field by field the larger value (several transcript lines of one streamed response).
     func merged(_ o: TokenCounts) -> TokenCounts {
         TokenCounts(input: max(input, o.input), output: max(output, o.output),
-                    cacheCreation: max(cacheCreation, o.cacheCreation), cacheRead: max(cacheRead, o.cacheRead))
+                    cacheCreation: max(cacheCreation, o.cacheCreation), cacheCreation1h: max(cacheCreation1h, o.cacheCreation1h),
+                    cacheRead: max(cacheRead, o.cacheRead))
     }
 }
 
@@ -123,9 +132,11 @@ public struct UsageStats: Equatable, Sendable {
         for r in records {
             guard let i = calendar.dateComponents([.day], from: calendar.startOfDay(for: r.at), to: today).day,
                   (0..<keptDays).contains(i) else { continue }
-            stats.days[i].tokens += r.tokens
-            stats.days[i].projects[r.project.isEmpty ? "?" : r.project, default: TokenCounts()] += r.tokens
-            stats.days[i].sessions[titles[r.sessionId] ?? String(r.sessionId.prefix(8)), default: TokenCounts()] += r.tokens
+            var t = r.tokens
+            t.usd = ModelPricing.usd(model: r.model, t) ?? 0
+            stats.days[i].tokens += t
+            stats.days[i].projects[r.project.isEmpty ? "?" : r.project, default: TokenCounts()] += t
+            stats.days[i].sessions[titles[r.sessionId] ?? String(r.sessionId.prefix(8)), default: TokenCounts()] += t
         }
         return stats
     }
@@ -297,6 +308,7 @@ public final class UsageScanner: @unchecked Sendable {
             var input: Double?
             var output: Double?
             var cacheCreation: Double?
+            var cacheCreation1h: Double?
             var cacheRead: Double?
         }
         var type: String?
@@ -350,6 +362,12 @@ public final class UsageScanner: @unchecked Sendable {
                                 case "output_tokens": let (ok, v) = n.number(); u.output = v; return ok
                                 case "cache_creation_input_tokens": let (ok, v) = n.number(); u.cacheCreation = v; return ok
                                 case "cache_read_input_tokens": let (ok, v) = n.number(); u.cacheRead = v; return ok
+                                case "cache_creation":
+                                    guard n.peekObject else { return n.skip() }
+                                    return n.object { c, key in
+                                        guard key == "ephemeral_1h_input_tokens" else { return c.skip() }
+                                        let (ok, v) = c.number(); u.cacheCreation1h = v; return ok
+                                    }
                                 default: return n.skip()
                                 }
                             }
@@ -377,7 +395,8 @@ public final class UsageScanner: @unchecked Sendable {
         return UsageRecord(key: "\(id)|\(line.requestId ?? "")", at: at, model: line.model.nonEmpty, project: project,
                            sessionId: line.sessionId.nonEmpty ?? "?",
                            tokens: TokenCounts(input: n(u.input), output: n(u.output),
-                                               cacheCreation: n(u.cacheCreation), cacheRead: n(u.cacheRead)))
+                                               cacheCreation: n(u.cacheCreation), cacheCreation1h: n(u.cacheCreation1h),
+                                               cacheRead: n(u.cacheRead)))
     }
 }
 
