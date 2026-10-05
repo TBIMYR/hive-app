@@ -88,10 +88,15 @@ struct SessionMenu: View {
                 }
             }
             separator
-            item("Restart…", "arrow.clockwise", disabled: notInHive) { store.requestClose(session, restart: true) }
-            item("Close…", "xmark", disabled: notInHive) { store.requestClose(session, restart: false) }
-            item("Force Quit…", "bolt.fill", destructive: true,
-                 disabled: session.alive && session.pid != nil ? nil : "Not running") { store.requestForceQuit(session) }
+            // ending: a running session is ended, an offline one only taken off the list
+            if session.alive || inHive {
+                item("Restart…", "arrow.clockwise", disabled: notInHive) { store.requestClose(session, restart: true) }
+                item("Close…", "xmark", disabled: notInHive) { store.requestClose(session, restart: false) }
+                item("Force Quit…", "bolt.fill", destructive: true,
+                     disabled: session.alive && session.pid != nil ? nil : "Not running") { store.requestForceQuit(session) }
+            } else if session.hasHandover {
+                item("Remove from List…", "trash", destructive: true) { store.removeRequest = session }
+            }
         }
         .padding(6)
         .frame(minWidth: 240, alignment: .leading)

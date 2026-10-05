@@ -51,10 +51,31 @@ public enum Handover {
     /// Handover text without frontmatter for the view in the app (replaces GET /api/handover/<name>).
     /// nil if there is none. Only simple names like on the server (NAME_RE), so no path can lead out of the folder.
     public static func body(_ name: String, dir: String = defaultDir) -> String? {
-        guard !name.isEmpty, !name.contains(".."),
-              name.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }),
-              let text = try? readUTF8("\(dir)/\(name).md") else { return nil }
+        guard isSafeName(name), let text = try? readUTF8("\(dir)/\(name).md") else { return nil }
         return parseFrontmatter(text).body
+    }
+
+    static func isSafeName(_ name: String) -> Bool {
+        !name.isEmpty && !name.contains("..")
+            && name.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) })
+    }
+
+    /// "Remove from List": moves `<name>.md` to `archive/<name>/<time>.md` like `cc-task --archive`,
+    /// so the offline session disappears but nothing is lost. Returns the archive path.
+    public static func archive(_ name: String, dir: String = defaultDir, now: Date = Date()) throws -> String {
+        guard isSafeName(name) else { throw CocoaError(.fileNoSuchFile) }
+        let fm = FileManager.default
+        let folder = "\(dir)/archive/\(name)"
+        try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd'T'HH-mm"
+        let stamp = f.string(from: now)
+        var target = "\(folder)/\(stamp).md"
+        var n = 2
+        while fm.fileExists(atPath: target) { target = "\(folder)/\(stamp)-\(n).md"; n += 1 }
+        try fm.moveItem(atPath: "\(dir)/\(name).md", toPath: target)
+        return target
     }
 
     /// Like readFileSync(…, 'utf8') in Node: broken bytes become U+FFFD instead of discarding the whole file.

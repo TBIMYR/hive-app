@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import HiveCore
 
@@ -43,4 +44,21 @@ import Testing
     #expect(Handover.body("nofm", dir: fixture("handover-broken")) == "# Nur Body\n")
     #expect(Handover.body("gibtsnicht", dir: fixture("handover")) == nil)
     #expect(Handover.body("../handover/al.01", dir: fixture("handover")) == nil, "only simple names, as in the server")
+}
+
+@Test func archiveMovesHandoverAway() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ho-\(UUID().uuidString)").path
+    try FileManager.default.createDirectory(atPath: "\(dir)/archive/lu.01", withIntermediateDirectories: true)
+    try "---\nsession: lu.01\n---\nnew\n".write(toFile: "\(dir)/lu.01.md", atomically: true, encoding: .utf8)
+    // an archived version from the same minute stays
+    let now = Date()
+    let first = try Handover.archive("lu.01", dir: dir, now: now)
+    try "again\n".write(toFile: "\(dir)/lu.01.md", atomically: true, encoding: .utf8)
+    let second = try Handover.archive("lu.01", dir: dir, now: now)
+    #expect(first != second)
+    #expect(second.hasSuffix("-2.md"))
+    #expect(Handover.readDir(dir)["lu.01"] == nil)
+    #expect(try String(contentsOfFile: first, encoding: .utf8).hasSuffix("new\n"))
+    #expect(throws: (any Error).self) { try Handover.archive("../x", dir: dir) }
+    #expect(throws: (any Error).self) { try Handover.archive("lu.02", dir: dir) }
 }

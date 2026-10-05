@@ -229,6 +229,15 @@ struct ContentView: View {
         } message: { r in
             Text(r.message)
         }
+        .alert("Remove \(store.removeRequest?.name ?? "") from the list?",
+               isPresented: Binding(get: { store.removeRequest != nil },
+                                    set: { if !$0 { store.removeRequest = nil } }),
+               presenting: store.removeRequest) { s in
+            Button("Remove", role: .destructive) { store.remove(s) }
+            Button("Cancel", role: .cancel) {}
+        } message: { s in
+            Text("Moves its handover to ~/.claude/handover/archive/\(s.name)/. Nothing is deleted; moving the file back brings the session back.")
+        }
         .alert("Hive",
                isPresented: Binding(get: { store.notice != nil }, set: { if !$0 { store.notice = nil } })) {
             Button("OK") {}

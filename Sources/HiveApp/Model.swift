@@ -62,6 +62,8 @@ final class StateStore: ObservableObject {
     @Published var closeRequest: CloseRequest?
     /// Open confirmation for "Force Quit…"
     @Published var forceQuitRequest: ForceQuitRequest?
+    /// Open confirmation for "Remove from List…" (offline session)
+    @Published var removeRequest: Session?
     /// Notice shown as an alert (e.g. session not finished after 15 s)
     @Published var notice: String?
     /// Keep the Mac awake while sessions work (title bar switch), stored under `keepAwake`
@@ -331,6 +333,18 @@ final class StateStore: ObservableObject {
             selected = name
             await refresh()
         }
+    }
+
+    /// "Remove from List…" on an offline session: archive its handover, which is all that keeps it listed.
+    func remove(_ s: Session) {
+        do {
+            _ = try Handover.archive(s.name)
+            if isFavorite(s.name) { toggleFavorite(s.name) }
+            if selected == s.name { selected = nil }
+        } catch {
+            notice = "Could not remove \(s.name): \(error.localizedDescription)"
+        }
+        refreshSoon()
     }
 
     /// "Force Quit…" menu item: remember the process (PID + start time), then confirm.
