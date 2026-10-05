@@ -4,56 +4,47 @@ import HiveCore
 
 extension View {
     /// Right-click opens the session menu in the Hive style (a floating card at the pointer)
-    /// instead of the system context menu.
+    /// instead of the system context menu. SwiftUI's own hover decides which row is under the
+    /// pointer, so the menu always belongs to the row that was clicked.
     func sessionMenu(_ store: StateStore, _ session: Session) -> some View {
-        background {
-            RightClickCatcher { point in
-                SessionMenuPresenter.shared.show(at: point, store: store, session: session)
-            }
-        }
+        onHover { inside in SessionMenuPresenter.shared.hover(inside, store: store, session: session) }
     }
 }
 
-/// Catches right-clicks inside the bounds of its view (a background, so left clicks and
-/// hit testing stay untouched) and reports the pointer in screen coordinates.
-private struct RightClickCatcher: NSViewRepresentable {
-    let onClick: (NSPoint) -> Void
-
-    func makeNSView(context: Context) -> CatcherView {
-        let v = CatcherView()
-        v.onClick = onClick
-        return v
-    }
-
-    func updateNSView(_ v: CatcherView, context: Context) { v.onClick = onClick }
-
-    final class CatcherView: NSView {
-        var onClick: ((NSPoint) -> Void)?
-        private var monitor: Any?
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            if let monitor { NSEvent.removeMonitor(monitor) }
-            monitor = nil
-            guard window != nil else { return }
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] e in
-                guard let self, let w = self.window, e.window === w,
-                      self.visibleRect.contains(self.convert(e.locationInWindow, from: nil)) else { return e }
-                self.onClick?(w.convertPoint(toScreen: e.locationInWindow))
-                return nil
-            }
-        }
-    }
-}
-
-/// One menu open at a time.
+/// One menu open at a time; one right-click monitor for the whole app.
 @MainActor
 final class SessionMenuPresenter {
     static let shared = SessionMenuPresenter()
     private let card = FloatingCard()
+    private var hovered: (store: StateStore, session: Session)?
+    private var monitor: Any?
 
-    func show(at point: NSPoint, store: StateStore, session: Session) {
-        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
+    func hover(_ inside: Bool, store: StateStore, session: Session) {
+        if inside {
+            hovered = (store, session)
+            installMonitor()
+        } else if hovered?.session.id == session.id {
+            // leaving a row may arrive after entering the next one: only clear our own
+            hovered = nil
+        }
+    }
+
+    private func installMonitor() {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] e in
+            guard let self, let (store, session) = self.hovered, let w = e.window, !(w is NSPanel) else { return e }
+            // the row may be gone since (refresh): only open for a session that still exists
+            guard let current = store.displaySessions.first(where: { $0.id == session.id }) else {
+                self.hovered = nil
+                return e
+            }
+            self.show(at: w.convertPoint(toScreen: e.locationInWindow), in: w, store: store, session: current)
+            return nil
+        }
+    }
+
+    func show(at point: NSPoint, in window: NSWindow? = nil, store: StateStore, session: Session) {
+        guard let window = window ?? NSApp.keyWindow ?? NSApp.mainWindow else { return }
         card.show(at: point, in: window) {
             SessionMenu(store: store, session: session) { [weak self] in self?.card.close() }
         }
