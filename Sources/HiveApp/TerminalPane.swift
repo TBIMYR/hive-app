@@ -14,7 +14,7 @@ struct TerminalPane: View {
             if let s = session {
                 HStack(spacing: 8) {
                     Circle().fill(store.color(for: s.groupKey)).frame(width: 8, height: 8)
-                    Text(s.name).font(.hiveMono(14, .semibold))
+                    Text(s.name).font(.system(size: 14, weight: .semibold))
                     Spacer(minLength: 4)
                     if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
                     StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")

@@ -130,7 +130,7 @@ struct SessionRow: View {
                                            bottomTrailingRadius: last ? r : 0, topTrailingRadius: first ? r : 0)
         HStack(spacing: 14) {
             Circle().fill(st.color).frame(width: 9, height: 9).frame(width: 14)
-            Text(item.name).font(.hiveMono(14, .medium)).foregroundStyle(Hive.ink)
+            Text(item.name).font(.system(size: 14, weight: .semibold)).foregroundStyle(Hive.ink)
                 .frame(width: nameWidth, alignment: .leading)
             HStack(spacing: 6) {
                 // status as colored text like on the cards; the leading dot is the row's status dot
