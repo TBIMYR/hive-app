@@ -65,7 +65,13 @@ struct OverviewView: View {
     @EnvironmentObject private var store: StateStore
     @AppStorage("view") private var mode: ViewMode = .cards
     /// Offline sessions expanded (shared by all views, not remembered across restarts)
-    @State private var showOffline = false
+    @State private var showOffline = Self.offlineAtLaunch
+    #if DEBUG
+    /// for screenshots of a test instance: HIVE_SHOW_OFFLINE=1 starts with offline sessions expanded
+    private static let offlineAtLaunch = ProcessInfo.processInfo.environment["HIVE_SHOW_OFFLINE"] != nil
+    #else
+    private static let offlineAtLaunch = false
+    #endif
 
     var body: some View {
         Group {

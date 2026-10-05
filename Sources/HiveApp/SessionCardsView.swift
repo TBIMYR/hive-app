@@ -61,6 +61,7 @@ private struct CardGrid: View {
 }
 
 struct Tile: View {
+    @EnvironmentObject private var store: StateStore
     let session: Session
     let status: Status
     let label: String
@@ -136,7 +137,11 @@ struct Tile: View {
                     Image(systemName: "exclamationmark.triangle")
                         .help("Read error: " + session.errors.joined(separator: "\n"))
                 }
-                if inTmux {
+                if status.cls == "off" {
+                    Button("Wake Up") { store.wakeUp(session) }
+                        .buttonStyle(WakeButtonStyle())
+                        .help("Start claude -n \(session.name) in Hive; it reads its handover")
+                } else if inTmux {
                     Image(systemName: "terminal").help("Runs in the app")
                 } else if session.alive == true && session.kind != "bg" {
                     Text("iTerm").fixedSize()
@@ -316,6 +321,21 @@ struct AnswerButtonStyle: ButtonStyle {
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(primary ? Color.clear : Hive.hair2, lineWidth: 1))
             .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
             .contentShape(Rectangle())
+    }
+}
+
+/// Small "Wake Up" button in the footer of offline cards.
+struct WakeButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Hive.ink)
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(Hive.card)
+            .clipShape(Capsule())
+            .overlay(Capsule().strokeBorder(Hive.hair2, lineWidth: 1))
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .contentShape(Capsule())
     }
 }
 
