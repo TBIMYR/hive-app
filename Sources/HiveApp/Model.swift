@@ -64,6 +64,16 @@ final class StateStore: ObservableObject {
     @Published var forceQuitRequest: ForceQuitRequest?
     /// Notice shown as an alert (e.g. session not finished after 15 s)
     @Published var notice: String?
+    /// Keep the Mac awake while sessions work (title bar switch), stored under `keepAwake`
+    @Published var keepAwake: Bool = UserDefaults.standard.object(forKey: "keepAwake") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(keepAwake, forKey: "keepAwake")
+            updateSleepGuard()
+        }
+    }
+    /// The Mac is currently kept awake
+    @Published private(set) var holdingAwake = false
+    private let sleepGuard = SleepGuard()
     /// Incremented after a restart: the terminal attaches to the new tmux session of the same name
     @Published private(set) var terminalEpoch = 0
 
@@ -102,9 +112,15 @@ final class StateStore: ObservableObject {
             let match = TmuxMatch.resolve(sessions, tmuxSessions: Set(panes.commands.keys), sessionOfPane: panes.sessionOfPane)
             if match != tmuxOf { tmuxOf = match }
             notifier.update(needs, selected: selected)
+            updateSleepGuard()
             now = Date()
         } while again
         refreshing = false
+    }
+
+    private func updateSleepGuard() {
+        sleepGuard.hold(KeepAwake.reason(enabled: keepAwake, statuses: displaySessions.map { status($0).core }))
+        if sleepGuard.isHolding != holdingAwake { holdingAwake = sleepGuard.isHolding }
     }
 
     /// Status with a view of tmux (see Status.init).

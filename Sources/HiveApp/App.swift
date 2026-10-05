@@ -48,6 +48,29 @@ struct HiveApp: App {
                     .keyboardShortcut("t")
             }
         }
+        // Hive → Settings… (⌘,)
+        Settings {
+            SettingsView().environmentObject(delegate.store)
+        }
+    }
+}
+
+/// Options of the app.
+struct SettingsView: View {
+    @EnvironmentObject private var store: StateStore
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(isOn: $store.keepAwake) {
+                    Text("Keep the Mac awake while sessions work")
+                    Text("Like Amphetamine: no idle sleep as long as at least one session is working, also in the background. The display may still turn off.")
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 460)
+        .fixedSize()
     }
 }
 
@@ -104,6 +127,16 @@ struct ContentView: View {
             .keyboardShortcut("n")
     }
 
+    /// Keep-awake switch: cup with steam while it holds the Mac awake, empty cup while on but nothing works.
+    private var awakeButton: some View {
+        Button { store.keepAwake.toggle() } label: {
+            Label("Keep Awake", systemImage: !store.keepAwake ? "moon.zzz" : store.holdingAwake ? "cup.and.heat.waves.fill" : "cup.and.saucer")
+        }
+        .help(!store.keepAwake ? "Mac may sleep while sessions work. Click to keep it awake."
+              : store.holdingAwake ? "Keeping the Mac awake while sessions work. Click to turn off."
+              : "Keeps the Mac awake as soon as a session works. Click to turn off.")
+    }
+
     /// Plan usage, Todo and New Session at the right edge of the title bar; from macOS 26 a flexible spacer
     /// pushes them there. Without usage data the usage item is left out.
     @ToolbarContentBuilder
@@ -112,10 +145,12 @@ struct ContentView: View {
         if #available(macOS 26, *) {
             ToolbarSpacer(.flexible)
             if hasUsage { ToolbarItem(placement: .automatic) { UsageButton() } }
+            ToolbarItem(placement: .automatic) { awakeButton }
             ToolbarItem(placement: .automatic) { todoButton }
             ToolbarItem(placement: .automatic) { newSessionButton }
         } else {
             if hasUsage { ToolbarItem(placement: .primaryAction) { UsageButton() } }
+            ToolbarItem(placement: .primaryAction) { awakeButton }
             ToolbarItem(placement: .primaryAction) { todoButton }
             ToolbarItem(placement: .primaryAction) { newSessionButton }
         }

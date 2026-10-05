@@ -63,6 +63,7 @@ struct ViewSwitcher: View {
 /// Frame of the overview: switcher fixed at the top, below it the selected view (favorites first).
 struct OverviewView: View {
     @EnvironmentObject private var store: StateStore
+    @Environment(\.openSettings) private var openSettings
     @AppStorage("view") private var mode: ViewMode = .cards
     /// Offline sessions expanded (shared by all views, not remembered across restarts)
     @State private var showOffline = Self.offlineAtLaunch
@@ -85,6 +86,13 @@ struct OverviewView: View {
         .background(Hive.bg)
         #if DEBUG
         // for screenshots of a test instance: HIVE_OPEN_MENU=<name> opens that session's menu at launch
+        // HIVE_OPEN_SETTINGS=1 opens the settings window at launch
+        .task {
+            guard ProcessInfo.processInfo.environment["HIVE_OPEN_SETTINGS"] != nil else { return }
+            try? await Task.sleep(for: .seconds(2))
+            NSApp.activate(ignoringOtherApps: true)
+            openSettings()
+        }
         .task {
             guard let name = ProcessInfo.processInfo.environment["HIVE_OPEN_MENU"] else { return }
             try? await Task.sleep(for: .seconds(3))

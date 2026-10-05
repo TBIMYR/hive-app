@@ -14,6 +14,7 @@ Names in examples are made up.
 - Notifications and a dock badge count for sessions that need you
 - Floating todo list (⌘T), stored in `~/.claude/hive/todos.md`
 - Quick reply and reply buttons in the cards view
+- Keeps the Mac awake while sessions work (switch in the title bar and in Settings, ⌘,)
 - Own right-click menu: Wake Up / Remote Control / Write Handover, Favorite / Start next, Restart… / Close… / Force Quit…
 - Drag & drop into the terminal
 
