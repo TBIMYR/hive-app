@@ -68,7 +68,11 @@ struct SmallTile: View {
                 Text(item.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
                     .layoutPriority(1)
                 Spacer(minLength: 4)
-                CardStatus(status: st, size: 11.5).layoutPriority(-1)
+                if st.cls == "off" {
+                    WakeUpButton(session: item.session)
+                } else {
+                    CardStatus(status: st, size: 11.5).layoutPriority(-1)
+                }
                 BackgroundBadge(count: item.session.backgroundTasks)
                 StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)

@@ -134,8 +134,12 @@ struct SessionRow: View {
                 .frame(width: nameWidth, alignment: .leading)
             HStack(spacing: 6) {
                 // status as colored text like on the cards; the leading dot is the row's status dot
-                CardStatus(status: st, text: loud && now == nil ? [st.label, st.why].compactMap { $0 }.joined(separator: " · ") : nil,
-                           size: 12.5, dot: false)
+                if st.cls == "off" {
+                    WakeUpButton(session: item.session)
+                } else {
+                    CardStatus(status: st, text: loud && now == nil ? [st.label, st.why].compactMap { $0 }.joined(separator: " · ") : nil,
+                               size: 12.5, dot: false)
+                }
                 BackgroundBadge(count: item.session.backgroundTasks)
             }
             .frame(width: 210, alignment: .leading)

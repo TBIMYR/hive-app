@@ -61,7 +61,6 @@ private struct CardGrid: View {
 }
 
 struct Tile: View {
-    @EnvironmentObject private var store: StateStore
     let session: Session
     let status: Status
     let label: String
@@ -88,8 +87,12 @@ struct Tile: View {
                     if isPm { Token(text: session.abbr, color: color) }
                     Text(session.name).font(.system(size: 18, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1).fixedSize()
                     Spacer(minLength: 8)
-                    CardStatus(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
-                        .layoutPriority(-1)
+                    if status.cls == "off" {
+                        WakeUpButton(session: session)
+                    } else {
+                        CardStatus(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
+                            .layoutPriority(-1)
+                    }
                     BackgroundBadge(count: session.backgroundTasks)
                     StarButton(isOn: isFavorite, toggle: toggleFavorite)
                         .padding(.trailing, -4)
@@ -137,11 +140,7 @@ struct Tile: View {
                     Image(systemName: "exclamationmark.triangle")
                         .help("Read error: " + session.errors.joined(separator: "\n"))
                 }
-                if status.cls == "off" {
-                    Button("Wake Up") { store.wakeUp(session) }
-                        .buttonStyle(WakeButtonStyle())
-                        .help("Start claude -n \(session.name) in Hive; it reads its handover")
-                } else if inTmux {
+                if inTmux {
                     Image(systemName: "terminal").help("Runs in the app")
                 } else if session.alive == true && session.kind != "bg" {
                     Text("iTerm").fixedSize()
@@ -324,7 +323,19 @@ struct AnswerButtonStyle: ButtonStyle {
     }
 }
 
-/// Small "Wake Up" button in the footer of offline cards.
+/// Small "Wake Up" button in place of the "offline" status (cards, tiles, list).
+struct WakeUpButton: View {
+    @EnvironmentObject private var store: StateStore
+    let session: Session
+
+    var body: some View {
+        Button("Wake Up") { store.wakeUp(session) }
+            .buttonStyle(WakeButtonStyle())
+            .help("Start claude -n \(session.name) in Hive; it reads its handover")
+            .fixedSize()
+    }
+}
+
 struct WakeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
