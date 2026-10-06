@@ -3,12 +3,17 @@ import Foundation
 extension Session {
     /// Group key like in the dashboard (hive groups by name prefix).
     public var groupKey: String { group.isEmpty ? name : group }
+
+    /// Last activity: the latest of the last work step and the last status change.
+    public var lastActivity: Date? {
+        [lastAction?.at, statusUpdatedAt].compactMap { $0.flatMap(parseISO) }.max()
+    }
 }
 
 /// Order of sessions in the overview, same for all views.
 public enum SessionOrder {
     /// First by rank (0 needs you … 3 offline). Rank 0: whoever has waited longest comes first (missing time first),
-    /// then name. Otherwise: "waiting for reply" first, then project name, PM before workers, then name.
+    /// then name. Otherwise: most recent activity first (none last), then name.
     /// Generic over the item type so the app can sort its pairs of session and status (with color) directly.
     public static func sorted<T>(_ items: [T], session: (T) -> Session, status: (T) -> SessionStatus,
                                  labels: [String: String]) -> [T] {
@@ -26,10 +31,8 @@ public enum SessionOrder {
             if ta != tb { return ta < tb }
             return a.name < b.name
         }
-        if (sa.cls == "wait") != (sb.cls == "wait") { return sa.cls == "wait" }
-        let la = labels[a.groupKey] ?? "", lb = labels[b.groupKey] ?? ""
-        if la != lb { return la.localizedCompare(lb) == .orderedAscending }
-        if a.isPm != b.isPm { return a.isPm }
+        let ta = a.lastActivity ?? .distantPast, tb = b.lastActivity ?? .distantPast
+        if ta != tb { return ta > tb }
         return a.name < b.name
     }
 }

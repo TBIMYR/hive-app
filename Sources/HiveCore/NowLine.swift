@@ -80,8 +80,7 @@ extension Session {
     /// Task line noticeably older than the last activity (last work step or status change).
     public var taskOutdated: Bool {
         guard let updated = task?.updatedAt.flatMap(parseISO) else { return false }
-        let activity = [lastAction?.at, statusUpdatedAt].compactMap { $0.flatMap(parseISO) }.max()
-        guard let activity else { return false }
+        guard let activity = lastActivity else { return false }
         return activity.timeIntervalSince(updated) > Self.taskOutdatedAfter
     }
 }

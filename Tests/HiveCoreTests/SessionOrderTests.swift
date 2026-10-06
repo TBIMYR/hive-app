@@ -39,21 +39,24 @@ private func order(_ items: [Session], labels: [String: String] = [:]) -> [Strin
     #expect(order([s("b", "waiting"), s("a", "waiting")]) == ["a", "b"])
 }
 
-@Test func pendingReplyComesFirst() {
-    let items = [s("a"), s("b", taskState: "waiting")]
-    #expect(order(items) == ["b", "a"])
+@Test func otherRanksMostRecentActivityFirst() {
+    let items = [s("a", at: "2026-10-03T10:00:00Z"), s("b", at: "2026-10-03T11:00:00Z"), s("c")]
+    #expect(order(items) == ["b", "a", "c"])
 }
 
-@Test func thenSortedByProjectName() {
-    let items = [s("x.01", group: "x"), s("y.01", group: "y")]
-    #expect(order(items, labels: ["x": "zeta", "y": "Alpha"]) == ["y.01", "x.01"])
+@Test func activityCountsTheLastWorkStep() {
+    let a = Session(name: "a", group: "al", pid: 1, alive: true, status: "busy", statusUpdatedAt: "2026-10-03T10:00:00Z",
+                    lastAction: WorkAction(tool: "Edit", text: "Editing", detail: nil, at: "2026-10-03T12:00:00Z", pending: false))
+    let b = s("b", "busy", at: "2026-10-03T11:00:00Z")
+    #expect(order([b, a]) == ["a", "b"])
 }
 
-@Test func pmComesBeforeWorker() {
-    let items = [s("al.01"), s("al.pm", isPm: true)]
-    #expect(order(items, labels: ["al": "alpha"]) == ["al.pm", "al.01"])
+@Test func activityBeatsProjectAndPm() {
+    let items = [s("al.pm", group: "al", isPm: true, at: "2026-10-03T10:00:00Z"),
+                 s("zz.01", group: "zz", at: "2026-10-03T11:00:00Z")]
+    #expect(order(items, labels: ["al": "alpha", "zz": "zeta"]) == ["zz.01", "al.pm"])
 }
 
-@Test func finallySortedByName() {
+@Test func sameActivitySortedByName() {
     #expect(order([s("al.02"), s("al.01")]) == ["al.01", "al.02"])
 }
