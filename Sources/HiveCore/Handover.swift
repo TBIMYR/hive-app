@@ -12,7 +12,7 @@ public struct HandoverEntry: Equatable, Sendable {
     public var error: String? = nil
 }
 
-/// Reads ~/.claude/handover/*.md with frontmatter (like hive/lib/handover.js).
+/// Reads ~/.claude/handover/*.md with frontmatter (written by tools/bin/cc-task).
 public enum Handover {
     public static let defaultDir = "\(home)/.claude/handover"
 

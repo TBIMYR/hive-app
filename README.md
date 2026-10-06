@@ -1,8 +1,12 @@
 # hive-app
 
 Mac app for parallel Claude Code sessions: the overview of all sessions on the left, the real
-terminal of the selected session (tmux) on the right. Grew out of the prototype in
-[hive](../hive) (`prototype/`); scripts (`cc-task`, `cc-spawn`, `cc-close`) and docs still live there.
+terminal of the selected session (tmux) on the right. The session tools the app reads from
+(`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`) live in `tools/`. Until 2026-10-07 they were a
+separate repo `hive` together with a Node/HTML dashboard; its history is merged in here.
+
+What the master session `keeper` changed (including outside the repo): `docs/keeper-log.md`
+Current session rules for the global CLAUDE.md: `docs/claude-md-session-status.md`
 
 Names in examples are made up.
 
@@ -28,7 +32,6 @@ sh restart.sh                      # release build, install as /Applications/Hiv
                                     # (HIVE_INSTALL=~/Applications for another folder)
                                     # (quits only apps started from this folder, including the prototype)
 swift test                         # HiveCore tests
-scripts/compare-node.sh            # comparison with the old Node server, as long as it's running
 ```
 
 Test instance alongside the main app (own bundle identifier, doesn't steal its notifications):
@@ -46,10 +49,52 @@ Attaching to a session from outside: `tmux -L hive attach -t '=<name>:'` (colon 
 ## Structure
 
 - `HiveCore`: reads `~/.claude/sessions`, `~/.claude/handover` and the conversation transcripts under
-  `~/.claude/projects`, same rules as the earlier `hive/lib/*.js`. Changes arrive via FSEvents.
+  `~/.claude/projects`. Changes arrive via FSEvents.
 - `HiveApp`: SwiftUI window, terminal via SwiftTerm, handover view via MarkdownUI, and its own tmux
   server (`tmux -L hive`).
 - `hive-state`: prints the state as JSON.
+
+## Session tools
+
+```sh
+sh tools/install.sh                          # symlinks into ~/.claude, hook, CLAUDE.md section
+node --test tools/test/*.test.js             # tool tests, no tokens
+```
+
+Handover file `~/.claude/handover/<name>.md`, written only by `cc-task`:
+
+```markdown
+---
+session: lu.01
+project: lumen
+task: Calendar view          # topic only, at most 4 words / 40 characters
+detail: grid done, list view next   # optional subline, at most 120 characters
+state: working               # working | blocked | waiting | done | handover
+updated: 2026-09-30T16:09:00+02:00
+---
+# Handover lu.01 — Stand 30.09.2026
+## Lage
+## Offen
+## Regeln und Lehren
+```
+
+The name is the key: a new session started with `claude -n lu.01` gets the file as context at
+startup (hook `cc-handover-load`), and its task line is set to "neu gestartet" ("restarted").
+Previous versions live under `~/.claude/handover/archive/<name>/`. The handover template stays
+German on purpose.
+
+```sh
+cc-task "Topic" [state]                      # set the task line (body is kept)
+cc-task --detail "One line of context" "Topic" working
+cc-task --name or.02 "Topic" done            # set another session's line (PM)
+cc-task --archive --body file.md "Topic" handover   # write a handover
+cc-spawn lu.01 ~/Development/lumen/worktrees/x "Ticket: …"   # new session (hive tmux or iTerm tab)
+cc-close lu.01                               # type /exit; refused when busy or without handover
+cc-close --force lu.01                       # close anyway
+```
+
+Skills (symlinked into `~/.claude/skills/`): `/status` sets the task line by hand; `/handover`
+writes the body to the scratchpad and passes it to `cc-task --archive --body`.
 
 ## License
 

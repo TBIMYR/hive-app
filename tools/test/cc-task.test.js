@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { parseFrontmatter } = require('../lib/handover');
+const { parseFrontmatter } = require('./frontmatter');
 
 const BIN = path.join(__dirname, '..', 'bin', 'cc-task');
 
