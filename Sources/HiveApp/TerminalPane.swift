@@ -130,8 +130,27 @@ final class HiveTerminalView: LocalProcessTerminalView {
         window.makeFirstResponder(self)
     }
 
+    private var keyMonitor: Any?
+
+    /// Shift+Return types a new line like Option+Return: ESC + CR, which Claude Code reads as a line break
+    /// (plain CR would send the message). SwiftTerm's keyDown can't be overridden, so a local monitor
+    /// catches it while this terminal has the focus.
+    private func watchShiftReturn() {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
+        guard window != nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            guard let self, e.window === self.window, self.window?.firstResponder === self,
+                  e.keyCode == 36 || e.keyCode == 76,
+                  e.modifierFlags.intersection([.shift, .control, .option, .command]) == .shift else { return e }
+            self.send(txt: "\u{1B}\r")
+            return nil
+        }
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        watchShiftReturn()
         // drag files and images in like in iTerm: the path gets typed (Claude then attaches images)
         registerForDraggedTypes([.fileURL, .png, .tiff])
         takeFocusIfWanted()
