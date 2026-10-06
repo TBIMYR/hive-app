@@ -99,3 +99,20 @@ test('line breaks in the task become spaces, backslashes are kept', () => {
   run(home, ['a\nb \\n c']);
   assert.equal(parseFrontmatter(read(home)).fields.task, 'a b \\n c');
 });
+
+test('task line longer than 4 words or 40 characters → exit 2, file untouched', () => {
+  const home = setup();
+  for (const long of ['fix the login bug today', 'Überarbeitungdesgesamtenanmeldeformulars-x']) {
+    const r = run(home, [long]);
+    assert.equal(r.status, 2, long);
+    assert.match(r.stderr, /at most 4 words/);
+  }
+  assert.equal(fs.existsSync(path.join(home, 'handover', 'lu.01.md')), false);
+});
+
+test('short task lines pass, umlauts count as one character', () => {
+  const home = setup();
+  for (const ok of ['New iPhone build (or.pm)', 'neu gestartet, Handover gelesen', 'Überprüfung Größenänderung äöü']) {
+    assert.equal(run(home, [ok]).status, 0, ok);
+  }
+});

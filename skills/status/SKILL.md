@@ -5,10 +5,10 @@ description: Sets this session's task line for the session dashboard. Only when 
 
 Run exactly one Bash call, nothing else:
 
-    ~/.claude/bin/cc-task "<one line: what you are doing right now, with ticket/PR number if any>" <state>
+    ~/.claude/bin/cc-task "<topic only, at most 4 words / 40 characters, e.g. \"Android app\">" <state>
 
-`state` is `working` (task in progress), `blocked` (cannot continue without a decision or approval from the user), `waiting` (own work done, only waiting for feedback from a person or another session) or `done` (task finished, waiting for the next one).
+`state` is `working` (task in progress), `blocked` (cannot continue without a decision or approval from the user), `waiting` (own work done, only waiting for feedback from a person or another session; name who in brackets, e.g. "Release (lu.pm)") or `done` (task finished, waiting for the next one).
 
-If a text was passed as an argument, use it unchanged. No follow-up questions, no explanation, no output other than a one-line confirmation.
+If a text was passed as an argument, use it unchanged; if `cc-task` rejects it as too long, shorten it to the topic. No follow-up questions, no explanation, no output other than a one-line confirmation.
 
 If the script reports that the session name is unknown, tell the user in one sentence that the session has to be started with `claude -n <name>`, and carry on.

@@ -11,7 +11,8 @@ description: Writes this session's handover to ~/.claude/handover/<name>.md so t
        Repo state, branches, what is merged/pushed, running servers. Measured, not assumed.
 
        ## Offen
-       What is missing, who has to decide, which permissions are missing. With ticket/PR numbers.
+       First line: what the successor should do first. Then what is missing, who has to decide,
+       which permissions are missing. With ticket/PR numbers.
 
        ## Regeln und Lehren
        What was added or went wrong in this session that the successor needs to know.
@@ -20,7 +21,7 @@ description: Writes this session's handover to ~/.claude/handover/<name>.md so t
 
 2. Run exactly one Bash call:
 
-       ~/.claude/bin/cc-task --archive --body <scratchpad>/handover.md "<one-line summary of what the successor should do first>" handover
+       ~/.claude/bin/cc-task --archive --body <scratchpad>/handover.md "<topic, at most 4 words / 40 characters>" handover
 
    This archives the previous version and writes frontmatter and body in one step.
 

@@ -30,6 +30,14 @@ if [ -z "$task" ]; then
 fi
 task=$(printf '%s' "$task" | tr '\n\r' '  ')
 
+# The task line is the topic only (dashboard label); details belong in the handover body.
+words=$(printf '%s' "$task" | wc -w | tr -d ' ')
+chars=$(printf '%s' "$task" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' ')
+if [ "$words" -gt 4 ] || [ "$chars" -gt 40 ]; then
+  echo "cc-task: task line too long ($words words, $chars characters). Name only the topic in at most 4 words / 40 characters, e.g. \"Android app\" or \"New iPhone build\"; when waiting, add who in brackets, e.g. \"Release (lu.pm)\". Details belong in the handover body." >&2
+  exit 2
+fi
+
 # --- Name and registry ---------------------------------------------------
 reg=""
 if [ -z "$name" ]; then
