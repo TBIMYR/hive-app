@@ -35,16 +35,37 @@ struct SessionCardsView: View {
     private func grid(_ part: [OverviewItem]) -> some View { CardGrid(part: part) }
 }
 
-/// Grid of one section: all cards as tall as the tallest one (answer buttons, reply field, options).
+/// Grid of one section: columns of at least 360 pt; the cards of one row are as tall as the tallest of that
+/// row (a long question only stretches its own row).
 private struct CardGrid: View {
-    @EnvironmentObject private var store: StateStore
     let part: [OverviewItem]
+    @State private var width: CGFloat = 0
+
+    private static let minWidth: CGFloat = 360
+    private static let spacing: CGFloat = 18
+
+    var body: some View {
+        let columns = max(1, Int((width + Self.spacing) / (Self.minWidth + Self.spacing)))
+        let rows = stride(from: 0, to: part.count, by: columns).map { Array(part[$0..<min($0 + columns, part.count)]) }
+        VStack(alignment: .leading, spacing: Self.spacing) {
+            ForEach(rows, id: \.first?.id) { row in CardRow(items: row, columns: columns, spacing: Self.spacing) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+}
+
+/// One row of cards, equally tall; empty columns stay free so all cards keep the same width.
+private struct CardRow: View {
+    @EnvironmentObject private var store: StateStore
+    let items: [OverviewItem]
+    let columns: Int
+    let spacing: CGFloat
     @State private var tallest: CGFloat = 0
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18, alignment: .top)],
-                  alignment: .leading, spacing: 18) {
-            ForEach(part) { it in
+        HStack(alignment: .top, spacing: spacing) {
+            ForEach(items) { it in
                 Tile(session: it.session, status: it.status, label: it.project, color: it.color,
                      inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now,
                      isFavorite: it.isFavorite, minBody: tallest,
@@ -55,6 +76,7 @@ private struct CardGrid: View {
                     .onTapGesture { store.selected = it.name }
                     .sessionMenu(store, it.session)
             }
+            ForEach(items.count..<columns, id: \.self) { _ in Color.clear.frame(maxWidth: .infinity, maxHeight: 1) }
         }
         .onPreferenceChange(TallestKey.self) { tallest = $0 }
     }
