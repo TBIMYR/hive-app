@@ -75,6 +75,7 @@ private struct CardRow: View {
                 }
                     .onTapGesture { store.selected = it.name }
                     .sessionMenu(store, it.session)
+                    .navFrame(it.name)
             }
             ForEach(items.count..<columns, id: \.self) { _ in Color.clear.frame(maxWidth: .infinity, maxHeight: 1) }
         }

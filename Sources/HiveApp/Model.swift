@@ -154,6 +154,12 @@ final class StateStore: ObservableObject {
         focusRequest += 1
     }
 
+    /// ⌘ + arrow keys: select a session and put the cursor into its terminal.
+    func selectAndFocus(_ name: String) {
+        selected = name
+        focusRequest += 1
+    }
+
     /// tmux session of this session in the hive server, nil = none.
     /// Cards that come only from tmux (displaySessions) carry the tmux name itself.
     func tmux(_ s: Session) -> String? {

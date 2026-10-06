@@ -67,6 +67,7 @@ struct OverviewView: View {
     @AppStorage("view") private var mode: ViewMode = .cards
     /// Offline sessions expanded (shared by all views, not remembered across restarts)
     @State private var showOffline = Self.offlineAtLaunch
+    @State private var nav = SessionNavigator()
     #if DEBUG
     /// for screenshots of a test instance: HIVE_SHOW_OFFLINE=1 starts with offline sessions expanded
     private static let offlineAtLaunch = ProcessInfo.processInfo.environment["HIVE_SHOW_OFFLINE"] != nil
@@ -84,6 +85,10 @@ struct OverviewView: View {
             }
         }
         .background(Hive.bg)
+        // finds the window for ⌘ + arrow keys (only this one, not Settings or the floating cards)
+        .background(AnchorReader { nav.anchor = $0 })
+        .onAppear { nav.start(store) }
+        .onDisappear { nav.stop() }
         #if DEBUG
         // for screenshots of a test instance: HIVE_OPEN_MENU=<name> opens that session's menu at launch
         // HIVE_OPEN_SETTINGS=1 opens the settings window at launch
@@ -118,16 +123,36 @@ struct OverviewView: View {
         let sorted = SessionOrder.sorted(store.displaySessions.map(item), session: { $0.session },
                                          status: { $0.status.core }, labels: labels)
         let parts = Favorites.split(sorted, favorites: store.favorites, name: \.name)
+        let shown = shownOrder(favorites: parts.favorites, rest: parts.rest)
+        nav.order = shown.map(\.name)
         return VStack(alignment: .leading, spacing: 0) {
             ViewSwitcher(mode: $mode).fixedSize()
                 .padding(.leading, Hive.margin).padding(.trailing, Hive.margin / 2).padding(.top, Hive.margin).padding(.bottom, 4)
 
-            ScrollView {
-                content(favorites: parts.favorites, rest: parts.rest)
-                    .padding(.leading, Hive.margin).padding(.trailing, Hive.margin / 2).padding(.top, 20).padding(.bottom, 60)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    content(favorites: parts.favorites, rest: parts.rest)
+                        .coordinateSpace(.named(NavFrameKey.space))
+                        .onPreferenceChange(NavFrameKey.self) { nav.frames = $0 }
+                        .padding(.leading, Hive.margin).padding(.trailing, Hive.margin / 2).padding(.top, 20).padding(.bottom, 60)
+                }
+                .scrollIndicators(.never)
+                // keeps the selection in view (arrow keys, ⌘H, notifications); nil anchor = scroll as little as needed
+                .onChange(of: store.selected) { _, name in
+                    guard let id = shown.first(where: { $0.name == name })?.id else { return }
+                    withAnimation(.snappy(duration: 0.2)) { proxy.scrollTo(id, anchor: nil) }
+                }
             }
-            .scrollIndicators(.never)
         }
+    }
+
+    /// Sessions in the order the current view shows them (the list puts workers under their PM),
+    /// offline only while expanded. Lets the arrow keys reach sessions a lazy stack hasn't drawn yet.
+    private func shownOrder(favorites: [OverviewItem], rest: [OverviewItem]) -> [OverviewItem] {
+        let active = rest.filter { $0.status.rank < 3 }
+        let offline = showOffline ? rest.filter { $0.status.rank == 3 } : []
+        guard mode == .list else { return favorites + active + offline }
+        return [favorites, active, offline].flatMap { SessionTree.grouped($0, session: \.session).map(\.item) }
     }
 
     @ViewBuilder
@@ -136,6 +161,49 @@ struct OverviewView: View {
         case .list: SessionListView(favorites: favorites, items: rest, showOffline: $showOffline)
         case .tiles: SessionTileGrid(favorites: favorites, items: rest, showOffline: $showOffline)
         case .cards: SessionCardsView(favorites: favorites, items: rest, showOffline: $showOffline)
+        }
+    }
+}
+
+/// ⌘ + arrow keys in the main window: moves the selection spatially through the overview (SessionNav) and puts
+/// the cursor into the terminal. ⌘ + arrows reach hive even while the terminal has focus; Claude Code doesn't use them.
+@MainActor
+final class SessionNavigator {
+    /// where the sessions are drawn right now (scroll content coordinates)
+    var frames: [String: CGRect] = [:]
+    /// all shown sessions in view order
+    var order: [String] = []
+    /// any view in the main window
+    weak var anchor: NSView?
+    private var monitor: Any?
+
+    func start(_ store: StateStore) {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self, weak store] e in
+            guard let self, let store, let dir = Self.direction(e),
+                  let w = e.window, w === self.anchor?.window, w.attachedSheet == nil,
+                  // text fields (reply, todo list) keep ⌘← / ⌘→ for line start and end
+                  !(w.firstResponder is NSTextView) else { return e }
+            if let name = SessionNav.target(from: store.selected, dir, frames: self.frames, order: self.order) {
+                store.selectAndFocus(name)
+            }
+            return nil
+        }
+    }
+
+    func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
+
+    private static func direction(_ e: NSEvent) -> SessionNav.Direction? {
+        guard e.modifierFlags.intersection([.shift, .control, .option, .command]) == .command else { return nil }
+        switch e.keyCode {
+        case 123: return .left
+        case 124: return .right
+        case 125: return .down
+        case 126: return .up
+        default: return nil
         }
     }
 }

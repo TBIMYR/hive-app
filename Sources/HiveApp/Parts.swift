@@ -141,6 +141,28 @@ extension View {
     }
 }
 
+// MARK: ⌘ + arrow keys
+
+/// Frames of the drawn sessions (by name) in the overview's scroll content, for SessionNav.
+struct NavFrameKey: PreferenceKey {
+    static let space = "overview"
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { first, _ in first }
+    }
+}
+
+extension View {
+    /// Reports where this session is drawn, so ⌘ + arrow keys can find its neighbors.
+    func navFrame(_ name: String) -> some View {
+        background {
+            GeometryReader { g in
+                Color.clear.preference(key: NavFrameKey.self, value: [name: g.frame(in: .named(NavFrameKey.space))])
+            }
+        }
+    }
+}
+
 /// Pill for running background agents/shell commands: green capsule, slowly turning arrows and the count.
 /// Nothing when count is 0. Respects "Reduce motion".
 struct BackgroundBadge: View {
