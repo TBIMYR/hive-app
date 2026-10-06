@@ -141,7 +141,7 @@ extension View {
     }
 }
 
-// MARK: ⌘ + arrow keys
+// MARK: ⌥ + arrow keys
 
 /// Frames of the drawn sessions (by name) in the overview's scroll content, for SessionNav.
 struct NavFrameKey: PreferenceKey {
@@ -153,7 +153,7 @@ struct NavFrameKey: PreferenceKey {
 }
 
 extension View {
-    /// Reports where this session is drawn, so ⌘ + arrow keys can find its neighbors.
+    /// Reports where this session is drawn, so ⌥ + arrow keys can find its neighbors.
     func navFrame(_ name: String) -> some View {
         background {
             GeometryReader { g in

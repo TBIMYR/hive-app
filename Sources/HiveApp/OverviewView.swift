@@ -85,7 +85,7 @@ struct OverviewView: View {
             }
         }
         .background(Hive.bg)
-        // finds the window for ⌘ + arrow keys (only this one, not Settings or the floating cards)
+        // finds the window for ⌥ + arrow keys (only this one, not Settings or the floating cards)
         .background(AnchorReader { nav.anchor = $0 })
         .onAppear { nav.start(store) }
         .onDisappear { nav.stop() }
@@ -165,8 +165,8 @@ struct OverviewView: View {
     }
 }
 
-/// ⌘ + arrow keys in the main window: moves the selection spatially through the overview (SessionNav) and puts
-/// the cursor into the terminal. ⌘ + arrows reach hive even while the terminal has focus; Claude Code doesn't use them.
+/// ⌥ + arrow keys in the main window: moves the selection spatially through the overview (SessionNav) and puts
+/// the cursor into the terminal. ⌥ + arrows reach hive even while the terminal has focus (there they would jump by word).
 @MainActor
 final class SessionNavigator {
     /// where the sessions are drawn right now (scroll content coordinates)
@@ -182,7 +182,7 @@ final class SessionNavigator {
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self, weak store] e in
             guard let self, let store, let dir = Self.direction(e),
                   let w = e.window, w === self.anchor?.window, w.attachedSheet == nil,
-                  // text fields (reply, todo list) keep ⌘← / ⌘→ for line start and end
+                  // text fields (reply, todo list) keep ⌥ + arrows for moving by word or paragraph
                   !(w.firstResponder is NSTextView) else { return e }
             if let name = SessionNav.target(from: store.selected, dir, frames: self.frames, order: self.order) {
                 store.selectAndFocus(name)
@@ -197,7 +197,7 @@ final class SessionNavigator {
     }
 
     private static func direction(_ e: NSEvent) -> SessionNav.Direction? {
-        guard e.modifierFlags.intersection([.shift, .control, .option, .command]) == .command else { return nil }
+        guard e.modifierFlags.intersection([.shift, .control, .option, .command]) == .option else { return nil }
         switch e.keyCode {
         case 123: return .left
         case 124: return .right

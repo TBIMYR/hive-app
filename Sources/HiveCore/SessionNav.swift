@@ -1,11 +1,11 @@
 import CoreGraphics
 import Foundation
 
-/// Keyboard navigation through the overview (⌘ + arrow keys): spatial, based on where the sessions are drawn.
+/// Keyboard navigation through the overview (⌥ + arrow keys): spatial, based on where the sessions are drawn.
 public enum SessionNav {
     public enum Direction: Sendable { case up, down, left, right }
 
-    /// Session to select after pressing ⌘ + `direction`.
+    /// Session to select after pressing ⌥ + `direction`.
     /// - `frames`: frame of each drawn session (by name) in one coordinate space. Lazy stacks only draw what's near
     ///   the visible area, so sessions further away may be missing.
     /// - `order`: all shown sessions in overview order; reaches sessions that aren't drawn yet.

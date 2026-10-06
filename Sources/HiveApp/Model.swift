@@ -154,7 +154,7 @@ final class StateStore: ObservableObject {
         focusRequest += 1
     }
 
-    /// ⌘ + arrow keys: select a session and put the cursor into its terminal.
+    /// ⌥ + arrow keys: select a session and put the cursor into its terminal.
     func selectAndFocus(_ name: String) {
         selected = name
         focusRequest += 1
