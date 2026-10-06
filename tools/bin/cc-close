@@ -1,0 +1,131 @@
+#!/bin/sh
+# cc-close — cleanly end a running Claude Code session and close its iTerm tab.
+#
+#   cc-close [--force] NAME
+#
+# Types `/exit` into the session (found via its terminal: tmux pane in the hive app's server or
+# the default server, otherwise iTerm tab), waits for the process to end and closes
+# the tmux session or the tab. Without --force, refuses if the session is currently working,
+# still has background tasks running, or has no handover. The own session cannot be closed.
+# Environment: CC_HOME (default ~/.claude), CLAUDE_PID, CC_CLOSE_DRYRUN=1 only checks.
+set -eu
+
+home="${CC_HOME:-$HOME/.claude}"
+force=0
+if [ "${1:-}" = "--force" ]; then force=1; shift; fi
+if [ $# -ne 1 ]; then
+  echo "usage: cc-close [--force] NAME" >&2
+  exit 2
+fi
+name="$1"
+case "$name" in
+  ""|*[!A-Za-z0-9._#-]*|*..*) echo "cc-close: invalid name '$name'" >&2; exit 2 ;;
+esac
+
+pid=""; status=""
+for f in "$home"/sessions/*.json; do
+  [ -f "$f" ] || continue
+  [ "$(jq -r '.name // empty' "$f" 2>/dev/null)" = "$name" ] || continue
+  p=$(jq -r '.pid // empty' "$f" 2>/dev/null)
+  if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then
+    pid="$p"; status=$(jq -r '.status // empty' "$f" 2>/dev/null); break
+  fi
+done
+if [ -z "$pid" ]; then
+  echo "cc-close: no running session '$name'" >&2
+  exit 1
+fi
+if [ "$pid" = "${CLAUDE_PID:-}" ]; then
+  echo "cc-close: cannot close your own session" >&2
+  exit 1
+fi
+if [ "$force" -eq 0 ] && [ "$status" = "busy" ]; then
+  echo "cc-close: '$name' is working right now; let it finish first or use --force" >&2
+  exit 1
+fi
+# "shell": the main loop is idle, but background shell commands (e.g. a CI watch) are still running
+if [ "$force" -eq 0 ] && [ "$status" = "shell" ]; then
+  echo "cc-close: '$name' still has background tasks running; let them finish first or use --force" >&2
+  exit 1
+fi
+if [ "$force" -eq 0 ] && [ ! -f "$home/handover/$name.md" ]; then
+  echo "cc-close: '$name' has no handover; have it write /handover first or use --force" >&2
+  exit 1
+fi
+
+tty=$(ps -o tty= -p "$pid" | tr -d ' ')
+if [ -z "$tty" ] || [ "$tty" = "??" ]; then
+  echo "cc-close: '$name' has no terminal" >&2
+  exit 1
+fi
+tty="/dev/${tty#/dev/}"
+
+if [ "${CC_CLOSE_DRYRUN:-}" = "1" ]; then
+  echo "cc-close: would end '$name' (PID $pid, $tty)"
+  exit 0
+fi
+
+waitexit() {
+  i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    i=$((i + 1))
+    [ "$i" -le 30 ] || return 1
+    sleep 0.5
+  done
+}
+
+# Is the session running in tmux (hive app server or default server)? Then end it via tmux.
+tmux_bin=$(command -v tmux || true)
+if [ -n "$tmux_bin" ]; then
+  for server in hive default; do
+    sess=$(env -u TMUX "$tmux_bin" -L "$server" list-panes -a -F '#{pane_tty} #{session_name}' 2>/dev/null \
+      | awk -v t="$tty" '$1 == t {print $2; exit}')
+    [ -n "$sess" ] || continue
+    env -u TMUX "$tmux_bin" -L "$server" send-keys -t "=$sess:" -l "/exit"
+    env -u TMUX "$tmux_bin" -L "$server" send-keys -t "=$sess:" Enter
+    if ! waitexit; then
+      echo "cc-close: '$name' did not exit after 15 s; tmux session stays" >&2
+      exit 1
+    fi
+    env -u TMUX "$tmux_bin" -L "$server" kill-session -t "=$sess:" 2>/dev/null || true
+    echo "cc-close: $name ended (tmux $server)"
+    exit 0
+  done
+fi
+
+itermdo() {
+  osascript - "$tty" "$1" <<'EOF'
+on run argv
+  set target to item 1 of argv
+  set action to item 2 of argv
+  tell application "iTerm2"
+    repeat with w in windows
+      repeat with t in tabs of w
+        repeat with s in sessions of t
+          if tty of s is target then
+            if action is "exit" then
+              tell s to write text "/exit"
+            else
+              tell s to close
+            end if
+            return "ok"
+          end if
+        end repeat
+      end repeat
+    end repeat
+  end tell
+  return "notfound"
+end run
+EOF
+}
+
+if [ "$(itermdo exit)" != "ok" ]; then
+  echo "cc-close: no iTerm tab found for $tty" >&2
+  exit 1
+fi
+if ! waitexit; then
+  echo "cc-close: '$name' did not exit after 15 s; tab stays open" >&2
+  exit 1
+fi
+itermdo close >/dev/null || true
+echo "cc-close: $name ended"

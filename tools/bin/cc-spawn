@@ -1,0 +1,103 @@
+#!/bin/sh
+# cc-spawn — start a new Claude Code session in an iTerm tab.
+#
+#   cc-spawn NAME DIR ["FIRST TASK"]
+#
+# Starts `claude -n NAME ["TASK"]` in DIR, either
+#   - hive: as a session in the hive app's tmux server (`tmux -L hive`), visible in the app, or
+#   - iterm: in a new tab of the frontmost iTerm window.
+# Target: CC_SPAWN_TARGET=hive|iterm; if unset, hive when the caller itself runs in hive, otherwise iterm.
+# The start hook loads the handover for NAME. Refuses if a session named NAME is already running.
+# Environment: CC_HOME (default ~/.claude), CC_SPAWN_DRYRUN=1 only prints the command.
+set -eu
+
+home="${CC_HOME:-$HOME/.claude}"
+
+if [ $# -lt 2 ] || [ $# -gt 3 ]; then
+  echo "usage: cc-spawn NAME DIR [\"FIRST TASK\"]" >&2
+  exit 2
+fi
+name="$1"; dir="$2"; prompt="${3:-}"
+
+case "$name" in
+  ""|*[!A-Za-z0-9._#-]*|*..*) echo "cc-spawn: invalid name '$name'" >&2; exit 2 ;;
+esac
+if [ ! -d "$dir" ]; then
+  echo "cc-spawn: directory '$dir' does not exist" >&2
+  exit 2
+fi
+dir=$(cd "$dir" && pwd)
+
+for f in "$home"/sessions/*.json; do
+  [ -f "$f" ] || continue
+  [ "$(jq -r '.name // empty' "$f" 2>/dev/null)" = "$name" ] || continue
+  pid=$(jq -r '.pid // empty' "$f" 2>/dev/null)
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    echo "cc-spawn: session '$name' is already running (PID $pid)" >&2
+    exit 1
+  fi
+done
+
+target="${CC_SPAWN_TARGET:-}"
+if [ -z "$target" ]; then
+  # $TMUX = "<socket>,<pid>,<n>"; the app's socket is named .../hive
+  case "${TMUX%%,*}" in */hive) target=hive ;; *) target=iterm ;; esac
+fi
+case "$target" in hive|iterm) ;; *) echo "cc-spawn: CC_SPAWN_TARGET must be hive or iterm" >&2; exit 2 ;; esac
+
+if [ "${CC_SPAWN_DRYRUN:-}" = "1" ]; then
+  printf '[%s] cd %s && claude -n %s' "$target" "$dir" "$name"
+  [ -z "$prompt" ] || printf ' %s' "$prompt"
+  printf '\n'
+  exit 0
+fi
+
+if [ "$target" = "hive" ]; then
+  tmux_bin=$(command -v tmux || echo /opt/homebrew/bin/tmux)
+  conf="$HOME/Library/Application Support/hive/tmux.conf"
+  # Variables of the calling Claude session must not leak into the new session
+  # (otherwise it thinks it is that session's child: session ID, message socket …), see Tmux.swift.
+  unset_args=""
+  for k in $(env | sed -nE 's/^(CLAUDE[A-Za-z0-9_]*|AI_AGENT|TMUX|TMUX_PANE)=.*/\1/p'); do
+    unset_args="$unset_args -u $k"
+  done
+  ht() {
+    if [ -f "$conf" ]; then
+      env $unset_args "$tmux_bin" -L hive -f "$conf" "$@"
+    else
+      env $unset_args "$tmux_bin" -L hive "$@"
+    fi
+  }
+  for k in $(ht show-environment -g 2>/dev/null | sed -nE 's/^(CLAUDE[A-Za-z0-9_]*|AI_AGENT|TMUX|TMUX_PANE)=.*/\1/p'); do
+    ht set-environment -g -u "$k"
+  done
+  claude_bin=$(command -v claude || echo claude)
+  if [ -n "$prompt" ]; then
+    ht new-session -d -s "$name" -c "$dir" "$claude_bin" -n "$name" "$prompt"
+  else
+    ht new-session -d -s "$name" -c "$dir" "$claude_bin" -n "$name"
+  fi
+  echo "cc-spawn: $name started in $dir (hive)"
+  exit 0
+fi
+
+# Arguments via argv instead of interpolation; quoted form guards against special characters in path or task
+osascript - "$dir" "$name" "$prompt" <<'EOF' >/dev/null
+on run argv
+  set d to item 1 of argv
+  set n to item 2 of argv
+  set p to item 3 of argv
+  set cmd to "cd " & quoted form of d & " && claude -n " & quoted form of n
+  if p is not "" then set cmd to cmd & " " & quoted form of p
+  tell application "iTerm2"
+    if (count of windows) = 0 then
+      set w to (create window with default profile)
+    else
+      set w to current window
+      tell w to create tab with default profile
+    end if
+    tell current session of w to write text cmd
+  end tell
+end run
+EOF
+echo "cc-spawn: $name started in $dir"

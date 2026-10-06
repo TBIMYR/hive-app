@@ -1,0 +1,138 @@
+#!/bin/sh
+# cc-task — write the task line and handover file of a Claude Code session.
+#
+#   cc-task [--name NAME] [--detail TEXT] [--body FILE] [--archive] [--no-create] "TASK" [STATE]
+#
+# TASK: the topic, at most 4 words / 40 characters. TEXT: optional subline with more context,
+# at most 120 characters; every call replaces it (without --detail it is cleared).
+#
+# STATE: working | blocked | waiting | done | handover (if omitted: previous value, otherwise working)
+# Environment: CC_HOME (default ~/.claude), CC_DEV_ROOT (default ~/Development), CLAUDE_PID
+set -eu
+
+home="${CC_HOME:-$HOME/.claude}"
+dev_root="${CC_DEV_ROOT:-$HOME/Development}"
+name=""; detail=""; body_file=""; archive=0; nocreate=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --name) name="$2"; shift 2 ;;
+    --detail) detail="$2"; shift 2 ;;
+    --body) body_file="$2"; shift 2 ;;
+    --archive) archive=1; shift ;;
+    --no-create) nocreate=1; shift ;;
+    --) shift; break ;;
+    -*) echo "cc-task: unknown option $1" >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+
+task="${1:-}"; state_arg="${2:-}"
+if [ -z "$task" ]; then
+  echo "usage: cc-task [--name NAME] [--detail TEXT] [--body FILE] [--archive] [--no-create] \"TASK\" [STATE]" >&2
+  exit 2
+fi
+task=$(printf '%s' "$task" | tr '\n\r' '  ')
+
+# The task line is the topic only (dashboard label); details belong in the handover body.
+words=$(printf '%s' "$task" | wc -w | tr -d ' ')
+chars=$(printf '%s' "$task" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' ')
+if [ "$words" -gt 4 ] || [ "$chars" -gt 40 ]; then
+  echo "cc-task: task line too long ($words words, $chars characters). Name only the topic in at most 4 words / 40 characters, e.g. \"Android app\" or \"New iPhone build\"; when waiting, add who in brackets, e.g. \"Release (lu.pm)\". More context goes into --detail \"…\" (one line, at most 120 characters)." >&2
+  exit 2
+fi
+detail=$(printf '%s' "$detail" | tr '\n\r' '  ')
+dchars=$(printf '%s' "$detail" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' ')
+if [ "$dchars" -gt 120 ]; then
+  echo "cc-task: detail too long ($dchars characters, at most 120). One line of context; more belongs in the handover body." >&2
+  exit 2
+fi
+
+# --- Name and registry ---------------------------------------------------
+reg=""
+if [ -z "$name" ]; then
+  if [ -n "${CLAUDE_PID:-}" ] && [ -f "$home/sessions/$CLAUDE_PID.json" ]; then
+    reg="$home/sessions/$CLAUDE_PID.json"
+    name=$(jq -r '.name // empty' "$reg" 2>/dev/null || true)
+  fi
+  if [ -z "$name" ]; then
+    echo "cc-task: session name unknown. Start the session with 'claude -n <name>' or pass --name." >&2
+    exit 1
+  fi
+else
+  for f in "$home"/sessions/*.json; do
+    [ -f "$f" ] || continue
+    if [ "$(jq -r '.name // empty' "$f" 2>/dev/null)" = "$name" ]; then reg="$f"; break; fi
+  done
+fi
+
+case "$name" in
+  *[!A-Za-z0-9._#-]*|*..*) echo "cc-task: invalid name '$name'" >&2; exit 2 ;;
+esac
+
+project_from_cwd() {
+  case "$1" in
+    "$dev_root"/*) rest="${1#"$dev_root"/}"; printf '%s' "${rest%%/*}" ;;
+    "") printf '' ;;
+    *) basename "$1" ;;
+  esac
+}
+project_reg=""
+if [ -n "$reg" ]; then
+  project_reg=$(project_from_cwd "$(jq -r '.cwd // empty' "$reg" 2>/dev/null)")
+fi
+
+# --- File ------------------------------------------------------------------
+dir="$home/handover"
+file="$dir/$name.md"
+mkdir -p "$dir"
+
+fm_end=0; old_state=""; old_project=""
+if [ -f "$file" ]; then
+  fm_end=$(awk 'NR==1 && $0!="---" {print 0; exit} NR>1 && $0=="---" {print NR; exit}' "$file")
+  fm_end="${fm_end:-0}"
+  if [ "$fm_end" -gt 0 ]; then
+    old_state=$(awk -v n="$fm_end" 'NR>1 && NR<n && index($0,"state: ")==1 {print substr($0,8); exit}' "$file")
+    old_project=$(awk -v n="$fm_end" 'NR>1 && NR<n && index($0,"project: ")==1 {print substr($0,10); exit}' "$file")
+  fi
+elif [ "$nocreate" -eq 1 ]; then
+  exit 0
+fi
+
+state="$state_arg"
+[ -n "$state" ] || state="$old_state"
+[ -n "$state" ] || state="working"
+project="$old_project"
+[ -n "$project" ] || project="$project_reg"
+
+d=$(date +%Y-%m-%dT%H:%M:%S%z)
+updated="${d%??}:${d#"${d%??}"}"
+
+if [ "$archive" -eq 1 ] && [ -f "$file" ]; then
+  mkdir -p "$dir/archive/$name"
+  cp "$file" "$dir/archive/$name/$(date +%Y-%m-%dT%H-%M).md"
+fi
+
+tmp=$(mktemp "$dir/.cc-task.XXXXXX")
+{
+  # printf instead of echo: /bin/sh on macOS interprets backslash sequences in echo
+  printf '%s\n' "---"
+  printf 'session: %s\n' "$name"
+  printf 'project: %s\n' "$project"
+  printf 'task: %s\n' "$task"
+  [ -z "$detail" ] || printf 'detail: %s\n' "$detail"
+  printf 'state: %s\n' "$state"
+  printf 'updated: %s\n' "$updated"
+  if [ "$fm_end" -gt 0 ]; then
+    awk -v n="$fm_end" 'NR>1 && NR<n && $0 !~ /^(session|project|task|detail|state|updated): / {print}' "$file"
+  fi
+  printf '%s\n' "---"
+  if [ -n "$body_file" ]; then
+    cat "$body_file"
+  elif [ -f "$file" ]; then
+    tail -n +"$((fm_end + 1))" "$file"
+  else
+    printf '# Handover %s\n\n## Lage\n\n## Offen\n\n## Regeln und Lehren\n' "$name"
+  fi
+} > "$tmp"
+mv "$tmp" "$file"
