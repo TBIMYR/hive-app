@@ -146,23 +146,25 @@ extension View {
 struct BackgroundBadge: View {
     let count: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var turning = false
 
     var body: some View {
         if count > 0 {
             let help = count == 1 ? "1 background task running" : "\(count) background tasks running"
             HStack(spacing: 4) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 11, weight: .bold))
-                    .rotationEffect(.degrees(turning ? 360 : 0))
-                    .animation(reduceMotion ? nil : .linear(duration: 2).repeatForever(autoreverses: false), value: turning)
+                // angle from the clock instead of a repeating animation: such an animation also picks up
+                // layout moves of the card and lets the icon drift
+                TimelineView(.animation(paused: reduceMotion)) { t in
+                    let turn = t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) / 2
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 11, weight: .bold))
+                        .rotationEffect(.degrees(reduceMotion ? 0 : turn * 360))
+                }
                 Text("\(count)").font(.system(size: 12, weight: .semibold)).monospacedDigit()
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(Capsule().fill(Hive.busy))
             .fixedSize()
-            .onAppear { turning = true }
             .help(help)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(help)
