@@ -128,8 +128,12 @@ struct Tile: View {
                 Text(session.task?.text ?? "No task line")
                     .font(.system(size: 15, weight: session.task?.text == nil || outdated ? .medium : .semibold))
                     .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
-                    .lineLimit(2, reservesSpace: true)
+                    .lineLimit(2, reservesSpace: session.task?.detail == nil)
                     .padding(.top, 14)
+                if let detail = session.task?.detail {
+                    Text(detail).font(.system(size: 13)).foregroundStyle(Hive.muted).lineLimit(2)
+                        .padding(.top, 3)
+                }
 
                 // always two lines high, so plain cards are equally tall; without a "Now" line the reason (if any)
                 // in the status color

@@ -3,6 +3,8 @@ import Foundation
 public struct HandoverEntry: Equatable, Sendable {
     public let name: String
     public var task: String? = nil
+    /// One line under the task (`cc-task --detail`): what exactly is going on
+    public var detail: String? = nil
     public var state: String? = nil
     public var updatedAt: String? = nil
     public var project: String? = nil
@@ -37,6 +39,7 @@ public enum Handover {
             do {
                 let fields = parseFrontmatter(try readUTF8("\(dir)/\(f)")).fields
                 e.task = fields["task"].nonEmpty
+                e.detail = fields["detail"].nonEmpty
                 e.state = fields["state"].nonEmpty
                 e.updatedAt = fields["updated"].nonEmpty
                 e.project = fields["project"].nonEmpty

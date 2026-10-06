@@ -4,13 +4,16 @@ import Foundation
 public struct Session: Codable, Equatable, Identifiable, Sendable {
     public struct TaskLine: Codable, Equatable, Sendable {
         public let text: String
+        /// line under the task, from the handover's `detail:` (optional)
+        public var detail: String? = nil
         public let state: String?
         public let updatedAt: String?
         /// working, but the task line is older than an hour
         public let stale: Bool
 
-        public init(text: String, state: String?, updatedAt: String?, stale: Bool) {
+        public init(text: String, detail: String? = nil, state: String?, updatedAt: String?, stale: Bool) {
             self.text = text
+            self.detail = detail
             self.state = state
             self.updatedAt = updatedAt
             self.stale = stale
@@ -173,7 +176,7 @@ public enum StateBuilder {
         guard let h, let text = h.task else { return nil }
         let updated = h.updatedAt.flatMap(parseISO)
         let stale = status == "busy" && (updated.map { now.timeIntervalSince($0) > staleAfter } ?? true)
-        return Session.TaskLine(text: text, state: h.state, updatedAt: h.updatedAt, stale: stale)
+        return Session.TaskLine(text: text, detail: h.detail, state: h.state, updatedAt: h.updatedAt, stale: stale)
     }
 
     /// Truncates to 600 UTF-16 units like text.slice(0, 600) in JS.

@@ -62,3 +62,18 @@ import Testing
     #expect(throws: (any Error).self) { try Handover.archive("../x", dir: dir) }
     #expect(throws: (any Error).self) { try Handover.archive("lu.02", dir: dir) }
 }
+
+@Test func detailIsReadAndPassedToTheTaskLine() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(atPath: dir) }
+    try "---\nsession: lu.01\ntask: Android app\ndetail: Enter the FCM key, then test build 214\nstate: working\n---\n"
+        .write(toFile: "\(dir)/lu.01.md", atomically: true, encoding: .utf8)
+    try "---\nsession: or.01\ntask: Release\n---\n".write(toFile: "\(dir)/or.01.md", atomically: true, encoding: .utf8)
+    let m = Handover.readDir(dir)
+    #expect(m["lu.01"]?.detail == "Enter the FCM key, then test build 214")
+    #expect(m["or.01"]?.detail == nil)
+    let line = StateBuilder.taskOf(m["lu.01"], status: "busy", now: Date())
+    #expect(line?.text == "Android app")
+    #expect(line?.detail == "Enter the FCM key, then test build 214")
+}

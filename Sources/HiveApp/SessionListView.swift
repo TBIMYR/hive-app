@@ -146,7 +146,10 @@ struct SessionRow: View {
             .frame(width: 210, alignment: .leading)
             HStack(spacing: 6) {
                 Circle().fill(item.color).frame(width: 6, height: 6)
+                // the detail follows the task in gray, as far as the row has room
+                let detail = now == nil && task != nil ? item.session.task?.detail : nil
                 Text(now ?? task ?? "No task line").foregroundStyle(now == nil && task == nil ? Hive.muted : Hive.ink2)
+                    + Text(detail.map { "  \($0)" } ?? "").foregroundStyle(Hive.muted)
             }
             .help(item.project)
             .frame(maxWidth: .infinity, alignment: .leading)

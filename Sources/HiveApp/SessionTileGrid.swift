@@ -88,6 +88,13 @@ struct SmallTile: View {
                         Text(now.detail ?? " ").font(.hiveMono(11.5)).foregroundStyle(Hive.muted).truncationMode(.middle)
                     }
                     .lineLimit(1)
+                } else if !loud, let task, let detail = item.session.task?.detail {
+                    // topic, below it the detail small and gray; together two lines like a plain task
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(task).font(.system(size: 13)).foregroundStyle(Hive.ink2)
+                        Text(detail).font(.system(size: 11.5)).foregroundStyle(Hive.muted)
+                    }
+                    .lineLimit(1)
                 } else {
                     Text(text)
                         .font(.system(size: 13))
