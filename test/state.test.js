@@ -34,6 +34,7 @@ test('transcript fields and handover are joined', () => {
   const w = build().sessions.find(x => x.name === 'lu.01');
   assert.equal(w.hasHandover, true);
   assert.equal(w.task.state, 'working');
+  assert.equal(w.task.detail, 'grid done, list view next');
   assert.equal(w.lastAssistant, null, 'no transcript for sid-102 → null, no error');
 });
 

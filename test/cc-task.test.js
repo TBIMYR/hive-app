@@ -116,3 +116,22 @@ test('short task lines pass, umlauts count as one character', () => {
     assert.equal(run(home, [ok]).status, 0, ok);
   }
 });
+
+test('--detail writes a detail line; the next call without --detail clears it', () => {
+  const home = setup();
+  let r = run(home, ['--detail', 'enter the FCM key\nfor prod, then test build 214', 'Android app']);
+  assert.equal(r.status, 0, r.stderr);
+  let { fields } = parseFrontmatter(read(home));
+  assert.equal(fields.task, 'Android app');
+  assert.equal(fields.detail, 'enter the FCM key for prod, then test build 214');
+  r = run(home, ['Android app', 'done']);
+  ({ fields } = parseFrontmatter(read(home)));
+  assert.equal(fields.detail, undefined);
+});
+
+test('--detail longer than 120 characters → exit 2', () => {
+  const home = setup();
+  const r = run(home, ['--detail', 'x'.repeat(121), 'Android app']);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /detail/);
+});

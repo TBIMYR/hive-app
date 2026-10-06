@@ -5,7 +5,7 @@ description: Sets this session's task line for the session dashboard. Only when 
 
 Run exactly one Bash call, nothing else:
 
-    ~/.claude/bin/cc-task "<topic only, at most 4 words / 40 characters, e.g. \"Android app\">" <state>
+    ~/.claude/bin/cc-task [--detail "<optional: one line of context, at most 120 characters>"] "<topic only, at most 4 words / 40 characters, e.g. \"Android app\">" <state>
 
 `state` is `working` (task in progress), `blocked` (cannot continue without a decision or approval from the user), `waiting` (own work done, only waiting for feedback from a person or another session; name who in brackets, e.g. "Release (lu.pm)") or `done` (task finished, waiting for the next one).
 

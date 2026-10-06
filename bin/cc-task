@@ -1,7 +1,10 @@
 #!/bin/sh
 # cc-task — write the task line and handover file of a Claude Code session.
 #
-#   cc-task [--name NAME] [--body FILE] [--archive] [--no-create] "TASK" [STATE]
+#   cc-task [--name NAME] [--detail TEXT] [--body FILE] [--archive] [--no-create] "TASK" [STATE]
+#
+# TASK: the topic, at most 4 words / 40 characters. TEXT: optional subline with more context,
+# at most 120 characters; every call replaces it (without --detail it is cleared).
 #
 # STATE: working | blocked | waiting | done | handover (if omitted: previous value, otherwise working)
 # Environment: CC_HOME (default ~/.claude), CC_DEV_ROOT (default ~/Development), CLAUDE_PID
@@ -9,11 +12,12 @@ set -eu
 
 home="${CC_HOME:-$HOME/.claude}"
 dev_root="${CC_DEV_ROOT:-$HOME/Development}"
-name=""; body_file=""; archive=0; nocreate=0
+name=""; detail=""; body_file=""; archive=0; nocreate=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) name="$2"; shift 2 ;;
+    --detail) detail="$2"; shift 2 ;;
     --body) body_file="$2"; shift 2 ;;
     --archive) archive=1; shift ;;
     --no-create) nocreate=1; shift ;;
@@ -25,7 +29,7 @@ done
 
 task="${1:-}"; state_arg="${2:-}"
 if [ -z "$task" ]; then
-  echo "usage: cc-task [--name NAME] [--body FILE] [--archive] [--no-create] \"TASK\" [STATE]" >&2
+  echo "usage: cc-task [--name NAME] [--detail TEXT] [--body FILE] [--archive] [--no-create] \"TASK\" [STATE]" >&2
   exit 2
 fi
 task=$(printf '%s' "$task" | tr '\n\r' '  ')
@@ -34,7 +38,13 @@ task=$(printf '%s' "$task" | tr '\n\r' '  ')
 words=$(printf '%s' "$task" | wc -w | tr -d ' ')
 chars=$(printf '%s' "$task" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' ')
 if [ "$words" -gt 4 ] || [ "$chars" -gt 40 ]; then
-  echo "cc-task: task line too long ($words words, $chars characters). Name only the topic in at most 4 words / 40 characters, e.g. \"Android app\" or \"New iPhone build\"; when waiting, add who in brackets, e.g. \"Release (lu.pm)\". Details belong in the handover body." >&2
+  echo "cc-task: task line too long ($words words, $chars characters). Name only the topic in at most 4 words / 40 characters, e.g. \"Android app\" or \"New iPhone build\"; when waiting, add who in brackets, e.g. \"Release (lu.pm)\". More context goes into --detail \"…\" (one line, at most 120 characters)." >&2
+  exit 2
+fi
+detail=$(printf '%s' "$detail" | tr '\n\r' '  ')
+dchars=$(printf '%s' "$detail" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' ')
+if [ "$dchars" -gt 120 ]; then
+  echo "cc-task: detail too long ($dchars characters, at most 120). One line of context; more belongs in the handover body." >&2
   exit 2
 fi
 
@@ -110,10 +120,11 @@ tmp=$(mktemp "$dir/.cc-task.XXXXXX")
   printf 'session: %s\n' "$name"
   printf 'project: %s\n' "$project"
   printf 'task: %s\n' "$task"
+  [ -z "$detail" ] || printf 'detail: %s\n' "$detail"
   printf 'state: %s\n' "$state"
   printf 'updated: %s\n' "$updated"
   if [ "$fm_end" -gt 0 ]; then
-    awk -v n="$fm_end" 'NR>1 && NR<n && $0 !~ /^(session|project|task|state|updated): / {print}' "$file"
+    awk -v n="$fm_end" 'NR>1 && NR<n && $0 !~ /^(session|project|task|detail|state|updated): / {print}' "$file"
   fi
   printf '%s\n' "---"
   if [ -n "$body_file" ]; then

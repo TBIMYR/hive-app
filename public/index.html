@@ -151,6 +151,7 @@
   .st.waiting { border-color: var(--wait); color: var(--wait); }
   .st.handover { border-color: var(--ink); color: var(--ink); }
   .task { font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: -.005em; overflow-wrap: anywhere; }
+  .task-detail { font-size: 13px; color: var(--muted); line-height: 1.4; margin-top: 2px; overflow-wrap: anywhere; }
   .task.none { color: var(--muted); font-weight: 400; font-style: italic; font-size: 14px; }
   .last { font-size: 14px; line-height: 1.55; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere;
           display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -309,7 +310,7 @@
     if (k.rank === 3 && !f.offline) return false;
     if (f.only !== null && k.rank !== f.only) return false;
     if (f.q) {
-      const hay = [s.name, s.project, s.task?.text, s.lastAssistant?.text, s.branch].join(' ').toLowerCase();
+      const hay = [s.name, s.project, s.task?.text, s.task?.detail, s.lastAssistant?.text, s.branch].join(' ').toLowerCase();
       if (!hay.includes(f.q.toLowerCase())) return false;
     }
     return true;
@@ -334,7 +335,7 @@
     if (!s.task) return `<div><div class="lbl">Task</div><div class="task none">no task line yet</div></div>`;
     const st = s.task.state || '';
     const old = s.task.stale ? '<span class="st" title="Task line not updated for over 60 min">older than 1 h</span>' : '';
-    return `<div><div class="lbl">Task${st ? `<span class="st ${esc(st)}">${esc(STATE_LABEL[st] || st)}</span>` : ''}${old}</div><div class="task">${esc(s.task.text)}</div></div>`;
+    return `<div><div class="lbl">Task${st ? `<span class="st ${esc(st)}">${esc(STATE_LABEL[st] || st)}</span>` : ''}${old}</div><div class="task">${esc(s.task.text)}</div>${s.task.detail ? `<div class="task-detail">${esc(s.task.detail)}</div>` : ''}</div>`;
   }
   const canJump = s => s.alive && s.pid && s.kind !== 'bg';
 

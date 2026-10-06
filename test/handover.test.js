@@ -27,6 +27,7 @@ test('readHandoverDir: map by name', () => {
   const m = readHandoverDir(DIR);
   const e = m.get('lu.01');
   assert.equal(e.task, 'Kalender-Ansicht Layout #41, PR offen');
+  assert.equal(e.detail, 'grid done, list view next');
   assert.equal(e.state, 'working');
   assert.equal(e.updatedAt, '2026-09-30T16:09:00+02:00');
   assert.equal(e.project, 'lumen');
