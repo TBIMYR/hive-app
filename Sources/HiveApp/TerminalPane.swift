@@ -132,25 +132,38 @@ final class HiveTerminalView: LocalProcessTerminalView {
 
     private var keyMonitor: Any?
 
-    /// Shift+Return types a new line like Option+Return: ESC + CR, which Claude Code reads as a line break
-    /// (plain CR would send the message). SwiftTerm's keyDown can't be overridden, so a local monitor
-    /// catches it while this terminal has the focus.
-    private func watchShiftReturn() {
+    /// Option is not Meta here (`optionAsMetaKey = false`), so Option+L types "@" and the other characters
+    /// of the keyboard layout. The few Meta combinations that matter are sent by hand: Shift/Option+Return
+    /// = ESC CR (new line in Claude Code; plain CR would send the message), Option+←/→ = word jump,
+    /// Option+Delete = delete word. SwiftTerm's keyDown can't be overridden, so a local monitor catches
+    /// them while this terminal has the focus.
+    private func watchMetaKeys() {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
         guard window != nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             guard let self, e.window === self.window, self.window?.firstResponder === self,
-                  e.keyCode == 36 || e.keyCode == 76,
-                  e.modifierFlags.intersection([.shift, .control, .option, .command]) == .shift else { return e }
-            self.send(txt: "\u{1B}\r")
+                  let seq = Self.metaSequence(keyCode: e.keyCode,
+                                              modifiers: e.modifierFlags.intersection([.shift, .control, .option, .command]))
+            else { return e }
+            self.send(txt: seq)
             return nil
+        }
+    }
+
+    static func metaSequence(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> String? {
+        switch (keyCode, modifiers) {
+        case (36, .shift), (76, .shift), (36, .option), (76, .option): "\u{1B}\r"
+        case (123, .option): "\u{1B}b"
+        case (124, .option): "\u{1B}f"
+        case (51, .option): "\u{1B}\u{7F}"
+        default: nil
         }
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        watchShiftReturn()
+        watchMetaKeys()
         // drag files and images in like in iTerm: the path gets typed (Claude then attaches images)
         registerForDraggedTypes([.fileURL, .png, .tiff])
         takeFocusIfWanted()
@@ -216,6 +229,8 @@ struct TmuxTerminal: NSViewRepresentable {
             ? NSFont.systemFont(ofSize: 13)
             : NSFont(name: "MesloLGS-NF-Regular", size: 13) ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
         view.fontSmoothing = false
+        // Option types the layout's characters (Option+L = @ on German keyboards); Meta keys: watchMetaKeys
+        view.optionAsMetaKey = false
         view.getTerminal().setCursorStyle(.steadyBar)
         applyColors(view)
         hideScroller(view)
