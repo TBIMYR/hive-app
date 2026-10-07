@@ -15,15 +15,16 @@ public enum SessionOrder {
     /// First by rank (0 needs you … 3 offline). Rank 0: whoever has waited longest comes first (missing time first),
     /// then name. Otherwise: most recent activity first (none last), then name.
     /// Generic over the item type so the app can sort its pairs of session and status (with color) directly.
+    /// `activity` overrides the last activity per name (see ActivitySnapshot); missing names use their own.
     public static func sorted<T>(_ items: [T], session: (T) -> Session, status: (T) -> SessionStatus,
-                                 labels: [String: String]) -> [T] {
+                                 labels: [String: String], activity: [String: Date]? = nil) -> [T] {
         items.sorted { a, b in
-            before(session(a), status(a), session(b), status(b), labels: labels)
+            before(session(a), status(a), session(b), status(b), labels: labels, activity: activity)
         }
     }
 
     static func before(_ a: Session, _ sa: SessionStatus, _ b: Session, _ sb: SessionStatus,
-                       labels: [String: String]) -> Bool {
+                       labels: [String: String], activity: [String: Date]? = nil) -> Bool {
         if sa.rank != sb.rank { return sa.rank < sb.rank }
         if sa.rank == 0 {
             let ta = a.statusUpdatedAt.flatMap(parseISO) ?? .distantPast
@@ -31,7 +32,8 @@ public enum SessionOrder {
             if ta != tb { return ta < tb }
             return a.name < b.name
         }
-        let ta = a.lastActivity ?? .distantPast, tb = b.lastActivity ?? .distantPast
+        let ta = activity?[a.name] ?? a.lastActivity ?? .distantPast
+        let tb = activity?[b.name] ?? b.lastActivity ?? .distantPast
         if ta != tb { return ta > tb }
         return a.name < b.name
     }

@@ -121,7 +121,7 @@ struct OverviewView: View {
                          since: s.alive ? dur(s.statusUpdatedAt, now: now) : "", isFavorite: store.isFavorite(s.name))
         }
         let sorted = SessionOrder.sorted(store.displaySessions.map(item), session: { $0.session },
-                                         status: { $0.status.core }, labels: labels)
+                                         status: { $0.status.core }, labels: labels, activity: store.sortActivity.times)
         let parts = Favorites.split(sorted, favorites: store.favorites, name: \.name)
         let shown = shownOrder(favorites: parts.favorites, rest: parts.rest)
         nav.order = shown.map(\.name)

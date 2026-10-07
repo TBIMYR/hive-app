@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import HiveCore
 
@@ -59,4 +60,32 @@ private func order(_ items: [Session], labels: [String: String] = [:]) -> [Strin
 
 @Test func sameActivitySortedByName() {
     #expect(order([s("al.02"), s("al.01")]) == ["al.01", "al.02"])
+}
+
+// MARK: Calm order
+
+private func active(_ name: String, at: String) -> Session { s(name, "busy", at: at) }
+
+@Test func frozenActivityKeepsTheOrderUntilTheNextSnapshot() {
+    var snap = ActivitySnapshot()
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    snap.update([active("a", at: "2026-10-03T10:05:00Z"), active("b", at: "2026-10-03T10:00:00Z")], now: t0, every: 60)
+    // b becomes the most recent 10 s later: the order stays until 60 s have passed
+    let later = [active("a", at: "2026-10-03T10:05:00Z"), active("b", at: "2026-10-03T10:09:00Z")]
+    snap.update(later, now: t0.addingTimeInterval(10), every: 60)
+    let o1 = SessionOrder.sorted(later, session: { $0 }, status: { SessionStatus($0) }, labels: [:], activity: snap.times)
+    #expect(o1.map(\.name) == ["a", "b"])
+    snap.update(later, now: t0.addingTimeInterval(60), every: 60)
+    let o2 = SessionOrder.sorted(later, session: { $0 }, status: { SessionStatus($0) }, labels: [:], activity: snap.times)
+    #expect(o2.map(\.name) == ["b", "a"])
+}
+
+@Test func newSessionsJoinTheSnapshotRightAway() {
+    var snap = ActivitySnapshot()
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    snap.update([active("a", at: "2026-10-03T10:05:00Z")], now: t0, every: 60)
+    snap.update([active("a", at: "2026-10-03T10:05:00Z"), active("c", at: "2026-10-03T10:07:00Z")],
+                now: t0.addingTimeInterval(5), every: 60)
+    #expect(snap.times["c"] != nil)
+    #expect(snap.takenAt == t0)
 }

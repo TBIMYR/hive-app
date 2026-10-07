@@ -40,6 +40,9 @@ final class StateStore: ObservableObject {
     @Published private(set) var error: String?
     /// Per-second tick for "x min ago", even when the data doesn't change
     @Published private(set) var now = Date()
+    /// Activity the overview sorts by, retaken once a minute so tiles don't jump on every work step
+    @Published private(set) var sortActivity = ActivitySnapshot()
+    static let resortEvery: TimeInterval = 60
     /// Running tmux sessions with their command and pane IDs (fetched once per query)
     @Published private(set) var tmuxPanes = Tmux.Panes()
     /// Session `id` → its tmux session (see TmuxMatch)
@@ -116,6 +119,9 @@ final class StateStore: ObservableObject {
             notifier.update(needs, selected: selected)
             updateSleepGuard()
             now = Date()
+            var snap = sortActivity
+            snap.update(sessions, now: now, every: Self.resortEvery)
+            if snap != sortActivity { sortActivity = snap }
         } while again
         refreshing = false
     }
