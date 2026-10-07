@@ -44,6 +44,8 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public let hasHandover: Bool
     /// background agents and shell commands still running (from the transcript tail); not in the Node server
     public let backgroundTasks: Int
+    /// Remote Control is connected (registry `bridgeSessionId`)
+    public let remoteControl: Bool
     /// read errors for this session (handover), for a hint in the card
     public let errors: [String]
 
@@ -56,7 +58,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
                 waitingFor: String? = nil, statusUpdatedAt: String? = nil, branch: String? = nil,
                 lastAssistant: Said? = nil, lastUser: Said? = nil, task: TaskLine? = nil,
                 lastAction: WorkAction? = nil, lastSentence: String? = nil, hasHandover: Bool = false, backgroundTasks: Int = 0,
-                errors: [String] = []) {
+                remoteControl: Bool = false, errors: [String] = []) {
         self.name = name
         self.project = project
         self.group = group
@@ -77,6 +79,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
         self.lastSentence = lastSentence
         self.hasHandover = hasHandover
         self.backgroundTasks = backgroundTasks
+        self.remoteControl = remoteControl
         self.errors = errors
     }
 
@@ -99,6 +102,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
             lastSentence: try c.decodeIfPresent(String.self, forKey: .lastSentence),
             hasHandover: try c.decode(Bool.self, forKey: .hasHandover),
             backgroundTasks: try c.decodeIfPresent(Int.self, forKey: .backgroundTasks) ?? 0,
+            remoteControl: try c.decodeIfPresent(Bool.self, forKey: .remoteControl) ?? false,
             errors: try c.decode([String].self, forKey: .errors))
     }
 }
@@ -143,7 +147,7 @@ public enum StateBuilder {
                 waitingFor: e.waitingFor, statusUpdatedAt: e.statusUpdatedAt, branch: tail.branch,
                 lastAssistant: clip(tail.lastAssistant), lastUser: clip(tail.lastUser),
                 task: taskOf(h, status: status, now: now), lastAction: tail.lastAction, lastSentence: tail.lastSentence,
-                hasHandover: h != nil, backgroundTasks: background,
+                hasHandover: h != nil, backgroundTasks: background, remoteControl: e.alive && e.remoteControl,
                 errors: h?.error.map { ["handover: \($0)"] } ?? []
             ))
             seen.insert(e.name)

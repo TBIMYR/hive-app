@@ -256,7 +256,17 @@ final class StateStore: ObservableObject {
     func writeHandover(_ s: Session) { typeCommand("/handover", into: s) }
 
     /// "Remote Control" menu item: `/remote-control` + Enter, so the session can be continued on claude.ai or the phone.
-    func remoteControl(_ s: Session) { typeCommand("/remote-control", into: s) }
+    /// While it is connected, the item ends it instead.
+    func remoteControl(_ s: Session) {
+        guard s.remoteControl else { return typeCommand("/remote-control", into: s) }
+        guard let t = tmux(s) else { return }
+        Task {
+            if let e = await Task.detached(operation: { Tmux.endRemoteControl(in: t) }).value {
+                notice = "\(s.name): \(e)"
+            }
+            refreshSoon()
+        }
+    }
 
     private func typeCommand(_ command: String, into s: Session) {
         guard let t = tmux(s) else { return }

@@ -68,7 +68,9 @@ struct SessionMenu: View {
             if !session.alive {
                 item("Wake Up", "power") { store.wakeUp(session) }
             }
-            item("Remote Control", "iphone.radiowaves.left.and.right", disabled: notInHive) { store.remoteControl(session) }
+            item(session.remoteControl ? "End Remote Control" : "Remote Control",
+                 session.remoteControl ? "iphone.slash" : "iphone.radiowaves.left.and.right",
+                 disabled: notInHive) { store.remoteControl(session) }
             item("Write Handover", "doc.text", disabled: notInHive) { store.writeHandover(session) }
             separator
             let fav = store.isFavorite(session.name)

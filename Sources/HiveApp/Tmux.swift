@@ -94,6 +94,20 @@ enum Tmux {
         return e.status == 0 ? nil : failure(e)
     }
 
+    /// Ends Remote Control: `/remote-control` opens Claude Code's dialog with "Disconnect this session"
+    /// preselected; once it is on screen, Enter confirms it. Blocks up to ~3 s, don't call it on the
+    /// main thread. Returns an error message or nil.
+    static func endRemoteControl(in name: String) -> String? {
+        if let e = type("/remote-control", into: name) { return e }
+        for _ in 0..<15 {
+            Thread.sleep(forTimeInterval: 0.2)
+            guard let screen = capture(name), screen.contains("Disconnect this session") else { continue }
+            let e = run(SessionControl.keyArgs("Enter", into: name))
+            return e.status == 0 ? nil : failure(e)
+        }
+        return "Remote Control dialog didn't appear – check the terminal"
+    }
+
     /// The session's screen as text, nil on error.
     static func capture(_ name: String) -> String? {
         let r = run(SessionControl.captureArgs(name))

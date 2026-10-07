@@ -27,6 +27,8 @@ private func entry(pid: Int, _ r: (entries: [RegistryEntry], errors: [String])) 
     #expect(pm?.alive == true)
     #expect(pm?.statusUpdatedAt == "1970-01-01T00:00:05.000Z")
     #expect(entry(pid: 101, r)?.waitingFor == "input needed")
+    #expect(pm?.remoteControl == false)
+    #expect(entry(pid: 101, r)?.remoteControl == true)
 }
 
 @Test func standbyProcessesAreNotSessions() {

@@ -16,6 +16,8 @@ public struct RegistryEntry: Equatable, Sendable {
     /// Background session: its job; window: which job it handed its conversation over to
     public let jobId: String?
     public let parkedJobId: String?
+    /// Remote Control is on (the registry carries a `bridgeSessionId` while it is connected)
+    public var remoteControl: Bool = false
 }
 
 /// Reads the Claude registry ~/.claude/sessions/*.json like hive/lib/registry.js.
@@ -58,7 +60,8 @@ public enum Registry {
                     statusUpdatedAt: number(updated).map { isoString(ms: $0) },
                     alive: isAlive(pid),
                     jobId: string(j["jobId"]),
-                    parkedJobId: string(j["parkedJobId"])
+                    parkedJobId: string(j["parkedJobId"]),
+                    remoteControl: string(j["bridgeSessionId"]) != nil
                 ))
             } catch {
                 errors.append("\(f): \(error.localizedDescription)")
@@ -74,6 +77,7 @@ public enum Registry {
             entries[i].status = entries[k].status
             entries[i].waitingFor = entries[k].waitingFor
             entries[i].statusUpdatedAt = entries[k].statusUpdatedAt
+            entries[i].remoteControl = entries[i].remoteControl || entries[k].remoteControl
             parked.insert(k)
         }
         entries = entries.enumerated().filter { !parked.contains($0.offset) }.map(\.element)
