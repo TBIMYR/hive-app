@@ -116,17 +116,18 @@ struct UsageButton: View {
 
     private func label(_ l: PlanLimits, now: Date) -> some View {
         var parts: [Text] = []
-        if let w = l.fiveHour { parts.append(part("5h", w, now: now)) }
-        if let w = l.sevenDay { parts.append(part("Week", w, now: now)) }
-        if parts.isEmpty, let s = l.scoped.first { parts.append(part(s.name, s.window, now: now)) }
+        if let w = l.fiveHour { parts.append(part("5h", w, length: PlanLimits.fiveHourLength, now: now)) }
+        if let w = l.sevenDay { parts.append(part("Week", w, length: PlanLimits.weekLength, now: now)) }
+        if parts.isEmpty, let s = l.scoped.first { parts.append(part(s.name, s.window, length: PlanLimits.weekLength, now: now)) }
         let joined = parts.dropFirst().reduce(parts.first ?? Text("")) { a, b in
             a + Text("  ·  ").foregroundColor(Hive.hair2) + b
         }
         return joined.font(.system(size: 12.5, weight: .medium)).monospacedDigit().lineLimit(1).fixedSize()
     }
 
-    private func part(_ name: String, _ w: PlanLimits.Window, now: Date) -> Text {
-        let main = Text("\(name) \(Int(w.percent.rounded()))%").foregroundColor(UsageFormat.level(w.percent).color)
+    private func part(_ name: String, _ w: PlanLimits.Window, length: TimeInterval, now: Date) -> Text {
+        var main = Text("\(name) \(Int(w.percent.rounded()))%").foregroundColor(UsageFormat.level(w.percent).color)
+        if let pace = w.pace(length: length, now: now) { main = main + Text(" ") + PaceArrow.text(pace) }
         guard let r = w.resetsAt else { return main }
         return main + Text(" (\(UsageFormat.countdown(r.timeIntervalSince(now))))")
             .font(.system(size: 11)).foregroundColor(Hive.muted)
@@ -145,9 +146,11 @@ struct UsagePopover: View {
         VStack(alignment: .leading, spacing: 16) {
             if let l = usage.current(now: now) {
                 VStack(alignment: .leading, spacing: 14) {
-                    if let w = l.fiveHour { LimitRow(title: "Session (5 hours)", window: w, now: now) }
-                    if let w = l.sevenDay { LimitRow(title: "Week", window: w, now: now) }
-                    ForEach(l.scoped, id: \.name) { s in LimitRow(title: "Week · \(s.name)", window: s.window, now: now) }
+                    if let w = l.fiveHour { LimitRow(title: "Session (5 hours)", window: w, length: PlanLimits.fiveHourLength, now: now) }
+                    if let w = l.sevenDay { LimitRow(title: "Week", window: w, length: PlanLimits.weekLength, now: now) }
+                    ForEach(l.scoped, id: \.name) { s in
+                        LimitRow(title: "Week · \(s.name)", window: s.window, length: PlanLimits.weekLength, now: now)
+                    }
                 }
                 Text(source(l, now: now)).font(.system(size: 11.5)).foregroundStyle(Hive.muted)
             }
@@ -284,9 +287,24 @@ private struct DayBars: View {
     }
 }
 
+/// ↘ green: lasts until the reset at the current pace; ↗ red: runs out before it.
+private enum PaceArrow {
+    static func text(_ pace: PlanLimits.Pace) -> Text {
+        Text(Image(systemName: pace.lasts ? "arrow.down.right" : "arrow.up.right"))
+            .font(.system(size: 10.5, weight: .bold))
+            .foregroundColor(pace.lasts ? Hive.busy : Hive.need)
+    }
+
+    static func sentence(_ pace: PlanLimits.Pace) -> String {
+        if let t = pace.runsOutIn { return t <= 0 ? "limit reached" : "runs out in \(UsageFormat.countdown(t)) at this pace" }
+        return "lasts · about \(Int(pace.projectedPercent.rounded())) % at the reset at this pace"
+    }
+}
+
 private struct LimitRow: View {
     let title: String
     let window: PlanLimits.Window
+    let length: TimeInterval
     let now: Date
 
     var body: some View {
@@ -310,6 +328,10 @@ private struct LimitRow: View {
             if let r = window.resetsAt {
                 Text("resets in \(UsageFormat.countdown(r.timeIntervalSince(now)))")
                     .font(.system(size: 11.5)).foregroundStyle(Hive.muted).monospacedDigit()
+            }
+            if let pace = window.pace(length: length, now: now) {
+                (PaceArrow.text(pace) + Text(" ") + Text(PaceArrow.sentence(pace)).foregroundColor(pace.lasts ? Hive.muted : Hive.need))
+                    .font(.system(size: 11.5)).monospacedDigit()
             }
         }
     }

@@ -126,3 +126,35 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
     #expect(UsageFormat.usd(38.4) == "$38")
     #expect(UsageFormat.usd(1240.2) == "$1,240")
 }
+
+// MARK: Pace
+
+@Test func paceProjectsLinearlyToTheReset() throws {
+    // 5h window, 2h left → 3h elapsed; 30 % used → 50 % at the reset
+    let w = PlanLimits.Window(percent: 30, resetsAt: at(1_800_007_200))
+    let p = try #require(w.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)))
+    #expect(abs(p.projectedPercent - 50) < 0.001)
+    #expect(p.lasts)
+    #expect(p.runsOutIn == nil)
+}
+
+@Test func paceSaysWhenItRunsOut() throws {
+    // 1h elapsed, 4h left, 40 % used → 200 % at the reset; 60 % left at 40 %/h → empty in 1.5h
+    let w = PlanLimits.Window(percent: 40, resetsAt: at(1_800_014_400))
+    let p = try #require(w.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)))
+    #expect(!p.lasts)
+    #expect(abs(try #require(p.runsOutIn) - 5400) < 0.001)
+}
+
+@Test func paceNeedsTenPercentOfTheWindowAndAResetTime() {
+    let early = PlanLimits.Window(percent: 5, resetsAt: at(1_800_000_000 + 18_000 - 1_000))
+    #expect(early.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)) == nil)
+    #expect(PlanLimits.Window(percent: 5, resetsAt: nil).pace(length: PlanLimits.fiveHourLength, now: at(0)) == nil)
+}
+
+@Test func paceAtTheLimitDoesNotLast() throws {
+    let w = PlanLimits.Window(percent: 100, resetsAt: at(1_800_003_600))
+    let p = try #require(w.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)))
+    #expect(!p.lasts)
+    #expect(p.runsOutIn == 0)
+}

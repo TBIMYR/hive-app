@@ -18,7 +18,31 @@ public struct PlanLimits: Equatable, Sendable {
             self.percent = percent
             self.resetsAt = resetsAt
         }
+
+        /// Linear projection at the pace so far in this window. nil without a reset time or while less
+        /// than a tenth of the window has passed (too early to say).
+        public func pace(length: TimeInterval, now: Date) -> Pace? {
+            guard let resetsAt else { return nil }
+            let elapsed = length - resetsAt.timeIntervalSince(now)
+            guard elapsed >= length / 10, elapsed <= length else { return nil }
+            let perSecond = percent / elapsed
+            let projected = perSecond * length
+            let runsOutIn: TimeInterval? = projected < 100 ? nil : (perSecond > 0 ? max(0, (100 - percent) / perSecond) : nil)
+            return Pace(projectedPercent: projected, runsOutIn: runsOutIn)
+        }
     }
+
+    public struct Pace: Equatable, Sendable {
+        /// where the window ends up at the reset if the pace stays the same
+        public let projectedPercent: Double
+        /// time until 100 % at this pace; nil if it lasts until the reset
+        public let runsOutIn: TimeInterval?
+
+        public var lasts: Bool { runsOutIn == nil }
+    }
+
+    public static let fiveHourLength: TimeInterval = 5 * 3600
+    public static let weekLength: TimeInterval = 7 * 86400
 
     /// Weekly limit for one model (from `limits[]` with `kind: weekly_scoped`)
     public struct Scoped: Equatable, Sendable {
