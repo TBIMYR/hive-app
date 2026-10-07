@@ -68,8 +68,7 @@ struct SessionMenu: View {
             if !session.alive {
                 item("Wake Up", "power") { store.wakeUp(session) }
             }
-            item(session.remoteControl ? "End Remote Control" : "Remote Control",
-                 session.remoteControl ? "iphone.slash" : "iphone.radiowaves.left.and.right",
+            item("Remote Control", "iphone.radiowaves.left.and.right", toggle: session.remoteControl,
                  disabled: notInHive) { store.remoteControl(session) }
             item("Write Handover", "doc.text", disabled: notInHive) { store.writeHandover(session) }
             separator
@@ -99,9 +98,9 @@ struct SessionMenu: View {
         Rectangle().fill(Hive.hair).frame(height: 1).padding(.horizontal, 8).padding(.vertical, 5)
     }
 
-    /// `disabled`: reason shown as help, nil = enabled
-    private func item(_ title: String, _ icon: String, destructive: Bool = false, disabled: String? = nil,
-                      action: @escaping () -> Void) -> some View {
+    /// `disabled`: reason shown as help, nil = enabled. `toggle`: shows a switch with this state on the right.
+    private func item(_ title: String, _ icon: String, destructive: Bool = false, toggle: Bool? = nil,
+                      disabled: String? = nil, action: @escaping () -> Void) -> some View {
         Button {
             dismiss()
             action()
@@ -110,11 +109,27 @@ struct SessionMenu: View {
                 Image(systemName: icon).frame(width: 16)
                 Text(title)
                 Spacer(minLength: 0)
+                if let on = toggle { MiniSwitch(on: on).padding(.leading, 12) }
             }
         }
         .buttonStyle(MenuItemStyle(destructive: destructive))
         .disabled(disabled != nil)
         .help(disabled ?? "")
+    }
+}
+
+/// Small switch for toggle rows (display only; the whole row is the button).
+private struct MiniSwitch: View {
+    let on: Bool
+
+    var body: some View {
+        Capsule()
+            .fill(on ? Hive.busy : Hive.hair2)
+            .frame(width: 26, height: 15)
+            .overlay(alignment: on ? .trailing : .leading) {
+                Circle().fill(.white).frame(width: 11, height: 11).padding(2)
+                    .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
+            }
     }
 }
 

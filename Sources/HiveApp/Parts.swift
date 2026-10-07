@@ -194,6 +194,21 @@ struct BackgroundBadge: View {
     }
 }
 
+/// Phone icon while Remote Control is connected (the session can be continued on claude.ai or the phone).
+struct RemoteControlBadge: View {
+    let on: Bool
+
+    var body: some View {
+        if on {
+            Image(systemName: "iphone.radiowaves.left.and.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Hive.shell)
+                .help("Remote Control is on")
+                .accessibilityLabel("Remote Control is on")
+        }
+    }
+}
+
 /// Star for favorites: filled in Hive.ink while a favorite, otherwise a gray outline. Always visible so nothing jumps around.
 /// As a button it intercepts the click; the session selection (onTapGesture below it) stays untouched.
 struct StarButton: View {

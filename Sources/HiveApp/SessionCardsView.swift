@@ -116,6 +116,7 @@ struct Tile: View {
                         CardStatus(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
                             .layoutPriority(-1)
                     }
+                    RemoteControlBadge(on: session.remoteControl)
                     BackgroundBadge(count: session.backgroundTasks)
                     StarButton(isOn: isFavorite, toggle: toggleFavorite)
                         .padding(.trailing, -4)
