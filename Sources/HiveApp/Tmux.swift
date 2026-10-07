@@ -94,18 +94,26 @@ enum Tmux {
         return e.status == 0 ? nil : failure(e)
     }
 
-    /// Ends Remote Control: `/remote-control` opens Claude Code's dialog with "Disconnect this session"
-    /// preselected; once it is on screen, Enter confirms it. Blocks up to ~3 s, don't call it on the
-    /// main thread. Returns an error message or nil.
+    /// Ends Remote Control: `/remote-control` opens Claude Code's dialog (Disconnect this session /
+    /// Show QR code / Continue, with "Continue" preselected). Moves up to "Disconnect this session" and
+    /// confirms with Enter. Blocks up to ~4 s, don't call it on the main thread. Returns an error message or nil.
     static func endRemoteControl(in name: String) -> String? {
         if let e = type("/remote-control", into: name) { return e }
+        var shown = false
         for _ in 0..<15 {
             Thread.sleep(forTimeInterval: 0.2)
-            guard let screen = capture(name), screen.contains("Disconnect this session") else { continue }
-            let e = run(SessionControl.keyArgs("Enter", into: name))
-            return e.status == 0 ? nil : failure(e)
+            if capture(name)?.contains("Disconnect this session") == true { shown = true; break }
         }
-        return "Remote Control dialog didn't appear – check the terminal"
+        guard shown else { return "Remote Control dialog didn't appear – check the terminal" }
+        for _ in 0..<4 {
+            if capture(name)?.contains("❯ Disconnect this session") == true {
+                let e = run(SessionControl.keyArgs("Enter", into: name))
+                return e.status == 0 ? nil : failure(e)
+            }
+            _ = run(SessionControl.keyArgs("Up", into: name))
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+        return "Couldn't select Disconnect – check the terminal"
     }
 
     /// The session's screen as text, nil on error.
