@@ -178,28 +178,11 @@ enum Tmux {
         var env = ProcessInfo.processInfo.environment.filter { !isInherited($0.key) }
         env["TERM"] = "xterm-256color"
         if env["LANG"] == nil { env["LANG"] = "en_US.UTF-8" }
-        if let loginPath { env["PATH"] = loginPath }
+        if let loginPath = LoginShell.path { env["PATH"] = loginPath }
         return env
     }
 
     static func environmentList() -> [String] { environment().map { "\($0.key)=\($0.value)" } }
-
-    // launched from the Dock, the app doesn't inherit a login PATH; we fetch it once from zsh.
-    private static let loginPath: String? = shell("print -r -- $PATH")
-
-    private static func shell(_ cmd: String) -> String? {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        p.arguments = ["-lc", cmd]
-        let out = Pipe()
-        p.standardOutput = out
-        p.standardError = FileHandle.nullDevice
-        guard (try? p.run()) != nil else { return nil }
-        p.waitUntilExit()
-        let s = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return p.terminationStatus == 0 && !s.isEmpty ? s : nil
-    }
 
     private static func run(_ args: [String]) -> (status: Int32, output: String) {
         guard let path else { return (-1, "tmux not installed") }
