@@ -130,7 +130,7 @@ struct SessionRow: View {
         let shape = UnevenRoundedRectangle(topLeadingRadius: first ? r : 0, bottomLeadingRadius: last ? r : 0,
                                            bottomTrailingRadius: last ? r : 0, topTrailingRadius: first ? r : 0)
         HStack(spacing: 14) {
-            Circle().fill(st.color).frame(width: 9, height: 9).frame(width: 14)
+            ContextDot(color: st.color, percent: item.session.contextPercent).frame(width: 14)
             Text(item.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
                 .frame(width: nameWidth, alignment: .leading)
             HStack(spacing: 6) {

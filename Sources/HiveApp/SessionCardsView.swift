@@ -453,9 +453,9 @@ struct ReplyField: View {
 struct ContextLine: View {
     let percent: Double?
 
-    private var color: Color {
-        guard let p = percent else { return .clear }
-        return p >= 90 ? Hive.need : p >= 80 ? Hive.block : Hive.ctx
+    static func color(_ p: Double) -> Color { p >= 90 ? Hive.need : p >= 80 ? Hive.block : Hive.ctx }
+    static func help(_ percent: Double?) -> String {
+        percent.map { "Context \(Int($0.rounded())) % used" } ?? "Context usage unknown"
     }
 
     var body: some View {
@@ -463,11 +463,49 @@ struct ContextLine: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(Hive.soft)
                 if let p = percent, p > 0 {
-                    Capsule().fill(color).frame(width: max(3, geo.size.width * p / 100))
+                    Capsule().fill(Self.color(p)).frame(width: max(3, geo.size.width * p / 100))
                 }
             }
         }
         .frame(height: 3)
-        .help(percent.map { "Context \(Int($0.rounded())) % used" } ?? "Context usage unknown")
+        .help(Self.help(percent))
+    }
+}
+
+/// Context usage for the tiles: a 2 pt line along the bottom edge, clipped by the tile's rounded corners.
+struct ContextEdge: View {
+    let percent: Double?
+    let radius: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            if let p = percent, p > 0 {
+                Rectangle().fill(ContextLine.color(p))
+                    .frame(width: geo.size.width * p / 100, height: 2)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: radius))
+        .allowsHitTesting(false)
+    }
+}
+
+/// Context usage for the list rows: the status dot with a thin ring around it that fills clockwise.
+struct ContextDot: View {
+    let color: Color
+    let percent: Double?
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Hive.soft, lineWidth: 1.5)
+            if let p = percent, p > 0 {
+                Circle().trim(from: 0, to: p / 100)
+                    .stroke(ContextLine.color(p), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            Circle().fill(color).frame(width: 8, height: 8)
+        }
+        .frame(width: 15, height: 15)
+        .help(ContextLine.help(percent))
     }
 }

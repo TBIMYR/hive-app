@@ -113,6 +113,8 @@ struct SmallTile: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // below the ring, so a selected tile's ring covers it
+        .overlay { ContextEdge(percent: item.session.contextPercent, radius: 14) }
         .cardBackground(status: st, isSelected: isSelected, radius: 14)
         .opacity(st.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
