@@ -173,13 +173,13 @@ struct BackgroundBadge: View {
         if count > 0 {
             let help = count == 1 ? "1 background task running" : "\(count) background tasks running"
             HStack(spacing: 4) {
-                // angle from the clock instead of a repeating animation: such an animation also picks up
-                // layout moves of the card and lets the icon drift
-                TimelineView(.animation(paused: reduceMotion)) { t in
-                    let turn = t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) / 2
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 11, weight: .bold))
-                        .rotationEffect(.degrees(reduceMotion ? 0 : turn * 360))
+                // the system's symbol effect turns the arrows; a TimelineView would redraw the card 60 times a
+                // second (measured: a good part of the app's CPU), a repeating animation drifts with layout moves
+                let icon = Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 11, weight: .bold))
+                if #available(macOS 15, *), !reduceMotion {
+                    icon.symbolEffect(.rotate, options: .repeating)
+                } else {
+                    icon
                 }
                 Text("\(count)").font(.system(size: 12, weight: .semibold)).monospacedDigit()
             }

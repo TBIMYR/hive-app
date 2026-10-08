@@ -56,23 +56,37 @@ public enum Transcript {
 
     /// Last `bytes` bytes; if the file is longer, the truncated first line is dropped.
     public static func readTail(_ path: String, bytes: Int = defaultTailBytes) -> String {
-        guard let h = FileHandle(forReadingAtPath: path) else { return "" }
+        readTailSized(path, bytes: bytes).text
+    }
+
+    /// `readTail` plus the file size it saw (nil = not readable). Transcripts only grow, so an unchanged
+    /// size means unchanged content (see TranscriptCache).
+    static func readTailSized(_ path: String, bytes: Int = defaultTailBytes) -> (text: String, size: UInt64?) {
+        guard let h = FileHandle(forReadingAtPath: path) else { return ("", nil) }
         defer { try? h.close() }
-        guard let size = try? h.seekToEnd() else { return "" }
+        guard let size = try? h.seekToEnd() else { return ("", nil) }
         let len = min(UInt64(bytes), size)
-        guard (try? h.seek(toOffset: size - len)) != nil else { return "" }
+        guard (try? h.seek(toOffset: size - len)) != nil else { return ("", size) }
         var data = (try? h.read(upToCount: Int(len))) ?? Data()
         if len < size {
             if let nl = data.firstIndex(of: 0x0A) { data = data[(nl + 1)...] } else { data = Data() }
         }
-        return String(decoding: data, as: UTF8.self)
+        return (String(decoding: data, as: UTF8.self), size)
     }
 
     /// Like `readTail`, but follows `continued-in` lines: when a conversation moves to a background
     /// session, the old transcript ends with `{"type":"continued-in","continuedInSessionId":…}` and the
     /// registry may still point at it. Follows at most a few hops and only to files that exist.
     public static func readTailFollowingContinuation(dir: String, sessionId: String, bytes: Int = defaultTailBytes) -> String {
-        var text = readTail("\(dir)/\(sessionId).jsonl", bytes: bytes)
+        readTailTracked(dir: dir, sessionId: sessionId, bytes: bytes).text
+    }
+
+    /// Like `readTailFollowingContinuation`, plus every file read with the size seen.
+    static func readTailTracked(dir: String, sessionId: String, bytes: Int = defaultTailBytes)
+        -> (text: String, files: [(path: String, size: UInt64?)]) {
+        let first = "\(dir)/\(sessionId).jsonl"
+        var (text, size) = readTailSized(first, bytes: bytes)
+        var files = [(path: first, size: size)]
         for _ in 0..<5 {
             guard let last = text.split(separator: "\n").last(where: { !$0.allSatisfy(\.isWhitespace) }),
                   last.contains("\"continued-in\""),
@@ -80,9 +94,11 @@ public enum Transcript {
                   obj["type"] as? String == "continued-in",
                   let next = obj["continuedInSessionId"] as? String,
                   FileManager.default.fileExists(atPath: "\(dir)/\(next).jsonl") else { break }
-            text = readTail("\(dir)/\(next).jsonl", bytes: bytes)
+            let path = "\(dir)/\(next).jsonl"
+            (text, size) = readTailSized(path, bytes: bytes)
+            files.append((path, size))
         }
-        return text
+        return (text, files)
     }
 
     public static func parseTail(_ text: String) -> Tail {
@@ -137,6 +153,11 @@ public enum Transcript {
     /// failed, killed …) in a user message, a queue-operation or a queued_command attachment.
     /// Starts outside the tail are not seen; that is accepted.
     public static func backgroundTasks(_ text: String, now: Date) -> Int {
+        countRunning(backgroundStarts(text), now: now)
+    }
+
+    /// Start times of background tasks still running per the text (nil = unknown time).
+    static func backgroundStarts(_ text: String) -> [Date?] {
         var running: [String: Date?] = [:]
         for raw in text.split(separator: "\n", omittingEmptySubsequences: true) {
             // cheap prefilter: only lines that can start or finish a task get parsed
@@ -154,7 +175,12 @@ public enum Transcript {
                 for id in startedIds(obj) { running.updateValue(at, forKey: id) }
             }
         }
-        return running.values.filter { start in
+        return Array(running.values)
+    }
+
+    /// Running tasks, without those started longer ago than `backgroundStaleAfter`.
+    static func countRunning(_ starts: [Date?], now: Date) -> Int {
+        starts.filter { start in
             guard let start else { return true }
             return now.timeIntervalSince(start) <= backgroundStaleAfter
         }.count

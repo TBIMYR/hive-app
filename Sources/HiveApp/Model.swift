@@ -38,11 +38,12 @@ struct Status {
 final class StateStore: ObservableObject {
     @Published private(set) var sessions: [Session] = []
     @Published private(set) var error: String?
-    /// Per-second tick for "x min ago", even when the data doesn't change
+    /// Clock for "x min ago", published at most every `clockEvery` seconds, even when the data doesn't change
     @Published private(set) var now = Date()
     /// Activity the overview sorts by, retaken once a minute so tiles don't jump on every work step
     @Published private(set) var sortActivity = ActivitySnapshot()
     static let resortEvery: TimeInterval = 60
+    static let clockEvery: TimeInterval = 10
     /// Running tmux sessions with their command and pane IDs (fetched once per query)
     @Published private(set) var tmuxPanes = Tmux.Panes()
     /// Session `id` → its tmux session (see TmuxMatch)
@@ -84,6 +85,8 @@ final class StateStore: ObservableObject {
     /// Incremented after a restart: the terminal attaches to the new tmux session of the same name
     @Published private(set) var terminalEpoch = 0
 
+    /// Parsed transcript tails; only changed transcripts are parsed again on a refresh
+    private let transcripts = TranscriptCache()
     private var timer: Timer?
     private var watcher: Watcher?
     private var refreshing = false
@@ -95,7 +98,8 @@ final class StateStore: ObservableObject {
         // Register, handover, and transcripts report changes immediately; the tick catches
         // finished processes, tmux, and the "x min ago" display.
         let home = StateBuilder.defaultClaudeHome
-        watcher = Watcher(paths: ["sessions", "handover", "projects"].map { "\(home)/\($0)" }) { [weak self] in
+        // at most one rebuild per second while sessions write their transcripts
+        watcher = Watcher(paths: ["sessions", "handover", "projects"].map { "\(home)/\($0)" }, delay: 1) { [weak self] in
             Task { @MainActor in await self?.refresh() }
         }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -112,17 +116,22 @@ final class StateStore: ObservableObject {
         refreshing = true
         repeat {
             again = false
-            let (state, panes) = await Task.detached { (StateBuilder.build(), Tmux.panes()) }.value
+            let cache = transcripts
+            let (state, panes) = await Task.detached { (StateBuilder.build(cache: cache), Tmux.panes()) }.value
             if state.sessions != sessions { sessions = state.sessions }
-            error = state.sessions.isEmpty && !state.errors.isEmpty ? state.errors.joined(separator: "\n") : nil
+            // @Published reports every assignment, so only assign real changes (each one redraws the whole UI)
+            let err = state.sessions.isEmpty && !state.errors.isEmpty ? state.errors.joined(separator: "\n") : nil
+            if err != error { error = err }
             if panes != tmuxPanes { tmuxPanes = panes }
             let match = TmuxMatch.resolve(sessions, tmuxSessions: Set(panes.commands.keys), sessionOfPane: panes.sessionOfPane)
             if match != tmuxOf { tmuxOf = match }
             notifier.update(needs, selected: selected)
             updateSleepGuard()
-            now = Date()
+            // the time labels are minute-grained ("5 min"), so publishing the clock every 10 s is enough
+            let t = Date()
+            if t.timeIntervalSince(now) >= Self.clockEvery { now = t }
             var snap = sortActivity
-            snap.update(sessions, now: now, every: Self.resortEvery)
+            snap.update(sessions, now: t, every: Self.resortEvery)
             if snap != sortActivity { sortActivity = snap }
         } while again
         refreshing = false

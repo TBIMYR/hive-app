@@ -127,7 +127,8 @@ public enum StateBuilder {
     private static let collation = Locale(identifier: "en")
 
     public static func build(claudeHome: String = defaultClaudeHome, devRoot: String = Project.defaultDevRoot,
-                             now: Date = Date(), isAlive: (Int) -> Bool = Registry.isAlive) -> HiveState {
+                             now: Date = Date(), isAlive: (Int) -> Bool = Registry.isAlive,
+                             cache: TranscriptCache? = nil) -> HiveState {
         let reg = Registry.read("\(claudeHome)/sessions", isAlive: isAlive)
         let handovers = Handover.readDir("\(claudeHome)/handover")
         var sessions: [Session] = []
@@ -139,9 +140,16 @@ public enum StateBuilder {
             var tail = Tail()
             var background = 0
             if let sid = e.sessionId, !e.cwd.isEmpty {
-                let text = Transcript.readTailFollowingContinuation(dir: "\(claudeHome)/projects/\(Project.slug(e.cwd))", sessionId: sid)
-                tail = Transcript.parseTail(text)
-                background = backgroundTasks(alive: e.alive, text: text, now: now)
+                let dir = "\(claudeHome)/projects/\(Project.slug(e.cwd))"
+                if let cache {
+                    let r = cache.read(dir: dir, sessionId: sid)
+                    tail = r.tail
+                    background = e.alive ? Transcript.countRunning(r.backgroundStarts, now: now) : 0
+                } else {
+                    let text = Transcript.readTailFollowingContinuation(dir: dir, sessionId: sid)
+                    tail = Transcript.parseTail(text)
+                    background = backgroundTasks(alive: e.alive, text: text, now: now)
+                }
             }
             let project = Project.fromCwd(e.cwd, devRoot: devRoot)
             let status = e.alive ? e.status : "offline"
