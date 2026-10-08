@@ -39,6 +39,13 @@ struct HiveApp: App {
         }
         .defaultSize(width: 1440, height: 860)
         .commands {
+            // shortcuts here, not on the toolbar menu (those don't fire while the menu is closed)
+            CommandGroup(replacing: .newItem) {
+                Button("New Session") { delegate.store.newPreset = NewSessionPreset() }
+                    .keyboardShortcut("n").disabled(Tmux.path == nil)
+                Button("New Project…") { delegate.store.newProjectOpen = true }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+            }
             // ⌘H only in hive: replaces "Hide hive" (this also drops "Hide Others" and "Show All")
             CommandGroup(replacing: .appVisibility) {
                 Button("Jump to Waiting Session") { delegate.store.jumpToWaiting() }
@@ -122,11 +129,17 @@ struct ContentView: View {
             .help(todoVisible ? "Hide the todo list (⌘T)" : "Show the todo list (⌘T)")
     }
 
+    /// Click: New Session; the arrow opens the menu with New Project.
     private var newSessionButton: some View {
-        Button { store.newPreset = NewSessionPreset() } label: { Label("New Session", systemImage: "plus") }
-            .disabled(Tmux.path == nil)
-            .help("Start a new session in tmux (⌘N)")
-            .keyboardShortcut("n")
+        Menu {
+            Button("New Session") { store.newPreset = NewSessionPreset() }.disabled(Tmux.path == nil)
+            Button("New Project…") { store.newProjectOpen = true }
+        } label: {
+            Label("New", systemImage: "plus")
+        } primaryAction: {
+            if Tmux.path != nil { store.newPreset = NewSessionPreset() } else { store.newProjectOpen = true }
+        }
+        .help("New session in tmux (⌘N); the menu also has New Project (⇧⌘N)")
     }
 
     /// Keep-awake switch: cup with steam while it holds the Mac awake, empty cup while on but nothing works.
@@ -212,6 +225,7 @@ struct ContentView: View {
                 store.refreshSoon()
             }
         }
+        .sheet(isPresented: $store.newProjectOpen) { NewProjectSheet() }
         // confirmation for Close…/Restart… from the right-click menu
         .alert(store.closeRequest?.title ?? "",
                isPresented: Binding(get: { store.closeRequest != nil },
