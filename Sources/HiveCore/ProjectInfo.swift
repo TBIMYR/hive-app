@@ -47,7 +47,7 @@ public struct ProjectInfo: Equatable, Sendable {
     }
 
     public static func template(slug: String, folder: String?, prefix: String?) -> ProjectInfo {
-        ProjectInfo(slug: slug, folder: folder, prefix: prefix, body: "## Links\n\n## Test accounts\n\n## Notes\n")
+        ProjectInfo(slug: slug, folder: folder, prefix: prefix)
     }
 
     // MARK: names

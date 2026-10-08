@@ -20,9 +20,9 @@ private let h = "/Users/dev"
     #expect(p.render(home: h) == "just notes\n")
 }
 
-@Test func templateHasSectionsAndTildeFolder() {
+@Test func templateIsEmptyWithTildeFolder() {
     let p = ProjectInfo.template(slug: "fjord", folder: "/Users/dev/Development/fjord", prefix: "fj")
-    #expect(p.render(home: h) == "---\nfolder: ~/Development/fjord\nprefix: fj\n---\n## Links\n\n## Test accounts\n\n## Notes\n")
+    #expect(p.render(home: h) == "---\nfolder: ~/Development/fjord\nprefix: fj\n---\n")
 }
 
 @Test func slugRules() {
