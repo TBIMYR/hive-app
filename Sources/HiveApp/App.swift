@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = StateStore()
     let todos = TodoStore()
     let usage = UsageStore()
+    let projects = ProjectInfoStore()
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         store.notifier.start()
@@ -33,6 +34,7 @@ struct HiveApp: App {
                 .environmentObject(delegate.store)
                 .environmentObject(delegate.todos)
                 .environmentObject(delegate.usage)
+                .environmentObject(delegate.projects)
                 .frame(minWidth: 900, minHeight: 560)
         }
         .defaultSize(width: 1440, height: 860)

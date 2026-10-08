@@ -59,6 +59,8 @@ final class StateStore: ObservableObject {
     @Published private(set) var favorites: [String] = UserDefaults.standard.stringArray(forKey: "pinned") ?? []
     /// Preset for the "New Session" dialog (nil = closed)
     @Published var newPreset: NewSessionPreset?
+    /// "New Project" dialog open
+    @Published var newProjectOpen = false
     /// Each increment asks the terminal of the selection for keyboard focus (see TmuxTerminal)
     @Published private(set) var focusRequest = 0
     /// Open confirmation for "Close…"/"Restart…"
@@ -172,6 +174,17 @@ final class StateStore: ObservableObject {
         if let t = tmuxOf[s.id] { return t }
         let isExtra = s.pid == nil && !s.hasHandover && !sessions.contains { $0.id == s.id }
         return isExtra && tmuxPanes.commands[s.name] != nil ? s.name : nil
+    }
+
+    /// Folder of a session: its cwd, or for sessions known only from tmux the pane's path.
+    func cwd(_ s: Session) -> String? {
+        if let c = s.cwd, !c.isEmpty { return c }
+        return tmux(s).flatMap { tmuxPanes.paths[$0] }
+    }
+
+    /// Names of running sessions (alive in the registry or in tmux), for name and prefix suggestions.
+    var runningNames: Set<String> {
+        Set(displaySessions.filter { $0.alive == true || tmux($0) != nil }.map(\.name)).union(tmuxPanes.commands.keys)
     }
 
     /// Sessions from hive plus tmux sessions that hive doesn't know yet (no register, no handover).
