@@ -27,10 +27,10 @@ struct TerminalPane: View {
                             Text(p == .main ? mainLabel(s) : p == .handover ? "Handover" : "Project").tag(p)
                         }
                     }
-                    .pickerStyle(.segmented).labelsHidden().controlSize(.small).fixedSize()
+                    .pickerStyle(.segmented).labelsHidden().controlSize(.regular).fixedSize()
                     .help("Terminal, handover, or this project's info (links, test accounts, notes)")
                 }
-                .padding(.horizontal, 14).frame(height: 40)
+                .padding(.horizontal, 14).frame(height: 50)
                 Rectangle().fill(Hive.hair).frame(height: 1)
                 content(for: s)
             } else {
