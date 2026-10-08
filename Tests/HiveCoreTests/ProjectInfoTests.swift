@@ -97,4 +97,8 @@ private let loose = ProjectInfo(slug: "orbit")   // file without folder
             == "- API [`https://api.x.de`](https://api.x.de) and `npm test`")
     #expect(ProjectInfo.linkified("- https://x.de stays") == "- https://x.de stays")
     #expect(ProjectInfo.linkified("```\n`https://x.de`\n```") == "```\n`https://x.de`\n```")
+    #expect(ProjectInfo.linkified("`stage.lumen.app`, `hq.lumen.app/admin`")
+            == "[`stage.lumen.app`](https://stage.lumen.app), [`hq.lumen.app/admin`](https://hq.lumen.app/admin)")
+    #expect(ProjectInfo.linkified("`*.lumen.app` `<t>.lumen.app` `deploy.yml` `mail@lumen.app` `10.0.0.1` `next dev`")
+            == "`*.lumen.app` `<t>.lumen.app` `deploy.yml` `mail@lumen.app` `10.0.0.1` `next dev`")
 }

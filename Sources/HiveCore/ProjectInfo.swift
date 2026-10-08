@@ -154,9 +154,15 @@ extension ProjectInfo {
 
 extension ProjectInfo {
     private static let codeURL = try! Regex(#"`(https?://[^`\s]+)`"#)
+    /// a host name as code: `stage.lumen.app`, `hq.lumen.app/admin` (no wildcard, no placeholder, no mail)
+    private static let codeHost = try! Regex(#"`((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+([a-z]{2,24})(?:/[^`\s]*)?)`"#)
+    /// endings that make `deploy.yml` a file, not a host
+    private static let fileEndings: Set<String> = ["yml", "yaml", "json", "md", "js", "mjs", "ts", "tsx", "jsx", "swift",
+        "sh", "py", "rb", "go", "txt", "html", "css", "scss", "plist", "env", "lock", "toml", "xml", "sql", "png",
+        "jpg", "jpeg", "svg", "pdf", "log", "csv", "zip", "kt", "java", "gradle", "php", "vue", "conf", "ini"]
 
-    /// Body for display: a URL written as code (`` `https://…` ``) becomes a link with code text, since
-    /// Markdown never links code spans. Fenced code blocks stay as they are.
+    /// Body for display: a URL or host name written as code (`` `https://…` ``, `` `stage.lumen.app` ``)
+    /// becomes a link with code text, since Markdown never links code spans. Fenced code blocks stay as they are.
     public static func linkified(_ body: String) -> String {
         var inFence = false
         return body.components(separatedBy: "\n").map { line in
@@ -165,6 +171,11 @@ extension ProjectInfo {
             return line.replacing(codeURL) { m in
                 let url = m.output[1].substring.map(String.init) ?? ""
                 return "[`\(url)`](\(url))"
+            }
+            .replacing(codeHost) { m in
+                let host = m.output[1].substring.map(String.init) ?? ""
+                let ending = m.output[2].substring.map(String.init) ?? ""
+                return fileEndings.contains(ending) ? "`\(host)`" : "[`\(host)`](https://\(host))"
             }
         }.joined(separator: "\n")
     }
