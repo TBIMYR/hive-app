@@ -222,7 +222,7 @@ struct NowBox: View {
                 NowSlot {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(line.text)
-                            .font(.system(size: 13, weight: line.kind == .permission ? .semibold : .regular))
+                            .font(.system(size: 14, weight: line.kind == .permission ? .semibold : .regular))
                             .foregroundStyle(line.kind == .permission ? Hive.ink : Hive.ink2)
                             // an open question with options is shown whole, otherwise it can't be answered
                             .lineLimit(line.kind == .choice ? nil : hasDetail ? 1 : 2)
@@ -260,7 +260,7 @@ struct NowSlot<Content: View>: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(" ").font(.system(size: 13))
+                Text(" ").font(.system(size: 14))
                 CodeChip(text: " ").font(.system(size: 12))
             }
             .hidden()

@@ -37,7 +37,7 @@ extension Theme {
     static let hive = Theme()
         .text {
             ForegroundColor(Hive.ink)
-            FontSize(14)
+            FontSize(15)
         }
         .code {
             FontFamilyVariant(.monospaced)
@@ -66,7 +66,7 @@ extension Theme {
             c.label
                 .markdownMargin(top: 22, bottom: 8)
                 .markdownTextStyle {
-                    FontSize(14)
+                    FontSize(15)
                     FontWeight(.semibold)
                 }
         }
