@@ -55,23 +55,23 @@ struct ProjectInfoView: View {
     private var header: some View {
         HStack(spacing: 8) {
             if let r = resolved {
-                Text(r.slug).font(.system(size: 12, weight: .semibold))
+                Text(r.slug).font(.system(size: 14, weight: .semibold))
                 if r.info != nil {
                     Button((projects.path(r.slug) as NSString).abbreviatingWithTildeInPath) { projects.openInEditor(r.slug) }
-                        .buttonStyle(.link).font(.system(size: 11))
+                        .buttonStyle(.link).font(.system(size: 12))
                         .help("Open the file in the default editor")
                 }
             }
             Spacer()
             if let error { Text(error).font(.caption).foregroundStyle(.red).lineLimit(1) }
             if editing != nil {
-                Button("Cancel") { editing = nil; error = nil }.controlSize(.small)
-                Button("Done") { saveIfEditing() }.controlSize(.small).buttonStyle(.borderedProminent)
+                Button("Cancel") { editing = nil; error = nil }.controlSize(.regular)
+                Button("Done") { saveIfEditing() }.controlSize(.regular).buttonStyle(.borderedProminent)
             } else if resolved?.info != nil {
-                Button("Edit", action: beginEditing).controlSize(.small)
+                Button("Edit", action: beginEditing).controlSize(.regular)
             }
         }
-        .padding(.horizontal, 20).frame(height: 34)
+        .padding(.horizontal, 20).frame(height: 48)
     }
 
     private var createDefaults: (slug: String, folder: String)? {
