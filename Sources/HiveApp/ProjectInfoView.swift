@@ -28,10 +28,14 @@ struct ProjectInfoView: View {
                     .padding(.horizontal, 26).padding(.vertical, 14)
             } else if let info = resolved?.info {
                 ScrollView {
-                    Markdown(info.body).markdownTheme(.hive)
+                    Markdown(ProjectInfo.linkified(info.body)).markdownTheme(.hive)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 32).padding(.vertical, 26)
                         .textSelection(.enabled)
+                        .environment(\.openURL, OpenURLAction { url in
+                            NSWorkspace.shared.open(url)
+                            return .handled
+                        })
                 }
                 .scrollIndicators(.never)
             } else {

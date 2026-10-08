@@ -91,3 +91,10 @@ private let loose = ProjectInfo(slug: "orbit")   // file without folder
     #expect(all.map(\.slug) == ["lumen"])
     #expect(all.first?.prefix == "lu" && all.first?.folder == "/tmp/lumen")
 }
+
+@Test func codeURLsBecomeLinks() {
+    #expect(ProjectInfo.linkified("- API `https://api.x.de` and `npm test`")
+            == "- API [`https://api.x.de`](https://api.x.de) and `npm test`")
+    #expect(ProjectInfo.linkified("- https://x.de stays") == "- https://x.de stays")
+    #expect(ProjectInfo.linkified("```\n`https://x.de`\n```") == "```\n`https://x.de`\n```")
+}

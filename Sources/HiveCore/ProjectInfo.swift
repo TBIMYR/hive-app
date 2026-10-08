@@ -151,3 +151,21 @@ extension ProjectInfo {
         return String(format: "%@.%02d", prefix, (used.max() ?? 0) + 1)
     }
 }
+
+extension ProjectInfo {
+    private static let codeURL = try! Regex(#"`(https?://[^`\s]+)`"#)
+
+    /// Body for display: a URL written as code (`` `https://…` ``) becomes a link with code text, since
+    /// Markdown never links code spans. Fenced code blocks stay as they are.
+    public static func linkified(_ body: String) -> String {
+        var inFence = false
+        return body.components(separatedBy: "\n").map { line in
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") { inFence.toggle(); return line }
+            guard !inFence else { return line }
+            return line.replacing(codeURL) { m in
+                let url = m.output[1].substring.map(String.init) ?? ""
+                return "[`\(url)`](\(url))"
+            }
+        }.joined(separator: "\n")
+    }
+}
