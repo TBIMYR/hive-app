@@ -49,6 +49,7 @@ enum SessionNaming {
 
 struct NewSessionSheet: View {
     @EnvironmentObject private var store: StateStore
+    @EnvironmentObject private var projects: ProjectInfoStore
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
     @State private var dir: String
@@ -65,6 +66,13 @@ struct NewSessionSheet: View {
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
 
+    private var registered: [ProjectInfo] { projects.projects.filter { $0.folder != nil } }
+
+    /// Folders of running sessions that belong to no registered project.
+    private var unregistered: [(label: String, dir: String)] {
+        SessionNaming.projects(in: store.sessions).filter { ProjectInfo.match(cwd: $0.dir, in: projects.projects) == nil }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("New Session").font(.headline)
@@ -77,7 +85,18 @@ struct NewSessionSheet: View {
                 LabeledContent("Folder") {
                     HStack {
                         Menu(dir.isEmpty ? "Choose project" : (dir as NSString).abbreviatingWithTildeInPath) {
-                            ForEach(SessionNaming.projects(in: store.sessions), id: \.dir) { p in
+                            // registered projects first (also without a running session), with a name suggestion
+                            ForEach(registered, id: \.slug) { p in
+                                Button("\(p.slug)  –  \(((p.folder ?? "") as NSString).abbreviatingWithTildeInPath)") {
+                                    dir = p.folder ?? ""
+                                    dirChosen = true
+                                    if trimmedName.isEmpty, let pre = p.prefix {
+                                        name = ProjectInfo.suggestSession(prefix: pre, running: store.runningNames)
+                                    }
+                                }
+                            }
+                            if !registered.isEmpty && !unregistered.isEmpty { Divider() }
+                            ForEach(unregistered, id: \.dir) { p in
                                 Button("\(p.label)  –  \((p.dir as NSString).abbreviatingWithTildeInPath)") {
                                     dir = p.dir
                                     dirChosen = true
