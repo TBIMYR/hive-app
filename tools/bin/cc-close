@@ -22,13 +22,19 @@ case "$name" in
   ""|*[!A-Za-z0-9._#-]*|*..*) echo "cc-close: invalid name '$name'" >&2; exit 2 ;;
 esac
 
+# Several live entries can share a name (e.g. a tmux window plus a parked background session):
+# prefer the one running in tmux, otherwise take the first live one.
 pid=""; status=""
 for f in "$home"/sessions/*.json; do
   [ -f "$f" ] || continue
   [ "$(jq -r '.name // empty' "$f" 2>/dev/null)" = "$name" ] || continue
   p=$(jq -r '.pid // empty' "$f" 2>/dev/null)
-  if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then
+  [ -n "$p" ] && kill -0 "$p" 2>/dev/null || continue
+  if [ -n "$(jq -r '.tmux // empty' "$f" 2>/dev/null)" ]; then
     pid="$p"; status=$(jq -r '.status // empty' "$f" 2>/dev/null); break
+  fi
+  if [ -z "$pid" ]; then
+    pid="$p"; status=$(jq -r '.status // empty' "$f" 2>/dev/null)
   fi
 done
 if [ -z "$pid" ]; then

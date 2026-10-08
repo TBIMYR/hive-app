@@ -40,6 +40,18 @@ test('working session or missing handover only with --force', () => {
   assert.match(run(noHo, ['lu.01']).stderr, /has no handover/);
 });
 
+test('two live entries with the same name → the one in tmux wins', () => {
+  // The background entry is "busy"; if cc-close picked it, it would refuse with "is working right now".
+  const bg = { pid: process.pid, name: 'lu.01', kind: 'bg', status: 'busy' };
+  const tm = { pid: process.pid, name: 'lu.01', kind: 'interactive', status: 'idle', tmux: 'lu.01:@1.%1' };
+  for (const [first, second] of [[bg, tm], [tm, bg]]) {
+    const home = setup(null);
+    fs.writeFileSync(path.join(home, 'sessions', 'a.json'), JSON.stringify(first));
+    fs.writeFileSync(path.join(home, 'sessions', 'b.json'), JSON.stringify(second));
+    assert.doesNotMatch(run(home, ['lu.01']).stderr, /is working right now/);
+  }
+});
+
 test('own session is refused', () => {
   const home = setup({ pid: process.pid, name: 'lu.01', status: 'idle' });
   const r = run(home, ['--force', 'lu.01'], { CLAUDE_PID: String(process.pid) });
