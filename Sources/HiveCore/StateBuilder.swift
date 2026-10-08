@@ -46,6 +46,8 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public let backgroundTasks: Int
     /// Remote Control is connected (registry `bridgeSessionId`)
     public let remoteControl: Bool
+    /// Context window used in percent (from the status line), nil = unknown
+    public let contextPercent: Double?
     /// read errors for this session (handover), for a hint in the card
     public let errors: [String]
 
@@ -58,7 +60,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
                 waitingFor: String? = nil, statusUpdatedAt: String? = nil, branch: String? = nil,
                 lastAssistant: Said? = nil, lastUser: Said? = nil, task: TaskLine? = nil,
                 lastAction: WorkAction? = nil, lastSentence: String? = nil, hasHandover: Bool = false, backgroundTasks: Int = 0,
-                remoteControl: Bool = false, errors: [String] = []) {
+                remoteControl: Bool = false, contextPercent: Double? = nil, errors: [String] = []) {
         self.name = name
         self.project = project
         self.group = group
@@ -80,6 +82,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
         self.hasHandover = hasHandover
         self.backgroundTasks = backgroundTasks
         self.remoteControl = remoteControl
+        self.contextPercent = contextPercent
         self.errors = errors
     }
 
@@ -103,6 +106,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
             hasHandover: try c.decode(Bool.self, forKey: .hasHandover),
             backgroundTasks: try c.decodeIfPresent(Int.self, forKey: .backgroundTasks) ?? 0,
             remoteControl: try c.decodeIfPresent(Bool.self, forKey: .remoteControl) ?? false,
+            contextPercent: try c.decodeIfPresent(Double.self, forKey: .contextPercent),
             errors: try c.decode([String].self, forKey: .errors))
     }
 }
@@ -148,6 +152,7 @@ public enum StateBuilder {
                 lastAssistant: clip(tail.lastAssistant), lastUser: clip(tail.lastUser),
                 task: taskOf(h, status: status, now: now), lastAction: tail.lastAction, lastSentence: tail.lastSentence,
                 hasHandover: h != nil, backgroundTasks: background, remoteControl: e.alive && e.remoteControl,
+                contextPercent: e.alive ? e.sessionId.flatMap { ContextUsage.percent(claudeHome: claudeHome, sessionId: $0) } : nil,
                 errors: h?.error.map { ["handover: \($0)"] } ?? []
             ))
             seen.insert(e.name)

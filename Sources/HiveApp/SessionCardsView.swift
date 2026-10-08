@@ -122,6 +122,9 @@ struct Tile: View {
                         .padding(.trailing, -4)
                 }
 
+                ContextLine(percent: session.contextPercent)
+                    .padding(.top, 12)
+
                 let line = NowLine(session, rank: status.rank)
 
                 // task: gray if it's noticeably older than the last activity
@@ -130,7 +133,7 @@ struct Tile: View {
                     .font(.system(size: 15, weight: session.task?.text == nil || outdated ? .medium : .semibold))
                     .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
                     .lineLimit(2, reservesSpace: session.task?.detail == nil)
-                    .padding(.top, 14)
+                    .padding(.top, 12)
                 if let detail = session.task?.detail {
                     Text(detail).font(.system(size: 13)).foregroundStyle(Hive.muted).lineLimit(2)
                         .padding(.top, 3)
@@ -442,5 +445,29 @@ struct ReplyField: View {
             sending = false
             focused = true
         }
+    }
+}
+
+/// How full the session's context window is: a thin line under the name, on a faint track so every card
+/// keeps the same height. Orange from 80 %, red from 90 % (time for a handover and /clear).
+struct ContextLine: View {
+    let percent: Double?
+
+    private var color: Color {
+        guard let p = percent else { return .clear }
+        return p >= 90 ? Hive.need : p >= 80 ? Hive.block : Hive.ctx
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Hive.soft)
+                if let p = percent, p > 0 {
+                    Capsule().fill(color).frame(width: max(3, geo.size.width * p / 100))
+                }
+            }
+        }
+        .frame(height: 3)
+        .help(percent.map { "Context \(Int($0.rounded())) % used" } ?? "Context usage unknown")
     }
 }
