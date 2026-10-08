@@ -25,21 +25,40 @@ enum ViewMode: String, CaseIterable, Identifiable {
 /// View switcher: white rail with a black, sliding field for the selected view.
 struct ViewSwitcher: View {
     @Binding var mode: ViewMode
+
+    var body: some View {
+        RailSwitcher(selection: $mode, items: ViewMode.allCases.map { .init(value: $0, title: $0.title, symbol: $0.symbol) },
+                     help: { "\($0.title) view" })
+    }
+}
+
+/// Segmented switch in Hive's style: white rail, the selected item on a black field that slides over.
+/// Used for the overview's view mode and the terminal card's Terminal · Handover · Project.
+struct RailSwitcher<Value: Hashable>: View {
+    struct Item {
+        let value: Value
+        let title: String
+        let symbol: String
+    }
+
+    @Binding var selection: Value
+    let items: [Item]
+    var help: (Item) -> String = { $0.title }
     @Namespace private var ns
-    @State private var hover: ViewMode?
+    @State private var hover: Value?
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(ViewMode.allCases) { m in
-                let on = m == mode
+            ForEach(items, id: \.value) { item in
+                let on = item.value == selection
                 Button {
-                    withAnimation(.snappy(duration: 0.2)) { mode = m }
+                    withAnimation(.snappy(duration: 0.2)) { selection = item.value }
                 } label: {
                     HStack(spacing: 7) {
-                        Image(systemName: m.symbol).font(.system(size: 12, weight: .semibold))
-                        Text(m.title).font(.system(size: 13, weight: on ? .semibold : .medium))
+                        Image(systemName: item.symbol).font(.system(size: 12, weight: .semibold))
+                        Text(item.title).font(.system(size: 13, weight: on ? .semibold : .medium))
                     }
-                    .foregroundStyle(on ? Hive.bg : (hover == m ? Hive.ink2 : Hive.muted))
+                    .foregroundStyle(on ? Hive.bg : (hover == item.value ? Hive.ink2 : Hive.muted))
                     .padding(.horizontal, 14).frame(height: 30)
                     .background {
                         if on {
@@ -50,8 +69,8 @@ struct ViewSwitcher: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .onHover { hover = $0 ? m : (hover == m ? nil : hover) }
-                .help("\(m.title) view")
+                .onHover { hover = $0 ? item.value : (hover == item.value ? nil : hover) }
+                .help(help(item))
             }
         }
         .padding(3)

@@ -22,15 +22,13 @@ struct TerminalPane: View {
                     Spacer(minLength: 4)
                     if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
                     StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
-                    Picker("", selection: Binding(get: { current(s) }, set: { pane = $0; editOnOpen = false })) {
-                        ForEach(panes(s), id: \.self) { p in
-                            Text(p == .main ? mainLabel(s) : p == .handover ? "Handover" : "Project").tag(p)
-                        }
-                    }
-                    .pickerStyle(.segmented).labelsHidden().controlSize(.regular).fixedSize()
-                    .help("Terminal, handover, or this project's info (links, test accounts, notes)")
+                    RailSwitcher(selection: Binding(get: { current(s) }, set: { pane = $0; editOnOpen = false }),
+                                 items: panes(s).map { item($0, s) },
+                                 help: { i in i.value == .project ? "This project's links, test accounts and notes"
+                                                                  : i.value == .handover ? "This session's handover" : i.title })
+                        .fixedSize()
                 }
-                .padding(.horizontal, 14).frame(height: 50)
+                .padding(.horizontal, 14).frame(height: 54)
                 Rectangle().fill(Hive.hair).frame(height: 1)
                 content(for: s)
             } else {
@@ -76,8 +74,15 @@ struct TerminalPane: View {
         return all[0]
     }
 
-    private func mainLabel(_ s: Session) -> String {
-        store.tmux(s) != nil ? "Terminal" : s.alive == true ? "Session" : "Offline"
+    private func item(_ p: Pane, _ s: Session) -> RailSwitcher<Pane>.Item {
+        switch p {
+        case .main:
+            store.tmux(s) != nil ? .init(value: p, title: "Terminal", symbol: "terminal")
+                : s.alive == true ? .init(value: p, title: "Session", symbol: "macwindow")
+                : .init(value: p, title: "Offline", symbol: "moon.zzz")
+        case .handover: .init(value: p, title: "Handover", symbol: "doc.text")
+        case .project: .init(value: p, title: "Project", symbol: "info.circle")
+        }
     }
 
     @ViewBuilder
