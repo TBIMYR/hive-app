@@ -35,3 +35,23 @@ private func split(_ items: [(String, String)], _ favs: [String]) -> (fav: [Stri
     #expect(r.fav == ["lebt"])
     #expect(r.rest == ["b", "tot"])
 }
+
+private func session(_ name: String, alive: Bool = true) -> Session {
+    Session(name: name, group: Project.groupKey(name, project: ""), isPm: Project.isPm(name), alive: alive,
+            status: alive ? "idle" : "offline")
+}
+
+@Test func favoritePmTakesItsActiveWorkersAlong() {
+    let fav = [session("lu.pm")]
+    let rest = [session("or.01"), session("lu.01"), session("lu.02", alive: false), session("lu.03")]
+    let r = Favorites.withWorkers(favorites: fav, rest: rest, session: { $0 }, active: { $0.alive == true })
+    #expect(r.favorites.map(\.name) == ["lu.pm", "lu.01", "lu.03"])
+    // offline workers stay in the offline section
+    #expect(r.rest.map(\.name) == ["or.01", "lu.02"])
+}
+
+@Test func favoriteWorkerWithoutPmTakesNothing() {
+    let r = Favorites.withWorkers(favorites: [session("lu.01")], rest: [session("lu.02")], session: { $0 }, active: { _ in true })
+    #expect(r.favorites.map(\.name) == ["lu.01"])
+    #expect(r.rest.map(\.name) == ["lu.02"])
+}

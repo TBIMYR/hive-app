@@ -141,7 +141,12 @@ struct OverviewView: View {
         }
         let sorted = SessionOrder.sorted(store.displaySessions.map(item), session: { $0.session },
                                          status: { $0.status.core }, labels: labels, activity: store.sortActivity.times)
-        let parts = Favorites.split(sorted, favorites: store.favorites, name: \.name)
+        var parts = Favorites.split(sorted, favorites: store.favorites, name: \.name)
+        // the list nests workers under their PM, so a favorite PM takes its workers along
+        if mode == .list {
+            parts = Favorites.withWorkers(favorites: parts.favorites, rest: parts.rest, session: \.session,
+                                          active: { $0.status.rank < 3 })
+        }
         let shown = shownOrder(favorites: parts.favorites, rest: parts.rest)
         nav.order = shown.map(\.name)
         return VStack(alignment: .leading, spacing: 0) {
