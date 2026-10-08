@@ -6,7 +6,11 @@ struct TerminalPane: View {
     @EnvironmentObject private var store: StateStore
     let session: Session?
     @State private var message: String?
-    @State private var showHandover = false
+    /// Selected segment, nil = the session's default (spec 2026-10-08 §2)
+    @State private var pane: Pane?
+    /// Open the project view in edit mode (after New Project)
+    @State private var editOnOpen = false
+    @EnvironmentObject private var projects: ProjectInfoStore
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
@@ -18,16 +22,13 @@ struct TerminalPane: View {
                     Spacer(minLength: 4)
                     if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
                     StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
-                    // toggle Terminal ↔ Handover, only if there's something to show and the session is running
-                    if s.hasHandover == true && store.tmux(s) != nil {
-                        Button { showHandover.toggle() } label: {
-                            Label(showHandover ? "Terminal" : "Handover",
-                                  systemImage: showHandover ? "terminal" : "doc.text")
-                                .font(.system(size: 12, weight: .medium))
+                    Picker("", selection: Binding(get: { current(s) }, set: { pane = $0; editOnOpen = false })) {
+                        ForEach(panes(s), id: \.self) { p in
+                            Text(p == .main ? mainLabel(s) : p == .handover ? "Handover" : "Project").tag(p)
                         }
-                        .buttonStyle(.bordered).controlSize(.small)
-                        .help(showHandover ? "Back to the terminal" : "Read this session's handover")
                     }
+                    .pickerStyle(.segmented).labelsHidden().controlSize(.small).fixedSize()
+                    .help("Terminal, handover, or this project's info (links, test accounts, notes)")
                 }
                 .padding(.horizontal, 14).frame(height: 40)
                 Rectangle().fill(Hive.hair).frame(height: 1)
@@ -45,16 +46,56 @@ struct TerminalPane: View {
         .overlay { if scheme == .dark { RoundedRectangle(cornerRadius: 16).strokeBorder(Hive.hair, lineWidth: 1) } }
         .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 1, y: 1)
         .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 12, y: 6)
-        .onChange(of: session?.name) { message = nil; showHandover = false }
-        // jump key: close the handover so the terminal can get focus
-        .onChange(of: store.focusRequest) { showHandover = false }
+        .onChange(of: session?.name) { _, name in
+            message = nil
+            pane = nil
+            editOnOpen = false
+            // New Project asked to open this session's project info in edit mode
+            if let name, projects.pendingEdit == name {
+                projects.pendingEdit = nil
+                pane = .project
+                editOnOpen = true
+            }
+        }
+        // jump key: back to the default view so the terminal can get focus
+        .onChange(of: store.focusRequest) { pane = nil; editOnOpen = false }
+    }
+
+    enum Pane: Hashable { case main, handover, project }
+
+    /// Segments per session: offline with a handover has no main view of its own.
+    private func panes(_ s: Session) -> [Pane] {
+        let hasHandover = s.hasHandover == true
+        if store.tmux(s) == nil && s.alive != true && hasHandover { return [.handover, .project] }
+        return hasHandover ? [.main, .handover, .project] : [.main, .project]
+    }
+
+    private func current(_ s: Session) -> Pane {
+        let all = panes(s)
+        if let pane, all.contains(pane) { return pane }
+        return all[0]
+    }
+
+    private func mainLabel(_ s: Session) -> String {
+        store.tmux(s) != nil ? "Terminal" : s.alive == true ? "Session" : "Offline"
     }
 
     @ViewBuilder
     private func content(for s: Session) -> some View {
-        if showHandover && s.hasHandover == true {
+        switch current(s) {
+        case .project:
+            ProjectInfoView(cwd: store.cwd(s), sessionPrefix: SessionNaming.prefix(s.name), startEditing: editOnOpen)
+                .id("\(s.name)#\(store.cwd(s) ?? "")")
+        case .handover:
             HandoverView(name: s.name)
-        } else if Tmux.path == nil {
+        case .main:
+            mainContent(for: s)
+        }
+    }
+
+    @ViewBuilder
+    private func mainContent(for s: Session) -> some View {
+        if Tmux.path == nil {
             ContentUnavailableView("tmux missing", systemImage: "exclamationmark.triangle",
                                    description: Text("brew install tmux"))
                 .frame(maxHeight: .infinity)
