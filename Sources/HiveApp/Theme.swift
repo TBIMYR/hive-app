@@ -26,8 +26,6 @@ enum Hive {
     static let busy = Color(nsColor: NSColor(hex: 0x12A150))
     static let wait = Color(nsColor: NSColor(hex: 0x8B5CF6))
     static let shell = Color(nsColor: NSColor(hex: 0x2F6FED))
-    /// context line in the cards (normal / from 80 % / from 90 %)
-    static let ctx = Color(nsColor: NSColor(hex: 0x0E9F8E))
     static let idle = dyn(0xB4B4B0, 0x5C5C59)
     static let off = dyn(0xD4D4D0, 0x333331)
 

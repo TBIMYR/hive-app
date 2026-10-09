@@ -453,7 +453,7 @@ struct ReplyField: View {
 struct ContextLine: View {
     let percent: Double?
 
-    static func color(_ p: Double) -> Color { p >= 90 ? Hive.need : p >= 80 ? Hive.block : Hive.ctx }
+    static func color(_ p: Double) -> Color { p >= 90 ? Hive.need : p >= 80 ? Hive.block : Hive.busy }
     static func help(_ percent: Double?) -> String {
         percent.map { "Context \(Int($0.rounded())) % used" } ?? "Context usage unknown"
     }
