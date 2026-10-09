@@ -67,6 +67,7 @@ struct HiveApp: App {
 /// Options of the app.
 struct SettingsView: View {
     @EnvironmentObject private var store: StateStore
+    @AppStorage(Notifier.soundKey) private var notifySound = true
 
     var body: some View {
         Form {
@@ -74,6 +75,10 @@ struct SettingsView: View {
                 Toggle(isOn: $store.keepAwake) {
                     Text("Keep the Mac awake while sessions work")
                     Text("Like Amphetamine: no idle sleep as long as at least one session is working, also in the background. The display may still turn off.")
+                }
+                Toggle(isOn: $notifySound) {
+                    Text("Ping when a session needs you")
+                    Text("Plays a sound with the notification. Banner style and badge are set in System Settings → Notifications → Hive.")
                 }
             }
         }

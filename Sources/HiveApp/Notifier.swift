@@ -40,15 +40,19 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             let content = UNMutableNotificationContent()
             content.title = name
             content.body = reason
-            content.sound = .default
+            content.sound = Self.soundOn ? .default : nil
             center.add(UNNotificationRequest(identifier: name, content: content, trigger: nil))
         }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        completionHandler(Self.soundOn ? [.banner, .sound] : [.banner])
     }
+
+    /// Settings switch "Ping when a session needs you", stored under `notifySound` (default on)
+    nonisolated static let soundKey = "notifySound"
+    nonisolated static var soundOn: Bool { UserDefaults.standard.object(forKey: soundKey) as? Bool ?? true }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                             withCompletionHandler completionHandler: @escaping () -> Void) {

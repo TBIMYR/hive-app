@@ -1,4 +1,4 @@
-// make-icon.swift — draws the app icon (a honeycomb cell on a dark tile) as an .iconset.
+// make-icon.swift — draws the app icon (a dark honeycomb cell on a light tile) as an .iconset.
 //   swift scripts/make-icon.swift Resources/AppIcon.iconset && iconutil -c icns Resources/AppIcon.iconset
 // Same honeycomb cell as HiveMark in the app.
 import AppKit
@@ -32,16 +32,16 @@ func render(_ px: Int) -> Data {
     let shape = NSBezierPath(roundedRect: tile, xRadius: s * 185 / 1024, yRadius: s * 185 / 1024)
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
-    shadow.shadowColor = NSColor.black.withAlphaComponent(0.28)
+    shadow.shadowColor = NSColor.black.withAlphaComponent(0.22)
     shadow.shadowBlurRadius = s * 12 / 1024
     shadow.shadowOffset = NSSize(width: 0, height: -s * 6 / 1024)
     shadow.set()
-    NSGradient(starting: NSColor(calibratedWhite: 0.13, alpha: 1), ending: NSColor(calibratedWhite: 0.04, alpha: 1))!
+    NSGradient(starting: NSColor(calibratedWhite: 1, alpha: 1), ending: NSColor(calibratedWhite: 0.93, alpha: 1))!
         .draw(in: shape, angle: -90)
     NSGraphicsContext.restoreGraphicsState()
 
     // one honeycomb cell centered, pointed side up, about half as tall as the tile, corners rounded
-    let color = NSColor.white
+    let color = NSColor(calibratedWhite: 0.07, alpha: 1)
     color.setFill(); color.setStroke()
     let hex = hexagon(center: CGPoint(x: s / 2, y: s / 2), radius: tile.height * 0.25)
     hex.lineWidth = tile.height * 0.06
