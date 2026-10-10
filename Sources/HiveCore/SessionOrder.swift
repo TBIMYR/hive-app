@@ -4,9 +4,10 @@ extension Session {
     /// Group key like in the dashboard (hive groups by name prefix).
     public var groupKey: String { group.isEmpty ? name : group }
 
-    /// Last activity: the latest of the last work step and the last status change.
+    /// Last activity: the latest of the last work step, the last status change and the task line (handover);
+    /// sessions known only from their handover have nothing but the last.
     public var lastActivity: Date? {
-        [lastAction?.at, statusUpdatedAt].compactMap { $0.flatMap(parseISO) }.max()
+        [lastAction?.at, statusUpdatedAt, task?.updatedAt].compactMap { $0.flatMap(parseISO) }.max()
     }
 }
 

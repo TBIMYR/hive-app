@@ -89,3 +89,12 @@ private func active(_ name: String, at: String) -> Session { s(name, "busy", at:
     #expect(snap.times["c"] != nil)
     #expect(snap.takenAt == t0)
 }
+
+@Test func offlineSortedByLastHandoverNewestFirst() {
+    // known only from their handover: no status time, only the task line's time
+    func off(_ name: String, _ updated: String) -> Session {
+        Session(name: name, group: "al", task: Session.TaskLine(text: "x", state: "done", updatedAt: updated, stale: false))
+    }
+    let items = [off("a", "2026-10-01T10:00:00Z"), off("b", "2026-10-03T10:00:00Z"), off("c", "2026-10-02T10:00:00Z")]
+    #expect(order(items) == ["b", "c", "a"])
+}
