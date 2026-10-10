@@ -13,6 +13,7 @@
 - Statt `/clear` darf eine Session auch geschlossen und neu gestartet werden; entscheidend ist derselbe Name.
 - Ablauf PM ↔ Worker:
   1. PM vergibt einen Auftrag per `~/.claude/bin/cc-spawn <name> <verzeichnis> "<Auftrag>"` (neuer iTerm-Tab, lädt das Handover zum Namen, lehnt laufende Namen ab).
+     Freie Namen zuerst: Vor einem neuen Namen (z. B. `lu.05`) eine bestehende Offline-Session des Projekts mit Handover wiederverwenden (`lu.01` …); `cc-spawn` lädt ihr Handover. Neue Nummern nur, wenn alle vorhandenen laufen.
   2. Worker ist fertig: Handover schreiben, `cc-task … done` (oder `waiting`), dann seinem PM per SendMessage kurz melden, was fertig ist. Die Nachricht weckt den PM; niemand muss pollen.
   3. PM entscheidet: Folgearbeit am selben Thema → SendMessage an den Worker, er läuft weiter. Neues, unabhängiges Ticket oder nichts mehr zu tun → `~/.claude/bin/cc-close <name>` (tippt `/exit`, schließt den Tab; lehnt ab, solange der Worker arbeitet oder kein Handover hat) und bei Bedarf neu per `cc-spawn`.
   4. Bei einem neuen Verzeichnis (frischer Worktree) fragt Claude Code einmal nach Vertrauen; das bestätige ich selbst. Echte Entscheidungen bleiben `blocked`.
