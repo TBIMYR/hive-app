@@ -68,6 +68,9 @@ struct HiveApp: App {
 struct SettingsView: View {
     @EnvironmentObject private var store: StateStore
     @AppStorage(Notifier.soundKey) private var notifySound = true
+    @AppStorage(Notifier.phoneKey) private var phonePush = false
+    @AppStorage(Notifier.topicKey) private var topic = ""
+    @AppStorage(Notifier.awayKey) private var awayMinutes = 5
 
     var body: some View {
         Form {
@@ -81,6 +84,28 @@ struct SettingsView: View {
                     Text("Plays a sound with the notification. Banner style and badge are set in System Settings → Notifications → Hive.")
                 }
             }
+            Section {
+                Toggle(isOn: $phonePush) {
+                    Text("Push to the phone when I'm away")
+                    Text("Sends \"needs you\" via ntfy once the Mac has had no mouse or keyboard input for a while. Install the ntfy app and subscribe to the topic below.")
+                }
+                if phonePush {
+                    Stepper("Away after \(awayMinutes) min without input", value: $awayMinutes, in: 1...60)
+                    LabeledContent("Topic") {
+                        HStack(spacing: 8) {
+                            Text(topic).font(.hiveMono(12)).textSelection(.enabled)
+                            Button("Copy") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(topic, forType: .string)
+                            }
+                            Button("Send test") {
+                                Notifier.sendToPhone(topic: topic, title: "Hive", body: "Test: phone notifications work.")
+                            }
+                        }
+                    }
+                }
+            }
+            .onChange(of: phonePush) { _, on in if on && topic.isEmpty { topic = Notifier.newTopic() } }
         }
         .formStyle(.grouped)
         .frame(width: 460)
