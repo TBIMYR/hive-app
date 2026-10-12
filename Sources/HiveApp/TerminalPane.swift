@@ -15,6 +15,8 @@ struct Workspace: View {
     /// Where the groups are in the window, to find the drop target
     @State private var frames: [DockPanel: CGRect] = [:]
     @State private var area: CGSize = .zero
+    /// What the collapsed tiles would take if they were open (see DockOpenSizes)
+    @State private var openSizes: [DockPanel: CGFloat] = [:]
     @EnvironmentObject private var projects: ProjectInfoStore
     @EnvironmentObject private var dock: DockStore
     @Environment(\.colorScheme) private var scheme
@@ -31,6 +33,7 @@ struct Workspace: View {
         .coordinateSpace(name: Dock.space)
         .background { GeometryReader { g in Color.clear.onChange(of: g.size, initial: true) { area = g.size } } }
         .onPreferenceChange(DockFrames.self) { frames = $0 }
+        .onPreferenceChange(DockOpenSizes.self) { openSizes = $0 }
         .overlay { peekLayer(s) }
         .overlay { if let drag { DockDropOverlay(drag: drag, target: target(drag)?.rect) } }
         .onChange(of: store.selected) { _, name in
@@ -289,6 +292,10 @@ struct Workspace: View {
             return AnyView(
                 DockSplit(axis: axis, shares: children.map(\.share),
                           fixed: children.indices.map { fixedSize(children[$0].node, axis: axis, edges: childEdges($0)) },
+                          anchors: children.map { c in
+                              if case .group(let panels, _, true) = c.node { return panels[0] }
+                              return nil
+                          },
                           onResize: { a, b, delta in
                               dock.change(persist: false) {
                                   $0.resize(split: path, before: children[a].index, after: children[b].index, delta: delta)
@@ -300,18 +307,25 @@ struct Workspace: View {
         }
     }
 
-    /// The panel of a collapsed tile shown on top of everything else, next to its bar. A click anywhere
-    /// else closes it.
+    /// The panel of a collapsed tile shown on top of everything else. Together with the bar it covers what
+    /// the tile would take if it were open: beside an upright bar as tall as the bar, above or below a lying
+    /// one as wide as it. A click anywhere else closes it.
     @ViewBuilder
     private func peekLayer(_ s: Session?) -> some View {
         if let p = dock.peek, let group = dock.layout.group(of: p), group.collapsed, p == .overview || s != nil,
-           let bar = group.panels.compactMap({ frames[$0] }).first {
+           let anchor = group.panels.first(where: { frames[$0] != nil }), let bar = frames[anchor] {
             let m = Hive.margin
+            // the bar's frame includes the tile's margins: the full one at the window's edge, else half
+            let left = bar.minX < 0.5 ? m : m / 2, right = bar.maxX > area.width - 0.5 ? m : m / 2
+            let top = bar.minY < 0.5 ? m : m / 2, bottom = bar.maxY > area.height - 0.5 ? m : m / 2
             let upright = bar.height >= bar.width
-            let w = upright ? min(max(440, area.width * 0.42), max(200, area.width - bar.width - m)) : max(200, area.width - 2 * m)
-            let h = upright ? max(200, area.height - 2 * m) : min(max(360, area.height * 0.55), max(200, area.height - bar.height - m))
-            let x = upright ? (bar.midX > area.width / 2 ? bar.minX - w : bar.maxX) : m
-            let y = upright ? m : (bar.midY > area.height / 2 ? bar.minY - h : bar.maxY)
+            let onFarSide = upright ? bar.midX > area.width / 2 : bar.midY > area.height / 2
+            // what is left of the open tile next to the bar, without the margin towards its neighbour
+            let open = (openSizes[anchor] ?? 0) - (upright ? bar.width : bar.height) - m / 2
+            let w = upright ? min(max(open, 280), max(200, (onFarSide ? bar.minX : area.width - bar.maxX) - m)) : bar.width - left - right
+            let h = upright ? bar.height - top - bottom : min(max(open, 220), max(160, (onFarSide ? bar.minY : area.height - bar.maxY) - m))
+            let x = upright ? (onFarSide ? bar.minX - w : bar.maxX) : bar.minX + left
+            let y = upright ? bar.minY + top : (onFarSide ? bar.minY - h : bar.maxY)
             let it = item(p, s)
             ZStack(alignment: .topLeading) {
                 Color.black.opacity(0.001)

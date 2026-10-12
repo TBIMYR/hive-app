@@ -56,6 +56,15 @@ struct DockFrames: PreferenceKey {
     }
 }
 
+/// Room a collapsed tile would take along its split if it were open, keyed by its first panel. The layer
+/// that shows one of its panels for a moment is made as large.
+struct DockOpenSizes: PreferenceKey {
+    static let defaultValue: [DockPanel: CGFloat] = [:]
+    static func reduce(value: inout [DockPanel: CGFloat], nextValue: () -> [DockPanel: CGFloat]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
 /// The tabs of one group in the look of RailSwitcher. A click brings a panel to the front; dragging a tab
 /// onto a tile moves the panel there (onto the tabs, or beside the tile at its edges).
 struct DockTabs: View {
@@ -133,6 +142,8 @@ struct DockSplit: View {
     let shares: [Double]
     /// size of the tiles that don't take part in the sharing (collapsed), nil for the others
     let fixed: [CGFloat?]
+    /// first panel of each collapsed tile (nil for the others), to report its open size
+    let anchors: [DockPanel?]
     /// the two tiles (indices) a dragged boundary shifts room between, and the change as a share of the split
     let onResize: (Int, Int, Double) -> Void
     let onEnd: () -> Void
@@ -159,6 +170,14 @@ struct DockSplit: View {
         return out
     }
 
+    /// Size the collapsed tile `i` would have if it shared the room like the open ones; nil for an open tile.
+    static func openSize(_ i: Int, shares: [Double], fixed: [CGFloat?], total: CGFloat) -> CGFloat? {
+        guard let own = fixed[i] else { return nil }
+        let room = max(0, total - fixed.compactMap { $0 }.reduce(0, +) + own)
+        let sum = zip(shares, fixed).reduce(shares[i]) { $0 + ($1.1 == nil ? $1.0 : 0) }
+        return sum > 0 ? (room * shares[i] / sum).rounded() : nil
+    }
+
     var body: some View {
         GeometryReader { geo in
             let horizontal = axis == .horizontal
@@ -172,6 +191,8 @@ struct DockSplit: View {
                     content(i)
                         .frame(width: horizontal ? sizes[i] : nil, height: horizontal ? nil : sizes[i])
                         .clipped()
+                        .preference(key: DockOpenSizes.self, value: Self.openSize(i, shares: shares, fixed: fixed, total: total)
+                            .flatMap { size in anchors[i].map { [$0: size] } } ?? [:])
                     // a boundary moves the nearest tiles on both sides that can change their size
                     if i < n - 1, let a = (0...i).last(where: { fixed[$0] == nil }),
                        let b = ((i + 1)..<n).first(where: { fixed[$0] == nil }) {
