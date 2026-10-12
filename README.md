@@ -8,7 +8,9 @@ separate repo `hive` together with a Node/HTML dashboard; its history is merged 
 What the master session `keeper` changed (including outside the repo): `docs/keeper-log.md`
 Current session rules for the global CLAUDE.md: `docs/claude-md-session-status.md`
 
-Names in examples are made up.
+![Hive: the sessions as cards next to the terminal of the selected one](docs/screenshots/cards.png)
+
+Names in examples and screenshots are made up (`sh scripts/demo.sh` starts the app with them).
 
 ## Features
 
@@ -37,6 +39,28 @@ Names in examples are made up.
 - Keeps the Mac awake while sessions work (switch in the title bar and in Settings, ⌘,)
 - Own right-click menu: Wake Up / Remote Control / Write Handover, Favorite / Start next, Restart… / Close… / Force Quit…
 - Drag & drop into the terminal
+
+## Screenshots
+
+Tiles, with terminal and handover side by side:
+
+![Tiles view, the terminal and the handover of the selected session](docs/screenshots/tiles-handover.png)
+
+List with workers under their PM, the terminal below it and the session's notes on the right:
+
+![List view, terminal below, notes on the right](docs/screenshots/list-notes.png)
+
+Plan limits with outlook, and tokens by project and session:
+
+![Usage details opened from the title bar](docs/screenshots/usage.png)
+
+A collapsed tile shows its views as a temporary layer:
+
+![Project info as a temporary layer over the terminal](docs/screenshots/layer.png)
+
+Dragging a tab onto another tile:
+
+![A tab being dragged onto the overview](docs/screenshots/drag.png)
 
 ## Starting
 
