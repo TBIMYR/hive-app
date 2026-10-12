@@ -354,3 +354,40 @@ struct FlowLayout: Layout {
         return rows
     }
 }
+
+/// Empty state of a tile in Hive's calm style, centered in the room it gets: icon on a soft disc, a short
+/// title, one or two gray lines and optionally a button.
+struct EmptyState: View {
+    let symbol: String
+    let title: String
+    let text: String
+    var action: (title: String, enabled: Bool, run: () -> Void)?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Image(systemName: symbol).font(.system(size: 18, weight: .medium)).foregroundStyle(Hive.ink2)
+                .frame(width: 48, height: 48)
+                .background(Circle().fill(Hive.soft))
+            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
+                .padding(.top, 16)
+            Text(text).font(.system(size: 13)).foregroundStyle(Hive.muted)
+                .multilineTextAlignment(.center).lineSpacing(3)
+                .frame(maxWidth: 300)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 6)
+            if let action {
+                Button(action: action.run) {
+                    Text(action.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.bg)
+                        .padding(.horizontal, 18).frame(height: 32)
+                        .background(RoundedRectangle(cornerRadius: 9).fill(Hive.ink))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!action.enabled).opacity(action.enabled ? 1 : 0.4)
+                .padding(.top, 18)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}

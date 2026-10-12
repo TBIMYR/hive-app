@@ -269,9 +269,7 @@ struct Workspace: View {
                         content(selected, for: s)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        ContentUnavailableView("No session selected", systemImage: "terminal",
-                                               description: Text("Click a session in the overview."))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        EmptyState(symbol: "terminal", title: "No session selected", text: "Click a session in the overview.")
                     }
                 },
                 edges: edges, anchor: panels[0]))
@@ -387,30 +385,19 @@ struct Workspace: View {
     @ViewBuilder
     private func mainContent(for s: Session) -> some View {
         if Tmux.path == nil {
-            ContentUnavailableView("tmux missing", systemImage: "exclamationmark.triangle",
-                                   description: Text("brew install tmux"))
-                .frame(maxHeight: .infinity)
+            EmptyState(symbol: "exclamationmark.triangle", title: "tmux missing", text: "brew install tmux")
         } else if let t = store.tmux(s) {
             TmuxTerminal(name: t, focusRequest: store.focusRequest).id("\(t)#\(store.terminalEpoch)")
                 .padding(.horizontal, 28).padding(.top, 6)
         } else if s.alive == true {
-            VStack(spacing: 12) {
-                ContentUnavailableView("Runs in iTerm", systemImage: "macwindow",
-                                       description: Text("This session has no tmux session. Start new sessions with the plus in the toolbar or ⌘N."))
-                if s.kind != "bg" {
-                    Button("Show in iTerm") {
-                        Task { message = await store.focusInITerm(s) ?? "→ iTerm" }
-                    }
-                }
-            }
-            .frame(maxHeight: .infinity)
+            EmptyState(symbol: "macwindow", title: "Runs in iTerm",
+                       text: "This session has no tmux session. Start new sessions with the plus in the toolbar or ⌘N.",
+                       action: s.kind != "bg" ? ("Show in iTerm", true, { Task { message = await store.focusInITerm(s) ?? "→ iTerm" } }) : nil)
         } else if s.hasHandover == true {
             // offline: only the handover is still there, so show it right away
             HandoverView(name: s.name)
         } else {
-            ContentUnavailableView("Offline", systemImage: "moon.zzz",
-                                   description: Text("No terminal and no handover."))
-                .frame(maxHeight: .infinity)
+            EmptyState(symbol: "moon.zzz", title: "Offline", text: "No terminal and no handover.")
         }
     }
 }

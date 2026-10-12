@@ -39,14 +39,9 @@ struct ProjectInfoView: View {
                 }
                 .scrollIndicators(.never)
             } else {
-                ContentUnavailableView {
-                    Label("No project info yet", systemImage: "info.circle")
-                } description: {
-                    Text("Links, test accounts and notes for this project. Stored in ~/.claude/project-info, outside every repo.")
-                } actions: {
-                    Button("Create", action: create).disabled(createDefaults == nil)
-                }
-                .frame(maxHeight: .infinity)
+                EmptyState(symbol: "info.circle", title: "No project info yet",
+                           text: "Links, test accounts and notes for this project. Stored in ~/.claude/project-info, outside every repo.",
+                           action: ("Create", createDefaults != nil, create))
             }
         }
         .onAppear { if startEditing { beginEditing() } }
