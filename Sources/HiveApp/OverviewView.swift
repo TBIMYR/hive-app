@@ -179,14 +179,16 @@ struct OverviewView: View {
                 }
             }
             .padding(.leading, leading).padding(.trailing, trailing)
-            .padding(.top, edges.contains(.top) ? Hive.margin : Hive.margin / 2).padding(.bottom, 4)
+            // as tall as the top row of the tiles beside it, so the switcher and their tabs sit on one line
+            .frame(height: Dock.strip)
+            .padding(.top, edges.contains(.top) ? Hive.margin : Hive.margin / 2)
 
             ScrollViewReader { proxy in
                 ScrollView {
                     content(favorites: parts.favorites, rest: parts.rest)
                         .coordinateSpace(.named(NavFrameKey.space))
                         .onPreferenceChange(NavFrameKey.self) { nav.frames = $0 }
-                        .padding(.leading, leading).padding(.trailing, trailing).padding(.top, 20).padding(.bottom, 60)
+                        .padding(.leading, leading).padding(.trailing, trailing).padding(.top, 8).padding(.bottom, 60)
                 }
                 .scrollIndicators(.never)
                 // keeps the selection in view (arrow keys, ⌘H, notifications); nil anchor = scroll as little as needed
