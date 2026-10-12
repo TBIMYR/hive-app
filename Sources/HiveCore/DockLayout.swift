@@ -93,7 +93,7 @@ public struct DockLayout: Codable, Equatable, Sendable {
     }
 
     /// Moves `panel` onto the group that holds `target`: `.center` adds it to that group's tabs, an edge
-    /// puts it in a tile of its own on that side. Dropping a panel beside its own group pulls it out of the
+    /// puts it in a tile of its own on that side and divides that row or column anew (`rebalance`). Dropping a panel beside its own group pulls it out of the
     /// tabs; with nothing else in the group there is nothing to do.
     public mutating func move(_ panel: DockPanel, to target: DockPanel, zone: Zone) {
         guard let from = group(of: panel), let to = group(of: target) else { return }
@@ -129,6 +129,45 @@ public struct DockLayout: Codable, Equatable, Sendable {
             }
         }
         normalize()
+        if zone != .center { rebalance(around: panel) }
+    }
+
+    /// How much room a panel wants compared with the others: the terminal and the overview the most.
+    public static func weight(_ panel: DockPanel) -> Double {
+        switch panel {
+        case .overview, .main: 3
+        case .handover, .project, .notes: 2
+        }
+    }
+
+    /// A tile wants what its most demanding tab wants; tiles stacked across the axis want what the most
+    /// demanding of them wants.
+    private static func weight(_ n: Node) -> Double {
+        switch n {
+        case .group(let g): g.panels.map(weight).max() ?? 1
+        case .split(let s): s.children.map(weight).max() ?? 1
+        }
+    }
+
+    /// Divides the row or column that holds the panel's tile by what each tile in it wants. Done after a
+    /// panel was dropped there; what is dragged by hand afterwards stays until the next drop.
+    private mutating func rebalance(around panel: DockPanel) {
+        func path(_ n: Node, _ at: [Int]) -> [Int]? {
+            guard case .split(let s) = n else { return nil }
+            for (i, c) in s.children.enumerated() {
+                if case .group(let g) = c, g.panels.contains(panel) { return at }
+                if let p = path(c, at + [i]) { return p }
+            }
+            return nil
+        }
+        guard let p = path(root, []) else { return }
+        root = Self.update(root, path: p[...]) { s in
+            var s = s
+            let w = s.children.map(Self.weight)
+            let sum = w.reduce(0, +)
+            s.fractions = w.map { $0 / sum }
+            return s
+        }
     }
 
     /// Moves `panel` to an edge of the window, across everything else.
@@ -150,6 +189,8 @@ public struct DockLayout: Codable, Equatable, Sendable {
         default: root = .split(Split(.vertical, [rest, new], fractions: [b, a]))
         }
         normalize()
+        // joined an existing row or column: divide it anew; alone across the window it keeps `edgeShare`
+        if case .split(let s) = root, s.children.count > 2 { rebalance(around: panel) }
     }
 
     /// Shifts `delta` (a share of the split at `path`) from the child at `after` to the one at `before`;

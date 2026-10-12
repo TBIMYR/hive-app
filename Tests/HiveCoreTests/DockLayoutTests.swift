@@ -46,13 +46,14 @@ private let all = Set(DockPanel.allCases)
 
 @Test func dockMovesAPanelBesideItsGroup() {
     var l = L.standard
+    // the row is divided by what each tile wants: overview and terminal more than the notes
     l.move(.notes, to: .main, zone: .right)
-    #expect(same(l.root, row(group(.overview), group(.main, .handover, .project), group(.notes), f: [0.66, 0.17, 0.17])))
+    #expect(same(l.root, row(group(.overview), group(.main, .handover, .project), group(.notes), f: [0.375, 0.375, 0.25])))
 
     // dropping it beside its own group works the same when dragged from the tabs
     var own = L.standard
     own.move(.notes, to: .notes, zone: .top)
-    #expect(same(own.root, row(group(.overview), column(group(.notes), group(.main, .handover, .project), f: [0.5, 0.5]), f: [0.66, 0.34])))
+    #expect(same(own.root, row(group(.overview), column(group(.notes), group(.main, .handover, .project), f: [0.4, 0.6]), f: [0.66, 0.34])))
 
     // a panel alone in its group stays where it is
     let before = l
@@ -65,7 +66,7 @@ private let all = Set(DockPanel.allCases)
     l.move(.notes, to: .main, zone: .right)
     l.move(.project, to: .notes, zone: .bottom)
     #expect(same(l.root, row(group(.overview), group(.main, .handover),
-                          column(group(.notes), group(.project), f: [0.5, 0.5]), f: [0.66, 0.17, 0.17])))
+                          column(group(.notes), group(.project), f: [0.5, 0.5]), f: [0.375, 0.375, 0.25])))
 }
 
 @Test func dockPutsAPanelBackIntoTabs() {
@@ -73,7 +74,7 @@ private let all = Set(DockPanel.allCases)
     l.move(.notes, to: .main, zone: .right)
     l.move(.notes, to: .handover, zone: .center)
     // the tile that is left gets the room back
-    #expect(same(l.root, row(group(.overview), group(.main, .handover, .project, .notes, selected: .notes), f: [0.66, 0.34])))
+    #expect(same(l.root, row(group(.overview), group(.main, .handover, .project, .notes, selected: .notes), f: [0.375, 0.625])))
     l.move(.main, to: .notes, zone: .center)
     #expect(l.group(of: .main)?.selected == .main)
 }
@@ -98,12 +99,12 @@ private let all = Set(DockPanel.allCases)
     l.move(.notes, to: .main, zone: .right)
     // the overview as a strip across the top of everything; its neighbour takes the room it leaves
     l.move(.overview, toEdge: .top)
-    #expect(same(l.root, column(group(.overview), row(group(.main, .handover, .project), group(.notes), f: [0.83, 0.17]), f: [0.3, 0.7])))
-    // along the same axis it joins the row
+    #expect(same(l.root, column(group(.overview), row(group(.main, .handover, .project), group(.notes), f: [0.75, 0.25]), f: [0.3, 0.7])))
+    // along the same axis it joins the column, which is divided anew
     l.move(.notes, toEdge: .bottom)
     guard case .split(let s) = l.root else { Issue.record("no split"); return }
     #expect(s.axis == .vertical && s.children.count == 3)
-    #expect(close(s.fractions, [0.3 * 0.7, 0.7 * 0.7, 0.3]))
+    #expect(close(s.fractions, [0.375, 0.375, 0.25]))
     #expect(s.children[2] == group(.notes))
     let before = l
     l.move(.notes, toEdge: .center)
@@ -132,7 +133,7 @@ private let all = Set(DockPanel.allCases)
     l.move(.notes, to: .main, zone: .bottom)
     l.resize(split: [1], before: 0, after: 1, delta: 0.1)
     guard case .split(let s) = l.root, case .split(let inner) = s.children[1] else { Issue.record("no nested split"); return }
-    #expect(close(inner.fractions, [0.6, 0.4]))
+    #expect(close(inner.fractions, [0.7, 0.3]))
 }
 
 @Test func dockShowsOnlyWhatTheSessionHas() {
@@ -143,9 +144,9 @@ private let all = Set(DockPanel.allCases)
     // no handover: its tile is gone, the column with the notes becomes a plain tile
     let v = l.visible(all.subtracting([.handover]))
     #expect(same(v, .split(axis: .horizontal, path: [], children: [
-        .init(index: 0, share: 0.66, node: .group(panels: [.overview], selected: .overview)),
-        .init(index: 1, share: 0.17, node: .group(panels: [.main, .project], selected: .project)),
-        .init(index: 2, share: 0.17, node: .group(panels: [.notes], selected: .notes)),
+        .init(index: 0, share: 0.375, node: .group(panels: [.overview], selected: .overview)),
+        .init(index: 1, share: 0.375, node: .group(panels: [.main, .project], selected: .project)),
+        .init(index: 2, share: 0.25, node: .group(panels: [.notes], selected: .notes)),
     ])))
     // offline with a handover: no terminal; the selected tab falls back to the first one
     guard case .split(_, _, let c) = L.standard.visible(all.subtracting([.main])) else { Issue.record("no split"); return }
