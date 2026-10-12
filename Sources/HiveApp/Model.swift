@@ -43,6 +43,11 @@ final class StateStore: ObservableObject {
     /// Activity the overview sorts by, retaken once a minute so tiles don't jump on every work step
     @Published private(set) var sortActivity = ActivitySnapshot()
     static let resortEvery: TimeInterval = 60
+    /// CPU load per session `id` in percent of one core (see ProcessLoad), rounded to 10; only sessions worth showing
+    @Published private(set) var load: [String: Double] = [:]
+    static let cores = ProcessInfo.processInfo.activeProcessorCount
+    static let loadEvery: TimeInterval = 10
+    private var loadSampledAt = Date.distantPast
     static let clockEvery: TimeInterval = 10
     /// Running tmux sessions with their command and pane IDs (fetched once per query)
     @Published private(set) var tmuxPanes = Tmux.Panes()
@@ -133,8 +138,26 @@ final class StateStore: ObservableObject {
             var snap = sortActivity
             snap.update(sessions, now: t, every: Self.resortEvery)
             if snap != sortActivity { sortActivity = snap }
+            if t.timeIntervalSince(loadSampledAt) >= Self.loadEvery {
+                loadSampledAt = t
+                await sampleLoad()
+            }
         } while again
         refreshing = false
+    }
+
+    /// One `ps` for all running sessions; measuring costs CPU itself, so it runs less often than the refresh.
+    private func sampleLoad() async {
+        let roots = sessions.filter(\.alive).compactMap { s in s.pid.map { (id: s.id, pid: $0) } }
+        let pids = roots.map(\.pid)
+        let byPid = await Task.detached { ProcessLoad.sample(roots: pids) }.value
+        var m: [String: Double] = [:]
+        for r in roots {
+            // rounded, so small changes don't redraw the UI
+            guard let cpu = byPid[r.pid].map({ ($0 / 10).rounded() * 10 }), ProcessLoad.share(cpu, cores: Self.cores) != nil else { continue }
+            m[r.id] = cpu
+        }
+        if m != load { load = m }
     }
 
     private func updateSleepGuard() {

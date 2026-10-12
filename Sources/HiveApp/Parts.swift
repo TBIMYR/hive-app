@@ -163,6 +163,26 @@ extension View {
     }
 }
 
+/// CPU load of a session's processes (tests, builds, servers) as a share of the whole Mac: "29 %" = four of
+/// fourteen cores busy. Nothing while the load is small; orange once it takes a quarter of the Mac.
+struct LoadBadge: View {
+    let session: Session
+    @EnvironmentObject private var store: StateStore
+
+    var body: some View {
+        if let cpu = store.load[session.id], let share = ProcessLoad.share(cpu, cores: StateStore.cores) {
+            let warn = share >= ProcessLoad.warnFrom
+            HStack(spacing: 3) {
+                Image(systemName: "cpu").font(.system(size: 10.5, weight: .semibold))
+                Text("\(share) %").font(.system(size: 12, weight: warn ? .semibold : .regular)).monospacedDigit()
+            }
+            .foregroundStyle(warn ? Hive.block : Hive.muted)
+            .fixedSize()
+            .help("This session's processes use \(share) % of the Mac (\(ProcessLoad.coresText(cpu)) of \(StateStore.cores) cores)")
+        }
+    }
+}
+
 /// Pill for running background agents/shell commands: green capsule, slowly turning arrows and the count.
 /// Nothing when count is 0. Respects "Reduce motion".
 struct BackgroundBadge: View {

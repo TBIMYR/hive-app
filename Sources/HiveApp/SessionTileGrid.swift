@@ -76,6 +76,7 @@ struct SmallTile: View {
                 }
                 RemoteControlBadge(on: item.session.remoteControl)
                 BackgroundBadge(count: item.session.backgroundTasks)
+                LoadBadge(session: item.session)
                 StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)
             }
