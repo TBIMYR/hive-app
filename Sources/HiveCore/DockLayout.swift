@@ -21,10 +21,20 @@ public struct DockLayout: Codable, Equatable, Sendable {
     public struct Group: Codable, Equatable, Sendable {
         public var panels: [DockPanel]
         public var selected: DockPanel
+        /// Folded to a bar of icons; a click on one shows its panel on top of the rest for a moment
+        public var collapsed: Bool
 
-        public init(_ panels: [DockPanel], selected: DockPanel? = nil) {
+        public init(_ panels: [DockPanel], selected: DockPanel? = nil, collapsed: Bool = false) {
             self.panels = panels
             self.selected = selected ?? panels.first ?? .main
+            self.collapsed = collapsed
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            panels = try c.decode([DockPanel].self, forKey: .panels)
+            selected = try c.decode(DockPanel.self, forKey: .selected)
+            collapsed = try c.decodeIfPresent(Bool.self, forKey: .collapsed) ?? false
         }
     }
 
@@ -90,6 +100,20 @@ public struct DockLayout: Codable, Equatable, Sendable {
             if g.panels.contains(panel) { g.selected = panel }
             return g
         }
+    }
+
+    /// Folds the panel's tile to a bar of icons, or opens it again. The last open tile stays open.
+    public mutating func setCollapsed(_ collapsed: Bool, groupOf panel: DockPanel) {
+        guard !collapsed || canCollapse(groupOf: panel) else { return }
+        root = Self.map(root) { g in
+            var g = g
+            if g.panels.contains(panel) { g.collapsed = collapsed }
+            return g
+        }
+    }
+
+    public func canCollapse(groupOf panel: DockPanel) -> Bool {
+        groups.contains { !$0.collapsed && !$0.panels.contains(panel) }
     }
 
     /// Moves `panel` onto the group that holds `target`: `.center` adds it to that group's tabs, an edge
@@ -212,7 +236,7 @@ public struct DockLayout: Codable, Equatable, Sendable {
 
     public indirect enum Visible: Equatable, Sendable {
         /// `panels` in tab order, `selected` is one of them
-        case group(panels: [DockPanel], selected: DockPanel)
+        case group(panels: [DockPanel], selected: DockPanel, collapsed: Bool)
         /// `path` leads to the split in the layout; each child knows its index there and its share
         case split(axis: Axis, path: [Int], children: [Child])
 
@@ -232,7 +256,7 @@ public struct DockLayout: Codable, Equatable, Sendable {
         case .group(let g):
             let panels = g.panels.filter(available.contains)
             guard let first = panels.first else { return nil }
-            return .group(panels: panels, selected: panels.contains(g.selected) ? g.selected : first)
+            return .group(panels: panels, selected: panels.contains(g.selected) ? g.selected : first, collapsed: g.collapsed)
         case .split(let s):
             let children = s.children.enumerated().compactMap { i, c in
                 visible(c, available, path: path + [i]).map { Visible.Child(index: i, share: s.fractions[i], node: $0) }
@@ -295,6 +319,15 @@ public struct DockLayout: Codable, Equatable, Sendable {
         if !seen.contains(.overview) {
             tidy = Self.tidy(.split(Split(.horizontal, [.group(Group([.overview])), tidy],
                                           fractions: [1 - Self.sessionShare, Self.sessionShare]))) ?? tidy
+        }
+        // something stays open: the terminal's tile, or the first one
+        let all = Self.groups(tidy)
+        if all.allSatisfy(\.collapsed), let open = (all.first { $0.panels.contains(.main) } ?? all.first)?.panels.first {
+            tidy = Self.map(tidy) { g in
+                var g = g
+                if g.panels.contains(open) { g.collapsed = false }
+                return g
+            }
         }
         root = tidy
     }

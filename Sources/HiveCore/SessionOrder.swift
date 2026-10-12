@@ -50,4 +50,12 @@ extension SessionOrder {
         if !terminalFocused { return sel }
         return candidates[(i + 1) % candidates.count]
     }
+
+    /// Session selected when the app starts, so the window doesn't open empty. `sessions` in overview order
+    /// with their status rank (0 needs you, 1 working, 3 offline): the first favorite that is running, else
+    /// the first working one, else the first that is running at all.
+    public static func initial(_ sessions: [(name: String, rank: Int, favorite: Bool)]) -> String? {
+        let running = sessions.filter { $0.rank < 3 }
+        return (running.first { $0.favorite } ?? running.first { $0.rank == 1 } ?? running.first)?.name
+    }
 }

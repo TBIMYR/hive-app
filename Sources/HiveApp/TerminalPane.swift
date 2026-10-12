@@ -31,8 +31,10 @@ struct Workspace: View {
         .coordinateSpace(name: Dock.space)
         .background { GeometryReader { g in Color.clear.onChange(of: g.size, initial: true) { area = g.size } } }
         .onPreferenceChange(DockFrames.self) { frames = $0 }
+        .overlay { peekLayer(s) }
         .overlay { if let drag { DockDropOverlay(drag: drag, target: target(drag)?.rect) } }
         .onChange(of: store.selected) { _, name in
+            dock.peek = nil
             message = nil
             editOnOpen = false
             // back to the session itself, as far as it shares its tile with other tabs
@@ -65,7 +67,7 @@ struct Workspace: View {
     private func headerGroup(_ v: DockLayout.Visible) -> DockPanel? {
         func groups(_ v: DockLayout.Visible) -> [[DockPanel]] {
             switch v {
-            case .group(let panels, _): [panels]
+            case .group(let panels, _, let collapsed): collapsed ? [] : [panels]
             case .split(_, _, let children): children.flatMap { groups($0.node) }
             }
         }
@@ -73,12 +75,12 @@ struct Workspace: View {
         return (all.first { $0.contains(.main) } ?? all.first)?.first
     }
 
-    private func item(_ p: DockPanel, _ s: Session) -> DockTabs.Item {
+    private func item(_ p: DockPanel, _ s: Session?) -> DockTabs.Item {
         switch p {
         case .overview: Self.overviewItem
         case .main:
-            store.tmux(s) != nil ? .init(panel: p, title: "Terminal", symbol: "terminal", help: "Terminal")
-                : s.alive == true ? .init(panel: p, title: "Session", symbol: "macwindow", help: "Session")
+            s.flatMap(store.tmux) != nil || s == nil ? .init(panel: p, title: "Terminal", symbol: "terminal", help: "Terminal")
+                : s?.alive == true ? .init(panel: p, title: "Session", symbol: "macwindow", help: "Session")
                 : .init(panel: p, title: "Offline", symbol: "moon.zzz", help: "Offline")
         case .handover: .init(panel: p, title: "Handover", symbol: "doc.text", help: "This session's handover")
         case .project: .init(panel: p, title: "Project", symbol: "info.circle", help: "This project's links, test accounts and notes")
@@ -148,45 +150,121 @@ struct Workspace: View {
         }
     }
 
+    /// Margin of a tile towards `e`: the full one at the window's edge, half of it towards another tile.
+    private func inset(_ e: Edge.Set, _ edges: Edge.Set) -> CGFloat { edges.contains(e) ? Hive.margin : Hive.margin / 2 }
+
+    /// A card like the session cards (white, rounded, soft shadow; hairline on dark) with the tile's margins.
+    /// Whole points on all sides, otherwise the terminal text gets blurry.
+    private func card(_ content: some View, edges: Edge.Set, anchor: DockPanel) -> some View {
+        content
+            .background(Hive.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay { if scheme == .dark { RoundedRectangle(cornerRadius: 16).strokeBorder(Hive.hair, lineWidth: 1) } }
+            .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 1, y: 1)
+            .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 12, y: 6)
+            .padding(.leading, inset(.leading, edges)).padding(.trailing, inset(.trailing, edges))
+            .padding(.top, inset(.top, edges)).padding(.bottom, inset(.bottom, edges))
+            .background { framed(anchor) }
+    }
+
+    private func iconButton(_ symbol: String, help: String, on: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(on ? Hive.bg : Hive.muted)
+                .frame(width: 30, height: 30)
+                .background { if on { RoundedRectangle(cornerRadius: 8).fill(Hive.ink) } }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    /// Folds the tile to a bar of icons; missing while it is the last open tile.
+    @ViewBuilder
+    private func collapseButton(_ anchor: DockPanel) -> some View {
+        if dock.layout.canCollapse(groupOf: anchor) {
+            iconButton("arrow.down.right.and.arrow.up.left", help: "Collapse to a bar of icons") {
+                dock.change { $0.setCollapsed(true, groupOf: anchor) }
+            }
+        }
+    }
+
+    /// A collapsed tile: a bar with one icon per panel (a click shows the panel on top of the rest until one
+    /// clicks elsewhere) and one to open the tile again. Upright beside other tiles, lying between stacked ones.
+    private func bar(_ panels: [DockPanel], _ s: Session?, upright: Bool, edges: Edge.Set) -> some View {
+        let stack = upright ? AnyLayout(VStackLayout(spacing: 4)) : AnyLayout(HStackLayout(spacing: 4))
+        return card(
+            stack {
+                iconButton("arrow.up.left.and.arrow.down.right", help: "Open this tile again") {
+                    dock.peek = nil
+                    dock.change { $0.setCollapsed(false, groupOf: panels[0]) }
+                }
+                Rectangle().fill(Hive.hair)
+                    .frame(width: upright ? 22 : 1, height: upright ? 1 : 22)
+                ForEach(panels, id: \.self) { p in
+                    let it = item(p, s)
+                    iconButton(it.symbol, help: "\(it.title): show on top of the rest", on: dock.peek == p) {
+                        dock.peek = dock.peek == p ? nil : p
+                    }
+                    .disabled(p != .overview && s == nil)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(7)
+            .frame(width: upright ? Dock.bar : nil, height: upright ? nil : Dock.bar)
+            .frame(maxWidth: upright ? nil : .infinity, maxHeight: upright ? .infinity : nil),
+            edges: edges, anchor: panels[0])
+    }
+
+    /// Room a collapsed tile takes along `axis`, its margins included; nil for anything else.
+    private func fixedSize(_ v: DockLayout.Visible, axis: DockLayout.Axis, edges: Edge.Set) -> CGFloat? {
+        guard case .group(_, _, true) = v else { return nil }
+        return Dock.bar + (axis == .horizontal ? inset(.leading, edges) + inset(.trailing, edges)
+                                               : inset(.top, edges) + inset(.bottom, edges))
+    }
+
+    private func tabRow(_ panels: [DockPanel], _ selected: DockPanel, _ s: Session) -> some View {
+        ViewThatFits(in: .horizontal) {
+            tabs(panels, selected, s)
+            tabs(panels, selected, s, titles: false)
+        }
+    }
+
     /// A tile or a split of tiles. `edges` are the sides at which the node touches the window; there a card
-    /// keeps the full margin, between tiles half of it each.
-    private func node(_ v: DockLayout.Visible, _ s: Session?, header: DockPanel?, edges: Edge.Set) -> AnyView {
+    /// keeps the full margin, between tiles half of it each. `axis` is the split the node sits in.
+    private func node(_ v: DockLayout.Visible, _ s: Session?, header: DockPanel?, edges: Edge.Set,
+                      axis: DockLayout.Axis? = nil) -> AnyView {
         switch v {
-        case .group(let panels, _) where panels == [.overview]:
+        case .group(let panels, _, true):
+            return AnyView(bar(panels, s, upright: axis != .vertical, edges: edges))
+        case .group(let panels, _, _) where panels == [.overview]:
+            let canCollapse = dock.layout.canCollapse(groupOf: .overview)
             return AnyView(
-                OverviewView(edges: edges, dragged: { overviewDragged($0, ended: $1) })
+                OverviewView(edges: edges, dragged: { overviewDragged($0, ended: $1) },
+                             collapse: canCollapse ? { dock.change { $0.setCollapsed(true, groupOf: .overview) } } : nil)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background { framed(.overview) }
             )
-        case .group(let panels, let selected):
-            func inset(_ e: Edge.Set) -> CGFloat { edges.contains(e) ? Hive.margin : Hive.margin / 2 }
-            return AnyView(
+        case .group(let panels, let selected, _):
+            return AnyView(card(
                 VStack(spacing: 0) {
                     if let s {
-                        if panels[0] == header {
-                            HStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            if panels[0] == header {
                                 Circle().fill(store.color(for: s.groupKey)).frame(width: 8, height: 8)
                                 Text(s.name).font(.system(size: 15, weight: .semibold)).lineLimit(1)
                                 Spacer(minLength: 4)
                                 if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted).lineLimit(1) }
                                 StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
                                     .fixedSize()
-                                ViewThatFits(in: .horizontal) {
-                                    tabs(panels, selected, s)
-                                    tabs(panels, selected, s, titles: false)
-                                }
-                            }
-                            .padding(.horizontal, 14).frame(height: Dock.strip)
-                        } else {
-                            HStack(spacing: 0) {
-                                ViewThatFits(in: .horizontal) {
-                                    tabs(panels, selected, s)
-                                    tabs(panels, selected, s, titles: false)
-                                }
+                                tabRow(panels, selected, s)
+                            } else {
+                                tabRow(panels, selected, s)
                                 Spacer(minLength: 0)
                             }
-                            .padding(.horizontal, 14).frame(height: Dock.strip)
+                            collapseButton(panels[0])
                         }
+                        .padding(.horizontal, 14).frame(height: Dock.strip)
                         Rectangle().fill(Hive.hair).frame(height: 1)
                         content(selected, for: s)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -195,40 +273,85 @@ struct Workspace: View {
                                                description: Text("Click a session in the overview."))
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                }
-                // a card like the session cards: white, rounded, soft shadow (hairline on dark)
-                .background(Hive.card)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay { if scheme == .dark { RoundedRectangle(cornerRadius: 16).strokeBorder(Hive.hair, lineWidth: 1) } }
-                .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 1, y: 1)
-                .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 12, y: 6)
-                // whole points on all sides, otherwise the terminal text gets blurry
-                .padding(.leading, inset(.leading)).padding(.trailing, inset(.trailing))
-                .padding(.top, inset(.top)).padding(.bottom, inset(.bottom))
-                .background { framed(panels[0]) }
-            )
+                },
+                edges: edges, anchor: panels[0]))
         case .split(let axis, let path, let children):
             let n = children.count
+            func childEdges(_ i: Int) -> Edge.Set {
+                var e = edges
+                if axis == .horizontal {
+                    if i > 0 { e.remove(.leading) }
+                    if i < n - 1 { e.remove(.trailing) }
+                } else {
+                    if i > 0 { e.remove(.top) }
+                    if i < n - 1 { e.remove(.bottom) }
+                }
+                return e
+            }
             return AnyView(
                 DockSplit(axis: axis, shares: children.map(\.share),
-                          onResize: { i, delta in
+                          fixed: children.indices.map { fixedSize(children[$0].node, axis: axis, edges: childEdges($0)) },
+                          onResize: { a, b, delta in
                               dock.change(persist: false) {
-                                  $0.resize(split: path, before: children[i].index, after: children[i + 1].index, delta: delta)
+                                  $0.resize(split: path, before: children[a].index, after: children[b].index, delta: delta)
                               }
                           },
                           onEnd: { dock.save() },
-                          content: { i in
-                              var e = edges
-                              if axis == .horizontal {
-                                  if i > 0 { e.remove(.leading) }
-                                  if i < n - 1 { e.remove(.trailing) }
-                              } else {
-                                  if i > 0 { e.remove(.top) }
-                                  if i < n - 1 { e.remove(.bottom) }
-                              }
-                              return node(children[i].node, s, header: header, edges: e)
-                          })
+                          content: { i in node(children[i].node, s, header: header, edges: childEdges(i), axis: axis) })
             )
+        }
+    }
+
+    /// The panel of a collapsed tile shown on top of everything else, next to its bar. A click anywhere
+    /// else closes it.
+    @ViewBuilder
+    private func peekLayer(_ s: Session?) -> some View {
+        if let p = dock.peek, let group = dock.layout.group(of: p), group.collapsed, p == .overview || s != nil,
+           let bar = group.panels.compactMap({ frames[$0] }).first {
+            let m = Hive.margin
+            let upright = bar.height >= bar.width
+            let w = upright ? min(max(440, area.width * 0.42), max(200, area.width - bar.width - m)) : max(200, area.width - 2 * m)
+            let h = upright ? max(200, area.height - 2 * m) : min(max(360, area.height * 0.55), max(200, area.height - bar.height - m))
+            let x = upright ? (bar.midX > area.width / 2 ? bar.minX - w : bar.maxX) : m
+            let y = upright ? m : (bar.midY > area.height / 2 ? bar.minY - h : bar.maxY)
+            let it = item(p, s)
+            ZStack(alignment: .topLeading) {
+                Color.black.opacity(0.001)
+                    .contentShape(Rectangle())
+                    .onTapGesture { dock.peek = nil }
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        Image(systemName: it.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
+                        Text(p == .overview ? it.title : "\(it.title) · \(s?.name ?? "")")
+                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
+                        Spacer(minLength: 4)
+                        iconButton("arrow.up.left.and.arrow.down.right", help: "Open this tile again") {
+                            dock.peek = nil
+                            dock.change {
+                                $0.setCollapsed(false, groupOf: p)
+                                $0.select(p)
+                            }
+                        }
+                    }
+                    .padding(.leading, 16).padding(.trailing, 10).frame(height: 44)
+                    Rectangle().fill(Hive.hair).frame(height: 1)
+                    Group {
+                        if p == .overview {
+                            OverviewView(edges: [])
+                        } else if let s {
+                            content(p, for: s)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(width: w.rounded(), height: h.rounded())
+                .background(p == .overview ? Hive.bg : Hive.card)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Hive.hair, lineWidth: 1))
+                .shadow(color: .black.opacity(0.22), radius: 24, y: 12)
+                .offset(x: x.rounded(), y: y.rounded())
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 

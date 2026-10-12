@@ -144,20 +144,20 @@ private let all = Set(DockPanel.allCases)
     // no handover: its tile is gone, the column with the notes becomes a plain tile
     let v = l.visible(all.subtracting([.handover]))
     #expect(same(v, .split(axis: .horizontal, path: [], children: [
-        .init(index: 0, share: 0.375, node: .group(panels: [.overview], selected: .overview)),
-        .init(index: 1, share: 0.375, node: .group(panels: [.main, .project], selected: .project)),
-        .init(index: 2, share: 0.25, node: .group(panels: [.notes], selected: .notes)),
+        .init(index: 0, share: 0.375, node: .group(panels: [.overview], selected: .overview, collapsed: false)),
+        .init(index: 1, share: 0.375, node: .group(panels: [.main, .project], selected: .project, collapsed: false)),
+        .init(index: 2, share: 0.25, node: .group(panels: [.notes], selected: .notes, collapsed: false)),
     ])))
     // offline with a handover: no terminal; the selected tab falls back to the first one
     guard case .split(_, _, let c) = L.standard.visible(all.subtracting([.main])) else { Issue.record("no split"); return }
-    #expect(c[1].node == .group(panels: [.handover, .project, .notes], selected: .handover))
+    #expect(c[1].node == .group(panels: [.handover, .project, .notes], selected: .handover, collapsed: false))
     // a nested split keeps its path for resizing
     guard case .split(_, _, let d) = l.visible(all), case .split(let axis, let path, _) = d[2].node else {
         Issue.record("no nested split"); return
     }
     #expect(axis == .vertical && path == [2])
     // only the overview: it fills the window
-    #expect(L.standard.visible([.overview]) == .group(panels: [.overview], selected: .overview))
+    #expect(L.standard.visible([.overview]) == .group(panels: [.overview], selected: .overview, collapsed: false))
     #expect(L.standard.visible([]) == nil)
 }
 
@@ -198,4 +198,33 @@ private let all = Set(DockPanel.allCases)
     let tabbed = L(root: group(.overview, .main, .handover, .project, .notes))
     #expect(same(tabbed.root, row(group(.overview), group(.main, .handover, .project, .notes), f: [0.66, 0.34])))
     #expect(same(L(root: group(.overview)).root, L.standard.root))
+}
+
+@Test func dockCollapsesTilesButKeepsOneOpen() {
+    var l = L.standard
+    l.move(.notes, to: .main, zone: .right)
+    l.setCollapsed(true, groupOf: .notes)
+    #expect(l.group(of: .notes)?.collapsed == true)
+    guard case .split(_, _, let c) = l.visible(all) else { Issue.record("no split"); return }
+    #expect(c[2].node == .group(panels: [.notes], selected: .notes, collapsed: true))
+    // it survives storing; a layout stored without the flag reads as open
+    #expect(L(json: l.json) == l)
+    #expect(L(json: l.json.replacingOccurrences(of: "\"collapsed\":true", with: "\"x\":1")).group(of: .notes)?.collapsed == false)
+
+    l.setCollapsed(true, groupOf: .overview)
+    #expect(l.canCollapse(groupOf: .main) == false)
+    // the last open tile stays open
+    l.setCollapsed(true, groupOf: .main)
+    #expect(l.group(of: .main)?.collapsed == false)
+    l.setCollapsed(false, groupOf: .notes)
+    #expect(l.group(of: .notes)?.collapsed == false)
+
+    // a stored layout with everything collapsed opens the terminal's tile
+    let shut = L(root: row(.group(L.Group([.overview], collapsed: true)),
+                           .group(L.Group([.main, .handover, .project, .notes], collapsed: true)), f: [0.5, 0.5]))
+    #expect(shut.group(of: .main)?.collapsed == false && shut.group(of: .overview)?.collapsed == true)
+    // a panel that is dropped beside a collapsed tile opens in a tile of its own
+    l.setCollapsed(true, groupOf: .notes)
+    l.move(.project, to: .notes, zone: .bottom)
+    #expect(l.group(of: .project)?.collapsed == false && l.group(of: .notes)?.collapsed == true)
 }

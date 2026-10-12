@@ -96,6 +96,8 @@ final class StateStore: ObservableObject {
     private var watcher: Watcher?
     private var refreshing = false
     private var again = false
+    /// the start selection (SessionOrder.initial) is made once, with the first sessions
+    private var pickedInitial = false
 
     init() {
         notifier.onSelect = { [weak self] name in self?.selected = name }
@@ -130,6 +132,10 @@ final class StateStore: ObservableObject {
             if panes != tmuxPanes { tmuxPanes = panes }
             let match = TmuxMatch.resolve(sessions, tmuxSessions: Set(panes.commands.keys), sessionOfPane: panes.sessionOfPane)
             if match != tmuxOf { tmuxOf = match }
+            if !pickedInitial, !displaySessions.isEmpty {
+                pickedInitial = true
+                if selected == nil { selected = initialSelection() }
+            }
             notifier.update(needs, selected: selected)
             updateSleepGuard()
             // the time labels are minute-grained ("5 min"), so publishing the clock every 10 s is enough
@@ -229,6 +235,12 @@ final class StateStore: ObservableObject {
     }
 
     func isFavorite(_ name: String) -> Bool { favorites.contains(name) }
+
+    private func initialSelection() -> String? {
+        let sorted = SessionOrder.sorted(displaySessions, session: { $0 }, status: { status($0).core },
+                                         labels: labels, activity: sortActivity.times)
+        return SessionOrder.initial(sorted.map { (name: $0.name, rank: status($0).rank, favorite: isFavorite($0.name)) })
+    }
 
     /// Star or right-click menu: toggle favorite on/off, stored under `pinned`.
     func toggleFavorite(_ name: String) {

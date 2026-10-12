@@ -23,6 +23,9 @@ Names in examples are made up.
   (drop on its edge), across the whole window (drop at the window's edge) or back onto another tile's tabs (drop in
   the middle); drag the gaps to resize. The arrangement is the same for all sessions; View → Reset Window
   Layout restores the default. The overview always keeps a tile of its own
+- A tile can be collapsed to a bar of icons (button at the right of its top row); a click on an icon shows that view
+  on top of the rest until you click elsewhere
+- At launch the first running favorite is selected, else the first working session
 - Quick reply and reply buttons in the cards view
 - Keeps the Mac awake while sessions work (switch in the title bar and in Settings, ⌘,)
 - Own right-click menu: Wake Up / Remote Control / Write Handover, Favorite / Start next, Restart… / Close… / Force Quit…

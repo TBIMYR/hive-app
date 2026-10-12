@@ -7,6 +7,8 @@ import HiveCore
 @MainActor
 final class DockStore: ObservableObject {
     @Published private(set) var layout: DockLayout
+    /// Panel of a collapsed tile that is shown on top of the rest for the moment
+    @Published var peek: DockPanel?
     private static let key = "dockLayout"
 
     init() {
@@ -34,6 +36,8 @@ enum Dock {
     static let windowEdge: CGFloat = 28
     /// Height of a tile's top row: the tabs, in the terminal's tile also the session's name and status
     static let strip: CGFloat = 54
+    /// Thickness of a collapsed tile's bar of icons
+    static let bar: CGFloat = 44
 }
 
 /// A tab that is being dragged, with the pointer's place in the window's content
@@ -122,13 +126,15 @@ struct DockTabs: View {
     }
 }
 
-/// Tiles side by side or stacked; dragging the gap between two shifts room between them. Sizes are whole
-/// points, otherwise the terminal text gets blurry.
+/// Tiles side by side or stacked; dragging the gap between two shifts room between them. Collapsed tiles
+/// have a fixed size, the others share the rest. Sizes are whole points, otherwise the terminal text gets blurry.
 struct DockSplit: View {
     let axis: DockLayout.Axis
     let shares: [Double]
-    /// boundary index (between tile i and i+1) and the change as a share of the split
-    let onResize: (Int, Double) -> Void
+    /// size of the tiles that don't take part in the sharing (collapsed), nil for the others
+    let fixed: [CGFloat?]
+    /// the two tiles (indices) a dragged boundary shifts room between, and the change as a share of the split
+    let onResize: (Int, Int, Double) -> Void
     let onEnd: () -> Void
     let content: (Int) -> AnyView
     @State private var last: CGFloat = 0
@@ -136,12 +142,17 @@ struct DockSplit: View {
     @State private var hover: Int?
     @State private var dragging: Int?
 
-    static func sizes(_ shares: [Double], total: CGFloat) -> [CGFloat] {
-        let sum = shares.reduce(0, +)
-        guard sum > 0, total > 0 else { return shares.map { _ in 0 } }
+    /// Share of the tiles that are sized by their share
+    private var flexible: Double { zip(shares, fixed).reduce(0) { $0 + ($1.1 == nil ? $1.0 : 0) } }
+
+    static func sizes(_ shares: [Double], fixed: [CGFloat?], total: CGFloat) -> [CGFloat] {
+        let room = max(0, total - fixed.compactMap { $0 }.reduce(0, +))
+        let sum = zip(shares, fixed).reduce(0) { $0 + ($1.1 == nil ? $1.0 : 0) }
+        let lastFlexible = fixed.lastIndex { $0 == nil }
         var out: [CGFloat] = [], used: CGFloat = 0
         for (i, s) in shares.enumerated() {
-            let w = i == shares.count - 1 ? total - used : (total * s / sum).rounded()
+            if let f = fixed[i] { out.append(f); continue }
+            let w = i == lastFlexible ? room - used : (sum > 0 ? (room * s / sum).rounded() : 0)
             out.append(max(0, w))
             used += w
         }
@@ -152,15 +163,20 @@ struct DockSplit: View {
         GeometryReader { geo in
             let horizontal = axis == .horizontal
             let n = shares.count
-            let room = max(0, horizontal ? geo.size.width : geo.size.height)
-            let sizes = Self.sizes(shares, total: room)
+            let total = max(0, horizontal ? geo.size.width : geo.size.height)
+            let sizes = Self.sizes(shares, fixed: fixed, total: total)
+            let room = max(0, total - fixed.compactMap { $0 }.reduce(0, +))
             let stack = horizontal ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
             stack {
                 ForEach(0..<n, id: \.self) { i in
                     content(i)
                         .frame(width: horizontal ? sizes[i] : nil, height: horizontal ? nil : sizes[i])
                         .clipped()
-                    if i < n - 1 { divider(i, room: room) }
+                    // a boundary moves the nearest tiles on both sides that can change their size
+                    if i < n - 1, let a = (0...i).last(where: { fixed[$0] == nil }),
+                       let b = ((i + 1)..<n).first(where: { fixed[$0] == nil }) {
+                        divider(i, between: a, and: b, room: room)
+                    }
                 }
             }
         }
@@ -168,7 +184,7 @@ struct DockSplit: View {
 
     /// The boundary between two tiles takes no room itself; its handle spans the gap between them up to
     /// both edges. Hovering or dragging shows a blue bar in the gap, in the style of the drop target.
-    private func divider(_ i: Int, room: CGFloat) -> some View {
+    private func divider(_ i: Int, between a: Int, and b: Int, room: CGFloat) -> some View {
         let horizontal = axis == .horizontal
         let thickness = Hive.margin + 4
         let on = hover == i || dragging == i
@@ -200,7 +216,7 @@ struct DockSplit: View {
                             .onChanged { v in
                                 dragging = i
                                 let t = horizontal ? v.translation.width : v.translation.height
-                                if room > 0 { onResize(i, Double((t - last) / room) * shares.reduce(0, +)) }
+                                if room > 0 { onResize(a, b, Double((t - last) / room) * flexible) }
                                 last = t
                             }
                             .onEnded { _ in

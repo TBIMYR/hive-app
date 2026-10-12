@@ -14,9 +14,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let dock = DockStore()
 
     /// ⌘T: brings the selected session's notepad to the front with the cursor in it; once more goes back
-    /// to what shares its tile (the terminal).
+    /// to what shares its tile (the terminal). In a collapsed tile it shows and hides the notepad on top.
     func toggleNotes() {
         guard let name = store.selected, let group = dock.layout.group(of: .notes) else { return }
+        // collapsed: on top of the rest for the moment
+        if group.collapsed {
+            dock.peek = dock.peek == .notes ? nil : .notes
+            if dock.peek == .notes { notes.focusRequest = name }
+            return
+        }
         if group.selected == .notes, let other = group.panels.first(where: { $0 != .notes }) {
             dock.change { $0.select(other) }
         } else {

@@ -93,6 +93,8 @@ struct OverviewView: View {
     /// Dragging the view switcher moves the overview in the window: the pointer's place in the window's
     /// content while dragging, and once more with `true` when it is dropped
     var dragged: ((CGPoint, Bool) -> Void)?
+    /// Folds the overview to a bar; nil = no button for it
+    var collapse: (() -> Void)?
     #if DEBUG
     /// for screenshots of a test instance: HIVE_SHOW_OFFLINE=1 starts with offline sessions expanded
     private static let offlineAtLaunch = ProcessInfo.processInfo.environment["HIVE_SHOW_OFFLINE"] != nil
@@ -158,13 +160,24 @@ struct OverviewView: View {
         let leading = edges.contains(.leading) ? Hive.margin : Hive.margin / 2
         let trailing = edges.contains(.trailing) ? Hive.margin : Hive.margin / 2
         return VStack(alignment: .leading, spacing: 0) {
-            ViewSwitcher(mode: $mode).fixedSize()
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 8, coordinateSpace: .named(Dock.space))
-                        .onChanged { dragged?($0.location, false) }
-                        .onEnded { dragged?($0.location, true) }
-                )
-                .contextMenu { if dragged != nil { Button("Reset Layout") { dock.reset() } } }
+            HStack(spacing: 8) {
+                ViewSwitcher(mode: $mode).fixedSize()
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8, coordinateSpace: .named(Dock.space))
+                            .onChanged { dragged?($0.location, false) }
+                            .onEnded { dragged?($0.location, true) }
+                    )
+                    .contextMenu { if dragged != nil { Button("Reset Layout") { dock.reset() } } }
+                Spacer(minLength: 0)
+                if let collapse {
+                    Button(action: collapse) {
+                        Image(systemName: "arrow.down.right.and.arrow.up.left").font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Hive.muted).frame(width: 30, height: 30).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Collapse the overview to a bar")
+                }
+            }
             .padding(.leading, leading).padding(.trailing, trailing)
             .padding(.top, edges.contains(.top) ? Hive.margin : Hive.margin / 2).padding(.bottom, 4)
 
