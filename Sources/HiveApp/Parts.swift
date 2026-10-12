@@ -265,8 +265,8 @@ struct OverviewItem: Identifiable {
     var id: String { session.id }
     var name: String { session.name }
 
-    /// Short line for Tiles and List: while working the work step, while waiting "Allow …?" or the question, otherwise nil
-    /// (then the task).
+    /// Short line for Tiles and List: while working the work step, while waiting "Allow …?" or the question, otherwise nil.
+    /// The List shows it after the task, Tiles only when there is no task.
     var now: NowLine? { status.rank <= 1 ? NowLine(session, rank: status.rank) : nil }
 }
 

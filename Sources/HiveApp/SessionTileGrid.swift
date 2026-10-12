@@ -52,7 +52,7 @@ private struct TileGrid: View {
 struct SmallTile: View {
     let item: OverviewItem
     let isSelected: Bool
-    /// Height of the tallest middle part (Now or task) in the grid; this one grows to it
+    /// Height of the tallest middle part (the title) in the grid; this one grows to it
     var minBody: CGFloat = 0
     let toggleFavorite: () -> Void
 
@@ -60,9 +60,8 @@ struct SmallTile: View {
         let st = item.status
         let loud = st.rank == 0
         let task = item.session.task?.text
-        let now = item.now
-        // working/waiting: briefly the content of "Now", otherwise for "needs you" first the reason, then the task
-        let text = loud ? [st.why, task].compactMap { $0 }.joined(separator: " – ") : (task ?? "No task line")
+        // only the title (the task) like on the cards; without one the content of "Now" or the reason
+        let text = task ?? item.now?.text ?? (loud ? st.why : nil)
         VStack(alignment: .leading, spacing: 8) {
             // name, then the status as dot + colored text like on the cards; the status gives way first
             HStack(spacing: 8) {
@@ -81,30 +80,10 @@ struct SmallTile: View {
                 StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)
             }
-            Group {
-                if let now {
-                    // one line of text, below it command/file; together as tall as two lines of task
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(now.text)
-                            .font(.system(size: 13, weight: now.kind == .permission ? .semibold : .regular))
-                            .foregroundStyle(now.kind == .permission ? Hive.ink : Hive.ink2)
-                        Text(now.detail ?? " ").font(.hiveMono(11.5)).foregroundStyle(Hive.muted).truncationMode(.middle)
-                    }
-                    .lineLimit(1)
-                } else if !loud, let task, let detail = item.session.task?.detail {
-                    // topic, below it the detail small and gray; together two lines like a plain task
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(task).font(.system(size: 13)).foregroundStyle(Hive.ink2)
-                        Text(detail).font(.system(size: 11.5)).foregroundStyle(Hive.muted)
-                    }
-                    .lineLimit(1)
-                } else {
-                    Text(text)
-                        .font(.system(size: 13))
-                        .foregroundStyle(!loud && task == nil ? Hive.muted : Hive.ink2)
-                        .lineLimit(2, reservesSpace: true)
-                }
-            }
+            Text(text ?? "No task line")
+                .font(.system(size: 13, weight: task == nil ? .regular : .medium))
+                .foregroundStyle(text == nil ? Hive.muted : task == nil ? Hive.ink2 : Hive.ink)
+                .lineLimit(2, reservesSpace: true)
             .matchTallest(minBody)
             HStack(spacing: 6) {
                 Circle().fill(item.color).frame(width: 6, height: 6)
