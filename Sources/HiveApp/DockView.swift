@@ -179,9 +179,9 @@ struct DockSplit: View {
                     .frame(width: horizontal ? thickness : nil, height: horizontal ? nil : thickness)
                     .overlay {
                         if on {
-                            RoundedRectangle(cornerRadius: 3).fill(Hive.shell.opacity(0.14))
-                                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Hive.shell.opacity(0.7), lineWidth: 1.5))
-                                .frame(width: horizontal ? 6 : nil, height: horizontal ? nil : 6)
+                            RoundedRectangle(cornerRadius: 5).fill(Hive.shell.opacity(0.14))
+                                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Hive.shell.opacity(0.7), lineWidth: 1.5))
+                                .frame(width: horizontal ? 10 : nil, height: horizontal ? nil : 10)
                                 .padding(horizontal ? .vertical : .horizontal, Hive.margin)
                         }
                     }
