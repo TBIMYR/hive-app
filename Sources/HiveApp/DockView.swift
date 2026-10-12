@@ -10,7 +10,7 @@ final class DockStore: ObservableObject {
     /// Panel of a collapsed tile that is shown on top of the rest for the moment
     @Published var peek: DockPanel?
     /// Own width (or height) of the layer per collapsed tile, keyed by the tile's first panel; without an
-    /// entry the layer is as large as the tile beneath it
+    /// entry the layer is a tenth smaller than the tile beneath it
     @Published private(set) var peekSizes: [String: Double]
     private static let key = "dockLayout"
     private static let peekKey = "dockPeekSizes"
@@ -20,7 +20,7 @@ final class DockStore: ObservableObject {
         peekSizes = UserDefaults.standard.dictionary(forKey: Self.peekKey) as? [String: Double] ?? [:]
     }
 
-    /// nil = back to the size of the tile beneath. `persist: false` while dragging.
+    /// nil = back to the default size. `persist: false` while dragging.
     func setPeekSize(_ size: CGFloat?, for anchor: DockPanel, persist: Bool = true) {
         peekSizes[anchor.rawValue] = size.map(Double.init)
         if persist { savePeekSizes() }

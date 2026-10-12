@@ -352,8 +352,10 @@ struct Workspace: View {
             // not beyond the window on the other side
             let limit = max(Self.minPeek, (upright ? (far ? bar.minX : area.width - bar.maxX)
                                                     : (far ? bar.minY : area.height - bar.maxY)) - Hive.margin)
-            let r = sized(peekRect(bar: bar, anchor: anchor), to: dock.peekSizes[anchor.rawValue].map { min(max($0, Self.minPeek), limit) },
-                          upright: upright, far: far)
+            // by default a tenth smaller than the tile beneath, so a strip of it stays visible; else as dragged
+            let beneath = peekRect(bar: bar, anchor: anchor)
+            let extent = dock.peekSizes[anchor.rawValue].map { CGFloat($0) } ?? ((upright ? beneath.width : beneath.height) * 0.9).rounded()
+            let r = sized(beneath, to: min(max(extent, Self.minPeek), limit), upright: upright, far: far)
             let (x, y, w, h) = (r.minX, r.minY, r.width, r.height)
             let it = item(p, s)
             ZStack(alignment: .topLeading) {
@@ -407,7 +409,7 @@ struct Workspace: View {
     }
 
     /// Handle on the layer's edge away from the bar: dragging resizes the layer (remembered per tile), a
-    /// double click goes back to the size of the tile beneath. Lights up like the gaps between tiles.
+    /// double click goes back to the default size. Lights up like the gaps between tiles.
     private func peekHandle(_ r: CGRect, anchor: DockPanel, upright: Bool, far: Bool, limit: CGFloat) -> some View {
         let on = peekHover || peekStart != nil
         let t: CGFloat = 16
