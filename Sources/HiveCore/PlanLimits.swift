@@ -30,6 +30,11 @@ public struct PlanLimits: Equatable, Sendable {
             let runsOutIn: TimeInterval? = projected < 100 ? nil : (perSecond > 0 ? max(0, (100 - percent) / perSecond) : nil)
             return Pace(projectedPercent: projected, runsOutIn: runsOutIn)
         }
+
+        /// nil while there is no pace yet; a window at its limit has run out either way.
+        public func outlook(length: TimeInterval, now: Date) -> Outlook? {
+            pace(length: length, now: now)?.outlook ?? (percent >= 100 ? .runsOut : nil)
+        }
     }
 
     public struct Pace: Equatable, Sendable {
@@ -39,7 +44,16 @@ public struct PlanLimits: Equatable, Sendable {
         public let runsOutIn: TimeInterval?
 
         public var lasts: Bool { runsOutIn == nil }
+
+        /// Projected percent at the reset from which it "gets tight"
+        public static let tightFrom = 90.0
+
+        public var outlook: Outlook { !lasts ? .runsOut : projectedPercent >= Self.tightFrom ? .tight : .lasts }
     }
+
+    /// How a window ends at the current pace: enough until the reset, close to the limit, or empty before it.
+    /// The UI colors a limit by this, not by how much is used.
+    public enum Outlook: Equatable, Sendable { case lasts, tight, runsOut }
 
     public static let fiveHourLength: TimeInterval = 5 * 3600
     public static let weekLength: TimeInterval = 7 * 86400
@@ -209,10 +223,4 @@ public enum UsageFormat {
         return "$" + (f.string(from: NSNumber(value: v.rounded())) ?? String(format: "%.0f", v))
     }
 
-    public enum Level: Equatable, Sendable { case normal, warning, critical }
-
-    /// below 70 % normal, 70–89 % warning, from 90 % critical
-    public static func level(_ percent: Double) -> Level {
-        percent >= 90 ? .critical : percent >= 70 ? .warning : .normal
-    }
 }

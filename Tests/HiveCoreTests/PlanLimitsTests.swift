@@ -108,11 +108,7 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
     #expect(UsageFormat.countdown(27 * 3600 + 5 * 60) == "1d 3h")
 }
 
-@Test func levelsAndTokenFormat() {
-    #expect(UsageFormat.level(69.9) == .normal)
-    #expect(UsageFormat.level(70) == .warning)
-    #expect(UsageFormat.level(89) == .warning)
-    #expect(UsageFormat.level(90) == .critical)
+@Test func tokenFormat() {
     #expect(UsageFormat.tokens(812) == "812")
     #expect(UsageFormat.tokens(45_230) == "45.2k")
     #expect(UsageFormat.tokens(3_100_000) == "3.1M")
@@ -150,6 +146,23 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
     let early = PlanLimits.Window(percent: 5, resetsAt: at(1_800_000_000 + 18_000 - 1_000))
     #expect(early.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)) == nil)
     #expect(PlanLimits.Window(percent: 5, resetsAt: nil).pace(length: PlanLimits.fiveHourLength, now: at(0)) == nil)
+}
+
+@Test func outlookFollowsThePaceNotTheUsage() {
+    let now = at(1_800_000_000), len = PlanLimits.fiveHourLength
+    // 4h elapsed, 1h left
+    let reset = at(1_800_003_600)
+    // 70 % used → 87.5 % at the reset: lasts, however full it already is
+    #expect(PlanLimits.Window(percent: 70, resetsAt: reset).outlook(length: len, now: now) == .lasts)
+    // 76 % → 95 %: tight
+    #expect(PlanLimits.Window(percent: 76, resetsAt: reset).outlook(length: len, now: now) == .tight)
+    // 84 % → 105 %: runs out
+    #expect(PlanLimits.Window(percent: 84, resetsAt: reset).outlook(length: len, now: now) == .runsOut)
+    // 1h elapsed, 30 % used → 150 %: runs out although little is used
+    #expect(PlanLimits.Window(percent: 30, resetsAt: at(1_800_014_400)).outlook(length: len, now: now) == .runsOut)
+    // no pace yet: no outlook, unless the limit is reached
+    #expect(PlanLimits.Window(percent: 5, resetsAt: nil).outlook(length: len, now: now) == nil)
+    #expect(PlanLimits.Window(percent: 100, resetsAt: nil).outlook(length: len, now: now) == .runsOut)
 }
 
 @Test func paceAtTheLimitDoesNotLast() throws {

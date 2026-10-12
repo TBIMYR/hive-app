@@ -69,12 +69,13 @@ final class UsageStore: ObservableObject {
     }
 }
 
-private extension UsageFormat.Level {
+private extension PlanLimits.Outlook {
+    /// green: lasts until the reset, orange: gets tight, red: runs out before it
     var color: Color {
         switch self {
-        case .normal: Hive.ink2
-        case .warning: Hive.block
-        case .critical: Hive.need
+        case .lasts: Hive.busy
+        case .tight: Hive.block
+        case .runsOut: Hive.need
         }
     }
 }
@@ -126,7 +127,9 @@ struct UsageButton: View {
     }
 
     private func part(_ name: String, _ w: PlanLimits.Window, length: TimeInterval, now: Date) -> Text {
-        var main = Text("\(name) \(Int(w.percent.rounded()))%").foregroundColor(UsageFormat.level(w.percent).color)
+        // colored like the arrow: what counts is whether it lasts, not how much is used
+        var main = Text("\(name) \(Int(w.percent.rounded()))%")
+            .foregroundColor(w.outlook(length: length, now: now)?.color ?? Hive.ink2)
         if let pace = w.pace(length: length, now: now) { main = main + Text(" ") + PaceArrow.text(pace) }
         guard let r = w.resetsAt else { return main }
         return main + Text(" (\(UsageFormat.countdown(r.timeIntervalSince(now))))")
@@ -287,17 +290,22 @@ private struct DayBars: View {
     }
 }
 
-/// ↘ green: lasts until the reset at the current pace; ↗ red: runs out before it.
+/// ↘ green: lasts until the reset at the current pace; → orange: gets tight; ↗ red: runs out before it.
 private enum PaceArrow {
     static func text(_ pace: PlanLimits.Pace) -> Text {
-        Text(Image(systemName: pace.lasts ? "arrow.down.right" : "arrow.up.right"))
+        let symbol = switch pace.outlook {
+        case .lasts: "arrow.down.right"
+        case .tight: "arrow.right"
+        case .runsOut: "arrow.up.right"
+        }
+        return Text(Image(systemName: symbol))
             .font(.system(size: 10.5, weight: .bold))
-            .foregroundColor(pace.lasts ? Hive.busy : Hive.need)
+            .foregroundColor(pace.outlook.color)
     }
 
     static func sentence(_ pace: PlanLimits.Pace) -> String {
         if let t = pace.runsOutIn { return t <= 0 ? "limit reached" : "runs out in \(UsageFormat.countdown(t)) at this pace" }
-        return "lasts · about \(Int(pace.projectedPercent.rounded())) % at the reset at this pace"
+        return "\(pace.outlook == .tight ? "tight" : "lasts") · about \(Int(pace.projectedPercent.rounded())) % at the reset at this pace"
     }
 }
 
@@ -308,19 +316,19 @@ private struct LimitRow: View {
     let now: Date
 
     var body: some View {
-        let level = UsageFormat.level(window.percent)
+        let color = window.outlook(length: length, now: now)?.color
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title).font(.system(size: 13, weight: .medium)).foregroundStyle(Hive.ink)
                 Spacer()
                 Text("\(Int(window.percent.rounded())) %")
                     .font(.system(size: 13, weight: .semibold)).monospacedDigit()
-                    .foregroundStyle(level == .normal ? Hive.ink : level.color)
+                    .foregroundStyle(color ?? Hive.ink)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Hive.soft)
-                    Capsule().fill(level == .normal ? Hive.ink2 : level.color)
+                    Capsule().fill(color ?? Hive.ink2)
                         .frame(width: max(4, geo.size.width * min(1, max(0, window.percent / 100))))
                 }
             }
@@ -330,7 +338,7 @@ private struct LimitRow: View {
                     .font(.system(size: 11.5)).foregroundStyle(Hive.muted).monospacedDigit()
             }
             if let pace = window.pace(length: length, now: now) {
-                (PaceArrow.text(pace) + Text(" ") + Text(PaceArrow.sentence(pace)).foregroundColor(pace.lasts ? Hive.muted : Hive.need))
+                (PaceArrow.text(pace) + Text(" ") + Text(PaceArrow.sentence(pace)).foregroundColor(pace.outlook == .lasts ? Hive.muted : pace.outlook.color))
                     .font(.system(size: 11.5)).monospacedDigit()
             }
         }
