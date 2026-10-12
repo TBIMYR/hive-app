@@ -1,7 +1,7 @@
 # hive-app
 
-Mac app for parallel Claude Code sessions: the overview of all sessions on the left, the real
-terminal of the selected session (tmux) on the right. The session tools the app reads from
+Mac app for parallel Claude Code sessions: the overview of all sessions next to the real terminal of the
+selected session (tmux), its handover, its project info and its notes, arranged as tiles. The session tools the app reads from
 (`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`, `cc-note`) live in `tools/`. Until 2026-10-07 they were a
 separate repo `hive` together with a Node/HTML dashboard; its history is merged in here.
 
@@ -15,7 +15,13 @@ Names in examples are made up.
 - Views: List, Tiles, Cards
 - Favorites with a star
 - ⌘H jumps to the longest-waiting session, cursor into the terminal; press again for the next one
-- Notifications and a dock badge count for sessions that need you
+- Notifications and a dock badge count for sessions that need you; optionally a push to the phone via ntfy once the
+  Mac has had no input for a while (Settings, ⌘,)
+- CPU load per session (its own process and everything it started) as a share of the whole Mac, shown from 5 %,
+  orange from 25 %
+- Plan limits in the title bar (5 hours and week), colored by the outlook: green lasts until the reset, orange gets
+  tight, red runs out before it; a click shows tokens over 1/7/30 days by project and session
+- New Session (⌘N) and New Project… (⇧⌘N)
 - A notepad per session (Notes, ⌘T): Markdown, stored in `~/.claude/hive/notes/<session>.md`; write it yourself or
   let the session add to it with `cc-note`
 - The window is made of tiles: the overview, and Terminal, Handover, Project and Notes of the selected session as
@@ -24,7 +30,8 @@ Names in examples are made up.
   the middle); drag the gaps to resize. The arrangement is the same for all sessions; View → Reset Window
   Layout restores the default. The overview always keeps a tile of its own
 - A tile can be collapsed to a bar of icons (button at the right of its top row); a click on an icon shows that view
-  on top of the rest until you click elsewhere
+  on top of the rest until you click elsewhere. That layer starts a tenth smaller than the tile beneath; drag its
+  free edge to resize it (remembered per tile, double-click resets)
 - At launch the first running favorite is selected, else the first working session
 - Quick reply and reply buttons in the cards view
 - Keeps the Mac awake while sessions work (switch in the title bar and in Settings, ⌘,)
