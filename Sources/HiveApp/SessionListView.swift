@@ -124,7 +124,7 @@ struct SessionRow: View {
         let st = item.status
         let loud = st.rank == 0
         let task = item.session.task?.text
-        // working/waiting: the "Now" box briefly, instead of the task
+        // working/waiting: the "Now" box briefly, after the task
         let now = item.now?.text
         let r = SessionListView.radius
         let shape = UnevenRoundedRectangle(topLeadingRadius: first ? r : 0, bottomLeadingRadius: last ? r : 0,
@@ -149,10 +149,14 @@ struct SessionRow: View {
             .frame(width: 210, alignment: .leading)
             HStack(spacing: 6) {
                 Circle().fill(item.color).frame(width: 6, height: 6)
-                // the detail follows the task in gray, as far as the row has room
-                let detail = now == nil && task != nil ? item.session.task?.detail : nil
-                Text(now ?? task ?? "No task line").foregroundStyle(now == nil && task == nil ? Hive.muted : Hive.ink2)
-                    + Text(detail.map { "  \($0)" } ?? "").foregroundStyle(Hive.muted)
+                // the task is the title like on the cards; the "Now" line (or else the detail) follows in gray,
+                // as far as the row has room
+                if let task {
+                    Text(task).fontWeight(.medium).foregroundStyle(Hive.ink)
+                        + Text((now ?? item.session.task?.detail).map { "  \($0)" } ?? "").foregroundStyle(Hive.muted)
+                } else {
+                    Text(now ?? "No task line").foregroundStyle(now == nil ? Hive.muted : Hive.ink2)
+                }
             }
             .help(item.project)
             .frame(maxWidth: .infinity, alignment: .leading)
