@@ -16,9 +16,11 @@ Names in examples are made up.
 - Favorites with a star
 - ⌘H jumps to the longest-waiting session, cursor into the terminal; press again for the next one
 - Notifications and a dock badge count for sessions that need you
-- Notes per session as floating cards (⌘T shows or hides them, ⇧⌘T adds one), stored in
-  `~/.claude/hive/notes/<session>/`: write one, pick one of the session's recent answers, or let the session write one
-  with `cc-note`
+- A notepad per session (Notes, ⌘T): Markdown, stored in `~/.claude/hive/notes/<session>.md`; write it yourself or
+  let the session add to it with `cc-note`
+- Session area with Terminal, Handover, Project and Notes as tabs; drag a tab onto the area to place it beside or
+  below the others (drop on an edge) or back onto another tile's tabs (drop in the middle), drag the lines to resize.
+  The arrangement is the same for all sessions; View → Reset Session Area Layout puts everything back into one tile
 - Quick reply and reply buttons in the cards view
 - Keeps the Mac awake while sessions work (switch in the title bar and in Settings, ⌘,)
 - Own right-click menu: Wake Up / Remote Control / Write Handover, Favorite / Start next, Restart… / Close… / Force Quit…
@@ -93,7 +95,7 @@ cc-task --archive --body file.md "Topic" handover   # write a handover
 cc-spawn lu.01 ~/Development/lumen/worktrees/x "Ticket: …"   # new session (hive tmux or iTerm tab)
 cc-close lu.01                               # type /exit; refused when busy or without handover
 cc-close --force lu.01                       # close anyway
-cc-note "Run `make seed`, then restart"      # pin a note to this session (Markdown; long text on stdin)
+cc-note "Run `make seed`, then restart"      # add to this session's notes (Markdown; long text on stdin)
 ```
 
 Skills (symlinked into `~/.claude/skills/`): `/status` sets the task line by hand; `/handover`

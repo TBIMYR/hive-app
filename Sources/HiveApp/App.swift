@@ -11,11 +11,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let usage = UsageStore()
     let projects = ProjectInfoStore()
 
-    /// ⇧⌘T and the title bar: a blank note on the selected session, shown right away.
-    func newNote() {
-        guard let name = store.selected else { return }
-        UserDefaults.standard.set(true, forKey: "notesVisible")
-        notes.add(to: name)
+    let dock = DockStore()
+
+    /// ⌘T: brings the selected session's notepad to the front with the cursor in it; once more goes back
+    /// to what shares its tile (the terminal).
+    func toggleNotes() {
+        guard let name = store.selected, let group = dock.layout.group(of: .notes) else { return }
+        if group.selected == .notes, let other = group.panels.first(where: { $0 != .notes }) {
+            dock.change { $0.select(other) }
+        } else {
+            dock.change { $0.select(.notes) }
+            notes.focusRequest = name
+        }
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -33,13 +40,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct HiveApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @AppStorage("notesVisible") private var notesVisible = false
 
     var body: some Scene {
         WindowGroup("Hive") {
             ContentView()
                 .environmentObject(delegate.store)
                 .environmentObject(delegate.notes)
+                .environmentObject(delegate.dock)
                 .environmentObject(delegate.usage)
                 .environmentObject(delegate.projects)
                 .frame(minWidth: 900, minHeight: 560)
@@ -58,12 +65,10 @@ struct HiveApp: App {
                 Button("Jump to Waiting Session") { delegate.store.jumpToWaiting() }
                     .keyboardShortcut("h")
             }
-            // in the View menu, checked as long as the card is visible
             CommandGroup(after: .toolbar) {
-                Toggle("Notes", isOn: $notesVisible)
+                Button("Notes") { delegate.toggleNotes() }
                     .keyboardShortcut("t")
-                Button("New Note") { delegate.newNote() }
-                    .keyboardShortcut("t", modifiers: [.command, .shift])
+                Button("Reset Session Area Layout") { delegate.dock.reset() }
             }
         }
         // Hive → Settings… (⌘,)
@@ -125,10 +130,8 @@ struct SettingsView: View {
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
     @EnvironmentObject private var usage: UsageStore
-    @EnvironmentObject private var notes: NotesStore
     /// Width of the terminal in points, changed by dragging the divider; 0 = default (⅓ of the window)
     @AppStorage("terminalWidth") private var terminalWidth: Double = 0
-    @AppStorage("notesVisible") private var notesVisible = false
     @State private var dragStart: Double?
 
     private static let minTerminal: Double = 340
@@ -164,23 +167,6 @@ struct ContentView: View {
         }
     }
 
-    /// Notes of the selected session: new blank note, new note from one of its answers, show or hide them all.
-    @ViewBuilder
-    private var noteButtons: some View {
-        Button {
-            guard let name = store.selected else { return }
-            notesVisible = true
-            notes.add(to: name)
-        } label: { Label("New Note", systemImage: "square.and.pencil") }
-            .help(store.selected == nil ? "Select a session to add a note" : "New note on \(store.selected ?? "") (⇧⌘T)")
-            .disabled(store.selected == nil)
-        AnswerNoteButton()
-        Button { notesVisible.toggle() } label: {
-            Label("Notes", systemImage: notesVisible ? "note.text" : "note")
-        }
-        .help(notesVisible ? "Hide the session's notes (⌘T)" : "Show the session's notes (⌘T)")
-    }
-
     /// Click: New Session; the arrow opens the menu with New Project.
     private var newSessionButton: some View {
         Menu {
@@ -204,16 +190,14 @@ struct ContentView: View {
               : "Keeps the Mac awake as soon as a session works. Click to turn off.")
     }
 
-    /// Notes, plan usage, then Keep Awake and New Session at the right edge of the title bar; from macOS 26 a
+    /// Plan usage, then Keep Awake and New Session at the right edge of the title bar; from macOS 26 a
     /// flexible spacer pushes them there. Without usage data the usage item is left out.
     @ToolbarContentBuilder
     private var actions: some ToolbarContent {
         let hasUsage = usage.current(now: store.now) != nil
         if #available(macOS 26, *) {
             ToolbarSpacer(.flexible)
-            // notes and usage each form their own section, apart from the session buttons
-            ToolbarItemGroup(placement: .automatic) { noteButtons }
-            ToolbarSpacer(.fixed)
+            // usage forms its own section, apart from the session buttons
             if hasUsage {
                 ToolbarItem(placement: .automatic) { UsageButton() }
                 ToolbarSpacer(.fixed)
@@ -221,7 +205,6 @@ struct ContentView: View {
             ToolbarItem(placement: .automatic) { awakeButton }
             ToolbarItem(placement: .automatic) { newSessionButton }
         } else {
-            ToolbarItemGroup(placement: .primaryAction) { noteButtons }
             if hasUsage { ToolbarItem(placement: .primaryAction) { UsageButton() } }
             ToolbarItem(placement: .primaryAction) { awakeButton }
             ToolbarItem(placement: .primaryAction) { newSessionButton }
@@ -260,13 +243,6 @@ struct ContentView: View {
                             }
                             .onEnded { _ in dragStart = nil }
                     )
-            }
-            // floating notes of the selected session, by default top right in the overview
-            .overlay(alignment: .topLeading) {
-                if notesVisible {
-                    NotesLayer(session: store.selected, bounds: geo.size,
-                               defaultOrigin: CGPoint(x: total - w - NoteCard.defaultSize.width - 26, y: 64))
-                }
             }
         }
         // instead of the window title: mark and wordmark on the left of the title bar

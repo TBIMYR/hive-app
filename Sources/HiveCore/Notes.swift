@@ -1,19 +1,14 @@
 import Foundation
 
-/// A note pinned to a session: free text (Markdown), e.g. instructions that would scroll away in the terminal.
-public struct Note: Equatable, Identifiable, Sendable {
-    /// file name, e.g. "20261012-141502-042.md"; sorts by creation time
-    public let id: String
-    public var text: String
-    public let created: Date?
-}
-
-/// Notes per session name, one Markdown file each under `<claudeHome>/hive/notes/<session>/`. The name is
-/// the key, so notes survive `/clear` and restarts. `cc-note` writes the same files from inside a session.
+/// One notepad per session name: a Markdown file `<claudeHome>/hive/notes/<session>.md`. The name is the
+/// key, so the notes survive `/clear` and restarts. `cc-note` appends to the same file from inside a session.
 public enum Notes {
     public static func root(claudeHome: String = StateBuilder.defaultClaudeHome) -> String {
         ProcessInfo.processInfo.environment["HIVE_NOTES"] ?? "\(claudeHome)/hive/notes"
     }
+
+    /// Between two entries that were appended (same as in `cc-note`)
+    public static let separator = "\n\n---\n\n"
 
     /// Same rule as `cc-task`: letters, digits, `. _ # -`, no "..".
     public static func validName(_ name: String) -> Bool {
@@ -21,92 +16,61 @@ public enum Notes {
             && name.unicodeScalars.allSatisfy { ($0.isASCII && CharacterSet.alphanumerics.contains($0)) || "._#-".unicodeScalars.contains($0) }
     }
 
-    /// Newest first. An empty file is an empty note (a fresh one); files that aren't `.md` are skipped.
-    public static func list(root: String, session: String) -> [Note] {
-        guard validName(session) else { return [] }
-        let dir = "\(root)/\(session)"
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []
-        return files.filter { $0.hasSuffix(".md") && !$0.hasPrefix(".") }.sorted(by: >).compactMap { f in
-            guard let text = try? String(contentsOfFile: "\(dir)/\(f)", encoding: .utf8) else { return nil }
-            return Note(id: f, text: text.trimmingCharacters(in: .whitespacesAndNewlines), created: created(f))
-        }
+    private static func path(_ root: String, _ session: String) -> String { "\(root)/\(session).md" }
+
+    /// The session's notes, "" if there are none.
+    public static func read(root: String, session: String) -> String {
+        guard validName(session), let text = try? String(contentsOfFile: path(root, session), encoding: .utf8) else { return "" }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Number of notes per session name (sessions without notes are missing).
-    public static func counts(root: String) -> [String: Int] {
-        var m: [String: Int] = [:]
-        for s in (try? FileManager.default.contentsOfDirectory(atPath: root)) ?? [] where validName(s) {
-            let n = list(root: root, session: s).count
-            if n > 0 { m[s] = n }
-        }
-        return m
-    }
-
-    /// Stores a new note (empty text = a blank one to write on); nil for an invalid name.
-    @discardableResult
-    public static func add(root: String, session: String, text: String = "", now: Date = Date()) -> Note? {
+    /// Replaces the session's notes; empty text removes the file.
+    public static func write(root: String, session: String, text: String) {
+        guard validName(session) else { return }
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard validName(session) else { return nil }
-        let dir = "\(root)/\(session)"
-        let fm = FileManager.default
-        try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        var id: String
-        repeat {
-            id = "\(stamp.string(from: now))-\(String(format: "%03d", Int.random(in: 0..<1000))).md"
-        } while fm.fileExists(atPath: "\(dir)/\(id)")
-        guard write(t, to: "\(dir)/\(id)") else { return nil }
-        return Note(id: id, text: t, created: created(id))
-    }
-
-    /// Replaces a note's text. A note that was deleted meanwhile is not brought back.
-    public static func save(root: String, session: String, id: String, text: String) {
-        guard validName(session), validID(id), FileManager.default.fileExists(atPath: "\(root)/\(session)/\(id)") else { return }
-        _ = write(text.trimmingCharacters(in: .whitespacesAndNewlines), to: "\(root)/\(session)/\(id)")
-    }
-
-    public static func remove(root: String, session: String, id: String) {
-        guard validName(session), validID(id) else { return }
-        try? FileManager.default.removeItem(atPath: "\(root)/\(session)/\(id)")
-    }
-
-    private static func validID(_ id: String) -> Bool { id.hasSuffix(".md") && !id.contains("/") && !id.hasPrefix(".") }
-
-    private static func write(_ text: String, to path: String) -> Bool {
-        (try? Data((text.isEmpty ? "" : text + "\n").utf8).write(to: URL(fileURLWithPath: path), options: .atomic)) != nil
-    }
-
-    private static let stamp: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyyMMdd-HHmmss"
-        return f
-    }()
-
-    /// Creation time from the file name ("20261012-141502-…"), nil for other names.
-    static func created(_ id: String) -> Date? {
-        id.count >= 15 ? stamp.date(from: String(id.prefix(15))) : nil
-    }
-
-    /// Shorter texts are narration between work steps ("Checking the tests now"), not answers worth keeping
-    public static let minReplyLength = 60
-
-    /// The session's recent answers in full (the clipped one in `Session` is for the cards), newest first,
-    /// to pick one for a note. Reads the end of the transcript, so very old answers are not offered.
-    public static func recentReplies(claudeHome: String = StateBuilder.defaultClaudeHome, session: String, limit: Int = 12) -> [Said] {
-        let entries = Registry.read("\(claudeHome)/sessions").entries.filter { $0.name == session && !$0.cwd.isEmpty }
-        guard let e = entries.max(by: { ($0.alive ? 1 : 0, $0.startedAt) < ($1.alive ? 1 : 0, $1.startedAt) }),
-              let sid = e.sessionId else { return [] }
-        let dir = "\(claudeHome)/projects/\(Project.slug(e.cwd))"
-        let text = Transcript.readTailFollowingContinuation(dir: dir, sessionId: sid, bytes: 1024 * 1024)
-        var out: [Said] = []
-        for raw in text.components(separatedBy: "\n").reversed() where raw.contains("\"assistant\"") {
-            guard let obj = (try? JSONSerialization.jsonObject(with: Data(raw.utf8))) as? [String: Any],
-                  obj["type"] as? String == "assistant" else { continue }
-            let t = Transcript.textOf((obj["message"] as? [String: Any])?["content"])
-            guard t.count >= minReplyLength else { continue }
-            out.append(Said(text: t, at: obj["timestamp"] as? String))
-            if out.count == limit { break }
+        if t.isEmpty {
+            try? FileManager.default.removeItem(atPath: path(root, session))
+        } else {
+            try? FileManager.default.createDirectory(atPath: root, withIntermediateDirectories: true)
+            try? Data((t + "\n").utf8).write(to: URL(fileURLWithPath: path(root, session)), options: .atomic)
         }
-        return out
+    }
+
+    /// Adds an entry below what is there, set apart by a line.
+    public static func append(root: String, session: String, text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        let old = read(root: root, session: session)
+        write(root: root, session: session, text: old.isEmpty ? t : old + separator + t)
+    }
+
+    /// Names of the sessions that have notes.
+    public static func sessions(root: String) -> Set<String> {
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: root)) ?? []
+        return Set(files.compactMap { f in
+            guard f.hasSuffix(".md"), !f.hasPrefix(".") else { return nil }
+            let name = String(f.dropLast(3))
+            return validName(name) && !read(root: root, session: name).isEmpty ? name : nil
+        })
+    }
+
+    /// Earlier every note was a file of its own in `<root>/<session>/`. Those go into the session's notepad,
+    /// oldest first and above what is already there; the folder is kept under `<root>/.old/`.
+    public static func migrate(root: String) {
+        let fm = FileManager.default
+        for name in (try? fm.contentsOfDirectory(atPath: root)) ?? [] where validName(name) && !name.hasPrefix(".") {
+            let dir = "\(root)/\(name)"
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else { continue }
+            let files = ((try? fm.contentsOfDirectory(atPath: dir)) ?? []).filter { $0.hasSuffix(".md") && !$0.hasPrefix(".") }.sorted()
+            let texts = files.compactMap { try? String(contentsOfFile: "\(dir)/\($0)", encoding: .utf8) }
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            let old = read(root: root, session: name)
+            write(root: root, session: name, text: (texts + (old.isEmpty ? [] : [old])).joined(separator: separator))
+            try? fm.createDirectory(atPath: "\(root)/.old", withIntermediateDirectories: true)
+            var dest = "\(root)/.old/\(name)", n = 1
+            while fm.fileExists(atPath: dest) { n += 1; dest = "\(root)/.old/\(name)-\(n)" }
+            try? fm.moveItem(atPath: dir, toPath: dest)
+        }
     }
 }

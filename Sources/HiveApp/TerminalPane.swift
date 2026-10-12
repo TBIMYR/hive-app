@@ -6,31 +6,36 @@ struct TerminalPane: View {
     @EnvironmentObject private var store: StateStore
     let session: Session?
     @State private var message: String?
-    /// Selected segment, nil = the session's default (spec 2026-10-08 §2)
-    @State private var pane: Pane?
     /// Open the project view in edit mode (after New Project)
     @State private var editOnOpen = false
+    /// Tab that is being dragged to another place
+    @State private var drag: DockDrag?
+    /// Where the groups are in the card, to find the drop target
+    @State private var frames: [DockPanel: CGRect] = [:]
     @EnvironmentObject private var projects: ProjectInfoStore
+    @EnvironmentObject private var dock: DockStore
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(spacing: 0) {
             if let s = session {
+                let visible = dock.layout.visible(available(s))
                 HStack(spacing: 8) {
                     Circle().fill(store.color(for: s.groupKey)).frame(width: 8, height: 8)
                     Text(s.name).font(.system(size: 15, weight: .semibold))
                     Spacer(minLength: 4)
                     if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
                     StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
-                    RailSwitcher(selection: Binding(get: { current(s) }, set: { pane = $0; editOnOpen = false }),
-                                 items: panes(s).map { item($0, s) },
-                                 help: { i in i.value == .project ? "This project's links, test accounts and notes"
-                                                                  : i.value == .handover ? "This session's handover" : i.title })
-                        .fixedSize()
+                    // everything in one group: its tabs sit here; tiles carry their own
+                    if case .group(let panels, let selected) = visible {
+                        tabs(panels, selected, s).fixedSize()
+                    }
                 }
                 .padding(.horizontal, 14).frame(height: 54)
                 Rectangle().fill(Hive.hair).frame(height: 1)
-                content(for: s)
+                if let visible {
+                    if case .group = visible { node(visible, s, strip: false) } else { node(visible, s, strip: true) }
+                }
             } else {
                 ContentUnavailableView("No session selected", systemImage: "terminal",
                                        description: Text("Click a session on the left."))
@@ -38,6 +43,9 @@ struct TerminalPane: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .coordinateSpace(name: Dock.space)
+        .onPreferenceChange(DockFrames.self) { frames = $0 }
+        .overlay { if let drag { DockDropOverlay(drag: drag, target: target(drag)?.rect) } }
         // a large card like the session cards: white, rounded, soft shadow (hairline on dark)
         .background(Hive.card)
         .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -46,53 +54,126 @@ struct TerminalPane: View {
         .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 12, y: 6)
         .onChange(of: session?.name) { _, name in
             message = nil
-            pane = nil
             editOnOpen = false
+            // back to the session itself, as far as it shares its tile with other tabs
+            dock.change { $0.select(.main) }
             // New Project asked to open this session's project info in edit mode
             if let name, projects.pendingEdit == name {
                 projects.pendingEdit = nil
-                pane = .project
+                dock.change { $0.select(.project) }
                 editOnOpen = true
             }
         }
-        // jump key: back to the default view so the terminal can get focus
-        .onChange(of: store.focusRequest) { pane = nil; editOnOpen = false }
+        // jump key: back to the terminal so it can get focus
+        .onChange(of: store.focusRequest) { dock.change { $0.select(.main) }; editOnOpen = false }
     }
 
-    enum Pane: Hashable { case main, handover, project }
-
-    /// Segments per session: offline with a handover has no main view of its own.
-    private func panes(_ s: Session) -> [Pane] {
-        let hasHandover = s.hasHandover == true
-        if store.tmux(s) == nil && s.alive != true && hasHandover { return [.handover, .project] }
-        return hasHandover ? [.main, .handover, .project] : [.main, .project]
+    /// Panels this session has: offline with a handover has no main view of its own.
+    private func available(_ s: Session) -> Set<DockPanel> {
+        var all: Set<DockPanel> = [.main, .project, .notes]
+        if s.hasHandover == true {
+            all.insert(.handover)
+            if store.tmux(s) == nil && s.alive != true { all.remove(.main) }
+        }
+        return all
     }
 
-    private func current(_ s: Session) -> Pane {
-        let all = panes(s)
-        if let pane, all.contains(pane) { return pane }
-        return all[0]
-    }
-
-    private func item(_ p: Pane, _ s: Session) -> RailSwitcher<Pane>.Item {
+    private func item(_ p: DockPanel, _ s: Session) -> DockTabs.Item {
         switch p {
         case .main:
-            store.tmux(s) != nil ? .init(value: p, title: "Terminal", symbol: "terminal")
-                : s.alive == true ? .init(value: p, title: "Session", symbol: "macwindow")
-                : .init(value: p, title: "Offline", symbol: "moon.zzz")
-        case .handover: .init(value: p, title: "Handover", symbol: "doc.text")
-        case .project: .init(value: p, title: "Project", symbol: "info.circle")
+            store.tmux(s) != nil ? .init(panel: p, title: "Terminal", symbol: "terminal", help: "Terminal")
+                : s.alive == true ? .init(panel: p, title: "Session", symbol: "macwindow", help: "Session")
+                : .init(panel: p, title: "Offline", symbol: "moon.zzz", help: "Offline")
+        case .handover: .init(panel: p, title: "Handover", symbol: "doc.text", help: "This session's handover")
+        case .project: .init(panel: p, title: "Project", symbol: "info.circle", help: "This project's links, test accounts and notes")
+        case .notes: .init(panel: p, title: "Notes", symbol: "note.text", help: "Your notes on this session (⌘T)")
+        }
+    }
+
+    private func tabs(_ panels: [DockPanel], _ selected: DockPanel, _ s: Session, titles: Bool = true) -> some View {
+        DockTabs(items: panels.map { item($0, s) }, selected: selected, titles: titles, drag: $drag,
+                 select: { p in
+                     editOnOpen = false
+                     dock.change { $0.select(p) }
+                 },
+                 drop: { d in
+                     guard let t = target(d) else { return }
+                     dock.change { $0.move(d.panel, to: t.anchor, zone: t.zone) }
+                 },
+                 move: { p, zone in
+                     if let zone { dock.change { $0.move(p, to: p, zone: zone) } } else { dock.reset() }
+                 })
+    }
+
+    /// Where a dragged tab would land: the group under the pointer and the zone in it. nil where a drop
+    /// changes nothing.
+    private func target(_ d: DockDrag) -> (anchor: DockPanel, zone: DockLayout.Zone, rect: CGRect)? {
+        guard let (anchor, frame) = frames.first(where: { $0.value.contains(d.location) }) else { return nil }
+        let zone = DockLayout.zone(at: d.location, in: frame)
+        var probe = dock.layout
+        probe.move(d.panel, to: anchor, zone: zone)
+        guard probe != dock.layout else { return nil }
+        var r = frame
+        switch zone {
+        case .center: break
+        case .left: r.size.width /= 2
+        case .right: r.size.width /= 2; r.origin.x += r.width
+        case .top: r.size.height /= 2
+        case .bottom: r.size.height /= 2; r.origin.y += r.height
+        }
+        return (anchor, zone, r)
+    }
+
+    /// A tile (group, with its own tab strip if there are several) or a split of tiles.
+    private func node(_ v: DockLayout.Visible, _ s: Session, strip: Bool) -> AnyView {
+        switch v {
+        case .group(let panels, let selected):
+            return AnyView(
+                VStack(spacing: 0) {
+                    if strip {
+                        HStack(spacing: 0) {
+                            ViewThatFits(in: .horizontal) {
+                                tabs(panels, selected, s)
+                                tabs(panels, selected, s, titles: false)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 10).frame(height: Dock.strip)
+                        Rectangle().fill(Hive.hair).frame(height: 1)
+                    }
+                    content(selected, for: s)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .background {
+                    GeometryReader { g in
+                        Color.clear.preference(key: DockFrames.self, value: [panels[0]: g.frame(in: .named(Dock.space))])
+                    }
+                }
+            )
+        case .split(let axis, let path, let children):
+            return AnyView(
+                DockSplit(axis: axis, shares: children.map(\.share),
+                          onResize: { i, delta in
+                              dock.change(persist: false) {
+                                  $0.resize(split: path, before: children[i].index, after: children[i + 1].index, delta: delta)
+                              }
+                          },
+                          onEnd: { dock.save() },
+                          content: { i in node(children[i].node, s, strip: true) })
+            )
         }
     }
 
     @ViewBuilder
-    private func content(for s: Session) -> some View {
-        switch current(s) {
+    private func content(_ panel: DockPanel, for s: Session) -> some View {
+        switch panel {
         case .project:
             ProjectInfoView(cwd: store.cwd(s), sessionPrefix: SessionNaming.prefix(s.name), startEditing: editOnOpen)
                 .id("\(s.name)#\(store.cwd(s) ?? "")")
         case .handover:
             HandoverView(name: s.name)
+        case .notes:
+            NotepadView(name: s.name).id(s.name)
         case .main:
             mainContent(for: s)
         }

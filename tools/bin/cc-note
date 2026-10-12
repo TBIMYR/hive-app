@@ -1,10 +1,11 @@
 #!/bin/sh
-# cc-note — pin a note to a Claude Code session. Hive shows the notes next to the session (⌘T).
+# cc-note — add an entry to a Claude Code session's notepad. Hive shows it in the session's Notes (⌘T).
 #
 #   cc-note [--name NAME] "TEXT"
 #   cc-note [--name NAME] < file      (text from stdin, also with "-" as TEXT)
 #
-# TEXT is Markdown and may have several lines. Without --name the note goes to the calling session.
+# TEXT is Markdown and may have several lines; it goes below what is already there, set apart by a line.
+# Without --name the entry goes to the calling session. The notepad is the file <notes>/<NAME>.md.
 # Environment: CC_HOME (default ~/.claude), HIVE_NOTES (default $CC_HOME/hive/notes), CLAUDE_PID
 set -eu
 
@@ -41,9 +42,10 @@ case "$name" in
   .|*[!A-Za-z0-9._#-]*|*..*) echo "cc-note: invalid name '$name'" >&2; exit 2 ;;
 esac
 
-dir="$root/$name"
-mkdir -p "$dir"
-tmp=$(mktemp "$dir/.cc-note.XXXXXX")
+file="$root/$name.md"
+mkdir -p "$root"
+tmp=$(mktemp "$root/.cc-note.XXXXXX")
+trap 'rm -f "$tmp" "$tmp.all"' EXIT
 if [ $# -eq 0 ] || [ "$1" = "-" ]; then
   cat > "$tmp"
 else
@@ -51,12 +53,15 @@ else
 fi
 
 if ! grep -q '[^[:space:]]' "$tmp"; then
-  rm -f "$tmp"
   echo "cc-note: empty note" >&2
   exit 2
 fi
 
-file="$dir/$(date +%Y%m%d-%H%M%S)-$$.md"
-chmod 644 "$tmp"
-mv "$tmp" "$file"
-echo "cc-note: pinned to $name"
+if [ -f "$file" ] && grep -q '[^[:space:]]' "$file"; then
+  { cat "$file"; printf '\n---\n\n'; cat "$tmp"; } > "$tmp.all"
+else
+  cat "$tmp" > "$tmp.all"
+fi
+chmod 644 "$tmp.all"
+mv "$tmp.all" "$file"
+echo "cc-note: added to the notes of $name"

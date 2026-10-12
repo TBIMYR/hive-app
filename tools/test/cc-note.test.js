@@ -25,47 +25,62 @@ function run(home, args, { input, env = {} } = {}) {
 }
 
 function notes(home, name = 'lu.01') {
-  const dir = path.join(home, 'hive', 'notes', name);
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter((f) => !f.startsWith('.')).map((f) => ({ f, text: fs.readFileSync(path.join(dir, f), 'utf8') }));
+  const file = path.join(home, 'hive', 'notes', `${name}.md`);
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
 }
 
-test('pins the text to the calling session', () => {
+function leftovers(home) {
+  const dir = path.join(home, 'hive', 'notes');
+  return fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.startsWith('.')) : [];
+}
+
+test('writes the text into the calling session\'s notepad', () => {
   const home = setup();
   const r = run(home, ['Run `make seed` first\nthen restart the server']);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /pinned to lu\.01/);
-  const all = notes(home);
-  assert.equal(all.length, 1);
-  assert.match(all[0].f, /^\d{8}-\d{6}-\d+\.md$/);
-  assert.equal(all[0].text, 'Run `make seed` first\nthen restart the server\n');
+  assert.match(r.stdout, /added to the notes of lu\.01/);
+  assert.equal(notes(home), 'Run `make seed` first\nthen restart the server\n');
+  assert.deepEqual(leftovers(home), []);
+});
+
+test('appends below what is there, set apart by a line', () => {
+  const home = setup();
+  assert.equal(run(home, ['first']).status, 0);
+  assert.equal(run(home, ['second\nline']).status, 0);
+  assert.equal(notes(home), 'first\n\n---\n\nsecond\nline\n');
+  // a notepad that was emptied starts fresh
+  fs.writeFileSync(path.join(home, 'hive', 'notes', 'lu.01.md'), '\n');
+  assert.equal(run(home, ['third']).status, 0);
+  assert.equal(notes(home), 'third\n');
+  assert.deepEqual(leftovers(home), []);
 });
 
 test('reads the text from stdin and keeps backslashes', () => {
   const home = setup();
   const r = run(home, [], { input: '# Steps\n\n1. open C:\\temp\\n\n2. done\n' });
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(notes(home)[0].text, '# Steps\n\n1. open C:\\temp\\n\n2. done\n');
+  assert.equal(notes(home), '# Steps\n\n1. open C:\\temp\\n\n2. done\n');
   assert.equal(run(home, ['-'], { input: 'via dash\n' }).status, 0);
-  assert.equal(notes(home).length, 2);
+  assert.match(notes(home), /done\n\n---\n\nvia dash\n$/);
 });
 
-test('--name pins to another session', () => {
+test('--name writes to another session', () => {
   const home = setup();
   const r = run(home, ['--name', 'or.pm', 'for the PM'], { env: { CLAUDE_PID: '' } });
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(notes(home, 'or.pm')[0].text, 'for the PM\n');
-  assert.equal(notes(home).length, 0);
+  assert.equal(notes(home, 'or.pm'), 'for the PM\n');
+  assert.equal(notes(home), null);
 });
 
 test('rejects empty notes, unknown sessions and unsafe names', () => {
   const home = setup();
   assert.equal(run(home, ['  \n ']).status, 2);
   assert.equal(run(home, [], { input: '\n' }).status, 2);
-  assert.equal(notes(home).length, 0);
+  assert.equal(notes(home), null);
+  assert.deepEqual(leftovers(home), []);
   assert.equal(run(home, ['text'], { env: { CLAUDE_PID: '' } }).status, 1);
   assert.equal(run(home, ['--name', '../x', 'text']).status, 2);
   assert.equal(run(home, ['--name', 'a/b', 'text']).status, 2);
   assert.equal(run(home, ['one', 'two']).status, 2);
-  assert.ok(!fs.existsSync(path.join(home, 'hive', 'x')));
+  assert.ok(!fs.existsSync(path.join(home, 'hive', 'x.md')));
 });
