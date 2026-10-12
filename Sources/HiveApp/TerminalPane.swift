@@ -10,7 +10,7 @@ struct Workspace: View {
     @State private var message: String?
     /// Open the project view in edit mode (after New Project)
     @State private var editOnOpen = false
-    /// Tab (or the overview's handle) that is being dragged to another place
+    /// Tab (or the overview's view switcher) that is being dragged to another place
     @State private var drag: DockDrag?
     /// Where the groups are in the window, to find the drop target
     @State private var frames: [DockPanel: CGRect] = [:]
@@ -154,7 +154,7 @@ struct Workspace: View {
         switch v {
         case .group(let panels, _) where panels == [.overview]:
             return AnyView(
-                OverviewView(edges: edges, handle: AnyView(overviewHandle))
+                OverviewView(edges: edges, dragged: { overviewDragged($0, ended: $1) })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background { framed(.overview) }
             )
@@ -232,24 +232,16 @@ struct Workspace: View {
         }
     }
 
-    /// Grip next to the overview's view switcher: drag it to move the overview to another side.
-    private var overviewHandle: some View {
+    /// The overview is moved by dragging its view switcher.
+    private func overviewDragged(_ location: CGPoint, ended: Bool) {
         let item = Self.overviewItem
-        return Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
-            .font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
-            .frame(width: 30, height: 30)
-            .contentShape(Rectangle())
-            .opacity(drag?.panel == .overview ? 0.4 : 1)
-            .gesture(
-                DragGesture(minimumDistance: 4, coordinateSpace: .named(Dock.space))
-                    .onChanged { v in drag = DockDrag(panel: .overview, title: item.title, symbol: item.symbol, location: v.location) }
-                    .onEnded { v in
-                        drop(DockDrag(panel: .overview, title: item.title, symbol: item.symbol, location: v.location))
-                        drag = nil
-                    }
-            )
-            .help("Drag to move the overview to another side of the window")
-            .contextMenu { Button("Reset Layout") { dock.reset() } }
+        let d = DockDrag(panel: .overview, title: item.title, symbol: item.symbol, location: location)
+        if ended {
+            drop(d)
+            drag = nil
+        } else {
+            drag = d
+        }
     }
 
     @ViewBuilder

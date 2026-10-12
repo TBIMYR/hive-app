@@ -19,7 +19,7 @@ Names in examples are made up.
 - A notepad per session (Notes, ⌘T): Markdown, stored in `~/.claude/hive/notes/<session>.md`; write it yourself or
   let the session add to it with `cc-note`
 - The window is made of tiles: the overview, and Terminal, Handover, Project and Notes of the selected session as
-  tabs. Drag a tab (or the grip next to the view switcher for the overview) to place it beside or below another tile
+  tabs. Drag a tab (for the overview its view switcher) to place it beside or below another tile
   (drop on its edge), across the whole window (drop at the window's edge) or back onto another tile's tabs (drop in
   the middle); drag the gaps to resize. The arrangement is the same for all sessions; View → Reset Window
   Layout restores the default. The overview always keeps a tile of its own
