@@ -42,4 +42,6 @@ public func parseISO(_ s: String) -> Date? {
     isoSeconds.date(from: s) ?? isoFractional.date(from: s)
 }
 
-let home = FileManager.default.homeDirectoryForCurrentUser.path
+/// The home folder everything under `~/.claude` is read from. `HIVE_HOME` points the app at another one
+/// (made-up sessions for screenshots, see `scripts/demo.sh`).
+let home = ProcessInfo.processInfo.environment["HIVE_HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path

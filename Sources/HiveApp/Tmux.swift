@@ -9,8 +9,9 @@ enum Tmux {
     static func target(_ name: String) -> String { SessionControl.target(name) }
 
     /// A dedicated server just for the app (`tmux -L hive`), so its settings don't collide
-    /// with a manually started tmux. `-f` only applies when the server starts.
-    static let socket = "hive"
+    /// with a manually started tmux. `-f` only applies when the server starts. `HIVE_TMUX` names another
+    /// server (the demo's, see `scripts/demo.sh`).
+    static let socket = ProcessInfo.processInfo.environment["HIVE_TMUX"] ?? "hive"
 
     static let config = """
     # von der hive-App geschrieben, wird bei jedem Start überschrieben

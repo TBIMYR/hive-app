@@ -58,6 +58,13 @@ HIVE_APP=HiveApp-dev HIVE_BUNDLE_ID=io.github.tbimyr.hive-app.dev sh restart.sh
 
 Test notes folder instead of `~/.claude/hive/notes`: `HIVE_NOTES=<path> swift run HiveApp`.
 
+Demo with made-up sessions (for screenshots), next to the main app and without touching its sessions:
+
+```sh
+sh scripts/demo.sh        # own home folder under /tmp (HIVE_HOME), own tmux server (HIVE_TMUX)
+sh scripts/demo.sh stop   # quit it and remove the data
+```
+
 App icon: `swift scripts/make-icon.swift Resources/AppIcon.iconset && iconutil -c icns Resources/AppIcon.iconset`.
 
 Attaching to a session from outside: `tmux -L hive attach -t '=<name>:'` (colon needed, otherwise tmux reads `.01` as a pane).
