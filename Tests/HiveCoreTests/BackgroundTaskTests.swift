@@ -132,7 +132,7 @@ private func idle(_ bg: Int, status: String = "idle", taskState: String? = nil) 
 
 @Test func idleSessionWithBackgroundTasksCountsAsWorking() {
     let st = SessionStatus(idle(2))
-    #expect(st.rank == 1 && st.cls == "busy" && st.label == "working in background")
+    #expect(st.rank == 1 && st.cls == "busy" && st.label == "background")
     #expect(SessionStatus(idle(0)).label == "ready")
 }
 
@@ -140,7 +140,7 @@ private func idle(_ bg: Int, status: String = "idle", taskState: String? = nil) 
     #expect(SessionStatus(idle(1, status: "waiting")).rank == 0)
     #expect(SessionStatus(idle(1, taskState: "blocked")).rank == 0)
     #expect(SessionStatus(idle(1, status: "busy")).label == "working")
-    #expect(SessionStatus(idle(1, taskState: "waiting")).label == "working in background")
+    #expect(SessionStatus(idle(1, taskState: "waiting")).label == "background")
 }
 
 @Test func nowLineWhileWorkingInBackgroundShowsLastSentence() throws {

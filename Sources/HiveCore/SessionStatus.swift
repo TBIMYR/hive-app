@@ -41,9 +41,9 @@ public struct SessionStatus: Equatable, Sendable {
                       reason: line.isEmpty ? "needs a decision" : line)
         case s.backgroundTasks > 0:
             // main loop idle, but background agents or shell commands are still running
-            self.init(1, "busy", "working in background")
+            self.init(1, "busy", "background")
         case state == "waiting":
-            self.init(2, "wait", "waiting for reply")
+            self.init(2, "wait", "awaiting feedback")
         case s.status == "shell":
             self.init(2, "shell", "Shell")
         default:

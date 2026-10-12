@@ -59,7 +59,7 @@ private func s(_ status: String = "idle", alive: Bool = true, waitingFor: String
 
 @Test func waitingForReply() {
     let st = SessionStatus(s(task: "x", taskState: "waiting"))
-    #expect(st.rank == 2 && st.cls == "wait" && st.label == "waiting for reply")
+    #expect(st.rank == 2 && st.cls == "wait" && st.label == "awaiting feedback")
 }
 
 @Test func shellInRegister() {
