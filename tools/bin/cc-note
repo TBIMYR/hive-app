@@ -1,0 +1,62 @@
+#!/bin/sh
+# cc-note — pin a note to a Claude Code session. Hive shows the notes next to the session (⌘T).
+#
+#   cc-note [--name NAME] "TEXT"
+#   cc-note [--name NAME] < file      (text from stdin, also with "-" as TEXT)
+#
+# TEXT is Markdown and may have several lines. Without --name the note goes to the calling session.
+# Environment: CC_HOME (default ~/.claude), HIVE_NOTES (default $CC_HOME/hive/notes), CLAUDE_PID
+set -eu
+
+home="${CC_HOME:-$HOME/.claude}"
+root="${HIVE_NOTES:-$home/hive/notes}"
+name=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --name) name="$2"; shift 2 ;;
+    --) shift; break ;;
+    -) break ;;
+    -*) echo "cc-note: unknown option $1" >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+
+if [ $# -gt 1 ]; then
+  echo "usage: cc-note [--name NAME] \"TEXT\"   (or text on stdin)" >&2
+  exit 2
+fi
+
+if [ -z "$name" ]; then
+  if [ -n "${CLAUDE_PID:-}" ] && [ -f "$home/sessions/$CLAUDE_PID.json" ]; then
+    name=$(jq -r '.name // empty' "$home/sessions/$CLAUDE_PID.json" 2>/dev/null || true)
+  fi
+  if [ -z "$name" ]; then
+    echo "cc-note: session name unknown. Start the session with 'claude -n <name>' or pass --name." >&2
+    exit 1
+  fi
+fi
+
+case "$name" in
+  .|*[!A-Za-z0-9._#-]*|*..*) echo "cc-note: invalid name '$name'" >&2; exit 2 ;;
+esac
+
+dir="$root/$name"
+mkdir -p "$dir"
+tmp=$(mktemp "$dir/.cc-note.XXXXXX")
+if [ $# -eq 0 ] || [ "$1" = "-" ]; then
+  cat > "$tmp"
+else
+  printf '%s\n' "$1" > "$tmp"
+fi
+
+if ! grep -q '[^[:space:]]' "$tmp"; then
+  rm -f "$tmp"
+  echo "cc-note: empty note" >&2
+  exit 2
+fi
+
+file="$dir/$(date +%Y%m%d-%H%M%S)-$$.md"
+chmod 644 "$tmp"
+mv "$tmp" "$file"
+echo "cc-note: pinned to $name"

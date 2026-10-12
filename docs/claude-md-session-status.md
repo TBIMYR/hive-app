@@ -5,6 +5,7 @@
 - Die Aufgaben-Zeile nennt nur das Thema, höchstens 4 Wörter / 40 Zeichen, ohne Ticketnummern und ohne Ablauf (z. B. „Android-App“, „Neuer iPhone-Build“). Den Zustand zeigt das Dashboard ohnehin. `cc-task` lehnt längere Zeilen ab.
 - Mehr Kontext optional als Subline: `cc-task --detail "<eine Zeile, höchstens 120 Zeichen>" "<Thema>" <state>`, z. B. was gerade konkret läuft oder worauf genau gewartet wird. Jeder Aufruf ersetzt sie, ohne `--detail` ist sie leer.
 - `blocked` nur, wenn die Session ohne eine Entscheidung oder Freigabe von mir nicht weiterkommt. Ist die eigene Arbeit fertig und es fehlt nur noch eine Rückmeldung (von mir, Kim, einer anderen Session), dann `waiting` und in Klammern nennen, auf wen gewartet wird (z. B. „Release (lu.pm)“).
+- Zettel: Sage ich „schreib das auf einen Zettel“ (z. B. eine Anleitung, die sonst im Verlauf verschwindet), den Text per `~/.claude/bin/cc-note "<Text>"` ablegen (Markdown, mehrzeilig möglich; langer Text per stdin). Hive zeigt die Zettel an der Session (⌘T). Nur auf Wunsch anlegen, nicht von selbst.
 - Wann Handover + `/clear`, wann weiterlaufen lassen (jede Anfrage schickt den ganzen Verlauf mit; nach längerer Pause muss der Cache neu geschrieben werden; langer Verlauf verschlechtert die Qualität):
   - Handover + `/clear`: nächster Auftrag ist unabhängig (anderes Ticket), Session liegt voraussichtlich lange still, oder der Verlauf ist schon sehr groß.
   - Weiterlaufen lassen: Nachfrage oder Fix zum gerade erledigten Auftrag, Folgearbeit am selben Thema.

@@ -206,7 +206,7 @@ final class SessionNavigator {
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self, weak store] e in
             guard let self, let store, let dir = Self.direction(e),
                   let w = e.window, w === self.anchor?.window, w.attachedSheet == nil,
-                  // text fields (reply, todo list) keep ⌥ + arrows for moving by word or paragraph
+                  // text fields (reply, notes) keep ⌥ + arrows for moving by word or paragraph
                   !(w.firstResponder is NSTextView) else { return e }
             if let name = SessionNav.target(from: store.selected, dir, frames: self.frames, order: self.order) {
                 store.selectAndFocus(name)

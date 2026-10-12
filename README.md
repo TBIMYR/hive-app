@@ -2,7 +2,7 @@
 
 Mac app for parallel Claude Code sessions: the overview of all sessions on the left, the real
 terminal of the selected session (tmux) on the right. The session tools the app reads from
-(`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`) live in `tools/`. Until 2026-10-07 they were a
+(`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`, `cc-note`) live in `tools/`. Until 2026-10-07 they were a
 separate repo `hive` together with a Node/HTML dashboard; its history is merged in here.
 
 What the master session `keeper` changed (including outside the repo): `docs/keeper-log.md`
@@ -16,7 +16,9 @@ Names in examples are made up.
 - Favorites with a star
 - ⌘H jumps to the longest-waiting session, cursor into the terminal; press again for the next one
 - Notifications and a dock badge count for sessions that need you
-- Floating todo list (⌘T), stored in `~/.claude/hive/todos.md`
+- Notes per session as floating cards (⌘T shows or hides them, ⇧⌘T adds one), stored in
+  `~/.claude/hive/notes/<session>/`: write one, pick one of the session's recent answers, or let the session write one
+  with `cc-note`
 - Quick reply and reply buttons in the cards view
 - Keeps the Mac awake while sessions work (switch in the title bar and in Settings, ⌘,)
 - Own right-click menu: Wake Up / Remote Control / Write Handover, Favorite / Start next, Restart… / Close… / Force Quit…
@@ -40,7 +42,7 @@ Test instance alongside the main app (own bundle identifier, doesn't steal its n
 HIVE_APP=HiveApp-dev HIVE_BUNDLE_ID=io.github.tbimyr.hive-app.dev sh restart.sh
 ```
 
-Test todo file instead of `~/.claude/hive/todos.md`: `HIVE_TODOS=<path> swift run HiveApp`.
+Test notes folder instead of `~/.claude/hive/notes`: `HIVE_NOTES=<path> swift run HiveApp`.
 
 App icon: `swift scripts/make-icon.swift Resources/AppIcon.iconset && iconutil -c icns Resources/AppIcon.iconset`.
 
@@ -91,6 +93,7 @@ cc-task --archive --body file.md "Topic" handover   # write a handover
 cc-spawn lu.01 ~/Development/lumen/worktrees/x "Ticket: …"   # new session (hive tmux or iTerm tab)
 cc-close lu.01                               # type /exit; refused when busy or without handover
 cc-close --force lu.01                       # close anyway
+cc-note "Run `make seed`, then restart"      # pin a note to this session (Markdown; long text on stdin)
 ```
 
 Skills (symlinked into `~/.claude/skills/`): `/status` sets the task line by hand; `/handover`

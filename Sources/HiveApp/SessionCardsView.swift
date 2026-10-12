@@ -119,6 +119,7 @@ struct Tile: View {
                     RemoteControlBadge(on: session.remoteControl)
                     BackgroundBadge(count: session.backgroundTasks)
                     LoadBadge(session: session)
+                    NoteBadge(name: session.name)
                     StarButton(isOn: isFavorite, toggle: toggleFavorite)
                         .padding(.trailing, -4)
                 }

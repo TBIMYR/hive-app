@@ -144,6 +144,7 @@ struct SessionRow: View {
                 RemoteControlBadge(on: item.session.remoteControl)
                 BackgroundBadge(count: item.session.backgroundTasks)
                 LoadBadge(session: item.session)
+                NoteBadge(name: item.session.name)
             }
             .frame(width: 210, alignment: .leading)
             HStack(spacing: 6) {

@@ -9,7 +9,7 @@ claude_md="$home/CLAUDE.md"
 
 mkdir -p "$home/bin" "$home/handover" "$home/skills"
 
-for b in cc-task cc-handover-load cc-spawn cc-close; do
+for b in cc-task cc-handover-load cc-spawn cc-close cc-note; do
   chmod +x "$here/bin/$b"
   ln -sfn "$here/bin/$b" "$home/bin/$b"
   echo "bin: $home/bin/$b -> $here/bin/$b"

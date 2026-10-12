@@ -1,7 +1,7 @@
 # hive-app – notes for agents
 
 One repo for the Mac app (`Sources/`, `Tests/`) and the session tools it reads from (`tools/`:
-`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`, skills `/status` and `/handover`).
+`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`, `cc-note`, skills `/status` and `/handover`).
 
 - Everything is in English: UI, code comments, script output, test names, docs, commit messages.
   Deliberately German: `docs/claude-md-session-status.md` (copy of the user's German global CLAUDE.md;

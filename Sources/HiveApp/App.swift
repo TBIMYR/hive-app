@@ -7,9 +7,16 @@ import HiveCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The store belongs to the AppDelegate so the notification delegate is set up before the first window appears.
     let store = StateStore()
-    let todos = TodoStore()
+    let notes = NotesStore()
     let usage = UsageStore()
     let projects = ProjectInfoStore()
+
+    /// ⇧⌘T and the title bar: a blank note on the selected session, shown right away.
+    func newNote() {
+        guard let name = store.selected else { return }
+        UserDefaults.standard.set(true, forKey: "notesVisible")
+        notes.add(to: name)
+    }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         store.notifier.start()
@@ -26,13 +33,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct HiveApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @AppStorage("todoVisible") private var todoVisible = false
+    @AppStorage("notesVisible") private var notesVisible = false
 
     var body: some Scene {
         WindowGroup("Hive") {
             ContentView()
                 .environmentObject(delegate.store)
-                .environmentObject(delegate.todos)
+                .environmentObject(delegate.notes)
                 .environmentObject(delegate.usage)
                 .environmentObject(delegate.projects)
                 .frame(minWidth: 900, minHeight: 560)
@@ -53,8 +60,10 @@ struct HiveApp: App {
             }
             // in the View menu, checked as long as the card is visible
             CommandGroup(after: .toolbar) {
-                Toggle("Todo List", isOn: $todoVisible)
+                Toggle("Notes", isOn: $notesVisible)
                     .keyboardShortcut("t")
+                Button("New Note") { delegate.newNote() }
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
             }
         }
         // Hive → Settings… (⌘,)
@@ -116,9 +125,10 @@ struct SettingsView: View {
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
     @EnvironmentObject private var usage: UsageStore
+    @EnvironmentObject private var notes: NotesStore
     /// Width of the terminal in points, changed by dragging the divider; 0 = default (⅓ of the window)
     @AppStorage("terminalWidth") private var terminalWidth: Double = 0
-    @AppStorage("todoVisible") private var todoVisible = false
+    @AppStorage("notesVisible") private var notesVisible = false
     @State private var dragStart: Double?
 
     private static let minTerminal: Double = 340
@@ -154,9 +164,21 @@ struct ContentView: View {
         }
     }
 
-    private var todoButton: some View {
-        Button { todoVisible.toggle() } label: { Label("Todo List", systemImage: "checklist") }
-            .help(todoVisible ? "Hide the todo list (⌘T)" : "Show the todo list (⌘T)")
+    /// Notes of the selected session: new blank note, new note from one of its answers, show or hide them all.
+    @ViewBuilder
+    private var noteButtons: some View {
+        Button {
+            guard let name = store.selected else { return }
+            notesVisible = true
+            notes.add(to: name)
+        } label: { Label("New Note", systemImage: "square.and.pencil") }
+            .help(store.selected == nil ? "Select a session to add a note" : "New note on \(store.selected ?? "") (⇧⌘T)")
+            .disabled(store.selected == nil)
+        AnswerNoteButton()
+        Button { notesVisible.toggle() } label: {
+            Label("Notes", systemImage: notesVisible ? "note.text" : "note")
+        }
+        .help(notesVisible ? "Hide the session's notes (⌘T)" : "Show the session's notes (⌘T)")
     }
 
     /// Click: New Session; the arrow opens the menu with New Project.
@@ -182,21 +204,26 @@ struct ContentView: View {
               : "Keeps the Mac awake as soon as a session works. Click to turn off.")
     }
 
-    /// Plan usage, Todo and New Session at the right edge of the title bar; from macOS 26 a flexible spacer
-    /// pushes them there. Without usage data the usage item is left out.
+    /// Notes, plan usage, then Keep Awake and New Session at the right edge of the title bar; from macOS 26 a
+    /// flexible spacer pushes them there. Without usage data the usage item is left out.
     @ToolbarContentBuilder
     private var actions: some ToolbarContent {
         let hasUsage = usage.current(now: store.now) != nil
         if #available(macOS 26, *) {
             ToolbarSpacer(.flexible)
-            if hasUsage { ToolbarItem(placement: .automatic) { UsageButton() } }
+            // notes and usage each form their own section, apart from the session buttons
+            ToolbarItemGroup(placement: .automatic) { noteButtons }
+            ToolbarSpacer(.fixed)
+            if hasUsage {
+                ToolbarItem(placement: .automatic) { UsageButton() }
+                ToolbarSpacer(.fixed)
+            }
             ToolbarItem(placement: .automatic) { awakeButton }
-            ToolbarItem(placement: .automatic) { todoButton }
             ToolbarItem(placement: .automatic) { newSessionButton }
         } else {
+            ToolbarItemGroup(placement: .primaryAction) { noteButtons }
             if hasUsage { ToolbarItem(placement: .primaryAction) { UsageButton() } }
             ToolbarItem(placement: .primaryAction) { awakeButton }
-            ToolbarItem(placement: .primaryAction) { todoButton }
             ToolbarItem(placement: .primaryAction) { newSessionButton }
         }
     }
@@ -234,12 +261,11 @@ struct ContentView: View {
                             .onEnded { _ in dragStart = nil }
                     )
             }
-            // floating todo card, by default top right in the overview
+            // floating notes of the selected session, by default top right in the overview
             .overlay(alignment: .topLeading) {
-                if todoVisible {
-                    TodoPanel(bounds: geo.size,
-                              defaultOrigin: CGPoint(x: total - w - TodoPanel.defaultSize.width - 26, y: 64),
-                              visible: $todoVisible)
+                if notesVisible {
+                    NotesLayer(session: store.selected, bounds: geo.size,
+                               defaultOrigin: CGPoint(x: total - w - NoteCard.defaultSize.width - 26, y: 64))
                 }
             }
         }
