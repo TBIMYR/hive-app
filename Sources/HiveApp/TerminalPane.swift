@@ -307,25 +307,45 @@ struct Workspace: View {
         }
     }
 
-    /// The panel of a collapsed tile shown on top of everything else. Together with the bar it covers what
-    /// the tile would take if it were open: beside an upright bar as tall as the bar, above or below a lying
-    /// one as wide as it. A click anywhere else closes it.
+    /// A tile's card inside its frame, which includes the margins: the full one at the window's edge, else half.
+    private func cardRect(_ f: CGRect) -> CGRect {
+        let m = Hive.margin
+        let left = f.minX < 0.5 ? m : m / 2, right = f.maxX > area.width - 0.5 ? m : m / 2
+        let top = f.minY < 0.5 ? m : m / 2, bottom = f.maxY > area.height - 0.5 ? m : m / 2
+        return CGRect(x: f.minX + left, y: f.minY + top, width: max(0, f.width - left - right), height: max(0, f.height - top - bottom))
+    }
+
+    /// Where the panel of a collapsed tile is shown on top: exactly over the tiles next to its bar (towards
+    /// the middle of the window), so it covers them and nothing else. Without a neighbour there, the room
+    /// the tile would take if it were open.
+    private func peekRect(bar: CGRect, anchor: DockPanel) -> CGRect {
+        let upright = bar.height >= bar.width
+        let onFarSide = upright ? bar.midX > area.width / 2 : bar.midY > area.height / 2
+        let beside = frames.filter { key, f in
+            guard key != anchor else { return false }
+            if upright {
+                let touches = onFarSide ? abs(f.maxX - bar.minX) < 1 : abs(f.minX - bar.maxX) < 1
+                return touches && min(f.maxY, bar.maxY) - max(f.minY, bar.minY) > 1
+            }
+            let touches = onFarSide ? abs(f.maxY - bar.minY) < 1 : abs(f.minY - bar.maxY) < 1
+            return touches && min(f.maxX, bar.maxX) - max(f.minX, bar.minX) > 1
+        }.values
+        if let first = beside.first {
+            return cardRect(beside.dropFirst().reduce(first) { $0.union($1) })
+        }
+        let own = cardRect(bar)
+        let open = max((openSizes[anchor] ?? 0) - (upright ? bar.width : bar.height) - Hive.margin / 2, 280)
+        return upright ? CGRect(x: onFarSide ? bar.minX - open : bar.maxX, y: own.minY, width: open, height: own.height)
+                       : CGRect(x: own.minX, y: onFarSide ? bar.minY - open : bar.maxY, width: own.width, height: open)
+    }
+
+    /// The panel of a collapsed tile shown on top of the rest (see `peekRect`). A click anywhere else closes it.
     @ViewBuilder
     private func peekLayer(_ s: Session?) -> some View {
         if let p = dock.peek, let group = dock.layout.group(of: p), group.collapsed, p == .overview || s != nil,
            let anchor = group.panels.first(where: { frames[$0] != nil }), let bar = frames[anchor] {
-            let m = Hive.margin
-            // the bar's frame includes the tile's margins: the full one at the window's edge, else half
-            let left = bar.minX < 0.5 ? m : m / 2, right = bar.maxX > area.width - 0.5 ? m : m / 2
-            let top = bar.minY < 0.5 ? m : m / 2, bottom = bar.maxY > area.height - 0.5 ? m : m / 2
-            let upright = bar.height >= bar.width
-            let onFarSide = upright ? bar.midX > area.width / 2 : bar.midY > area.height / 2
-            // what is left of the open tile next to the bar, without the margin towards its neighbour
-            let open = (openSizes[anchor] ?? 0) - (upright ? bar.width : bar.height) - m / 2
-            let w = upright ? min(max(open, 280), max(200, (onFarSide ? bar.minX : area.width - bar.maxX) - m)) : bar.width - left - right
-            let h = upright ? bar.height - top - bottom : min(max(open, 220), max(160, (onFarSide ? bar.minY : area.height - bar.maxY) - m))
-            let x = upright ? (onFarSide ? bar.minX - w : bar.maxX) : bar.minX + left
-            let y = upright ? bar.minY + top : (onFarSide ? bar.minY - h : bar.maxY)
+            let r = peekRect(bar: bar, anchor: anchor)
+            let (x, y, w, h) = (r.minX, r.minY, r.width, r.height)
             let it = item(p, s)
             ZStack(alignment: .topLeading) {
                 Color.black.opacity(0.001)
