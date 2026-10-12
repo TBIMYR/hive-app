@@ -176,7 +176,7 @@ struct Workspace: View {
                                     tabs(panels, selected, s, titles: false)
                                 }
                             }
-                            .padding(.horizontal, 14).frame(height: 54)
+                            .padding(.horizontal, 14).frame(height: Dock.strip)
                         } else {
                             HStack(spacing: 0) {
                                 ViewThatFits(in: .horizontal) {
@@ -185,7 +185,7 @@ struct Workspace: View {
                                 }
                                 Spacer(minLength: 0)
                             }
-                            .padding(.horizontal, 10).frame(height: Dock.strip)
+                            .padding(.horizontal, 14).frame(height: Dock.strip)
                         }
                         Rectangle().fill(Hive.hair).frame(height: 1)
                         content(selected, for: s)

@@ -32,8 +32,8 @@ enum Dock {
     static let space = "dock"
     /// Distance from the window's edge within which a drop goes across everything
     static let windowEdge: CGFloat = 28
-    /// Height of a tile's own tab strip
-    static let strip: CGFloat = 42
+    /// Height of a tile's top row: the tabs, in the terminal's tile also the session's name and status
+    static let strip: CGFloat = 54
 }
 
 /// A tab that is being dragged, with the pointer's place in the window's content
