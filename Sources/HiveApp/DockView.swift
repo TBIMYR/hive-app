@@ -132,6 +132,9 @@ struct DockSplit: View {
     let onEnd: () -> Void
     let content: (Int) -> AnyView
     @State private var last: CGFloat = 0
+    /// Boundary under the pointer / being dragged
+    @State private var hover: Int?
+    @State private var dragging: Int?
 
     static func sizes(_ shares: [Double], total: CGFloat) -> [CGFloat] {
         let sum = shares.reduce(0, +)
@@ -163,25 +166,45 @@ struct DockSplit: View {
         }
     }
 
+    /// The boundary between two tiles takes no room itself; its handle spans the gap between them up to
+    /// both edges. Hovering or dragging shows a blue bar in the gap, in the style of the drop target.
     private func divider(_ i: Int, room: CGFloat) -> some View {
         let horizontal = axis == .horizontal
+        let thickness = Hive.margin + 4
+        let on = hover == i || dragging == i
         return Color.clear
             .frame(width: horizontal ? 0 : nil, height: horizontal ? nil : 0)
             .overlay {
                 Color.clear
-                    .frame(width: horizontal ? 9 : nil, height: horizontal ? nil : 9)
+                    .frame(width: horizontal ? thickness : nil, height: horizontal ? nil : thickness)
+                    .overlay {
+                        if on {
+                            RoundedRectangle(cornerRadius: 3).fill(Hive.shell.opacity(0.14))
+                                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Hive.shell.opacity(0.7), lineWidth: 1.5))
+                                .frame(width: horizontal ? 6 : nil, height: horizontal ? nil : 6)
+                                .padding(horizontal ? .vertical : .horizontal, Hive.margin)
+                        }
+                    }
                     .contentShape(Rectangle())
                     .onHover { inside in
-                        if inside { (horizontal ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push() } else { NSCursor.pop() }
+                        if inside {
+                            hover = i
+                            (horizontal ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push()
+                        } else {
+                            if hover == i { hover = nil }
+                            NSCursor.pop()
+                        }
                     }
                     .gesture(
                         DragGesture(minimumDistance: 1, coordinateSpace: .global)
                             .onChanged { v in
+                                dragging = i
                                 let t = horizontal ? v.translation.width : v.translation.height
                                 if room > 0 { onResize(i, Double((t - last) / room) * shares.reduce(0, +)) }
                                 last = t
                             }
                             .onEnded { _ in
+                                dragging = nil
                                 last = 0
                                 onEnd()
                             }
