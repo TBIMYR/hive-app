@@ -1,8 +1,10 @@
 #!/bin/sh
 # demo.sh — a second app instance with made-up sessions, for screenshots. Nothing of it touches the real
 # sessions: own home folder (HIVE_HOME), own tmux server (HIVE_TMUX), own bundle identifier.
-#   sh scripts/demo.sh        write the demo data and start "Hive (HiveApp-demo)"
-#   sh scripts/demo.sh stop   quit it, stop its tmux server and remove the data
+#   sh scripts/demo.sh          write the demo data and start "Hive (HiveApp-demo)"; every terminal is staged text
+#   sh scripts/demo.sh claude   the same, but lu.01 runs a real Claude Code in a small sample project (uses your
+#                               login and tokens; its transcript is kept in your real ~/.claude/projects)
+#   sh scripts/demo.sh stop     quit it, stop its tmux server and remove the data
 set -eu
 cd "$(dirname "$0")/.."
 root=$(pwd -P)
@@ -16,7 +18,15 @@ dev="$demo/Development"
 exe="$root/.build/$appname.app/Contents/MacOS/HiveApp"
 tmux_bin=$(command -v tmux || echo /opt/homebrew/bin/tmux)
 conf="$HOME/Library/Application Support/hive/tmux.conf"
-T() { if [ -f "$conf" ]; then "$tmux_bin" -L "$socket" -f "$conf" "$@"; else "$tmux_bin" -L "$socket" "$@"; fi; }
+# Variables of a calling Claude or hive session must not leak into the demo (same as in cc-spawn)
+unset_args=""
+for k in $(env | sed -nE 's/^(CLAUDE[A-Za-z0-9_]*|AI_AGENT|TMUX|TMUX_PANE|HIVE_[A-Z_]*|CC_[A-Z_]*)=.*/\1/p'); do
+  unset_args="$unset_args -u $k"
+done
+T() {
+  if [ -f "$conf" ]; then env $unset_args "$tmux_bin" -L "$socket" -f "$conf" "$@"
+  else env $unset_args "$tmux_bin" -L "$socket" "$@"; fi
+}
 
 stop() {
   pids=$(pgrep -f "^$exe\$" || true)
@@ -32,6 +42,7 @@ if [ "${1:-}" = "stop" ]; then
   exit 0
 fi
 
+real=""; [ "${1:-}" != "claude" ] || real=1
 stop
 mkdir -p "$claude/sessions" "$claude/handover" "$claude/projects" "$claude/project-info" \
   "$claude/hive/context" "$claude/hive/notes" "$demo/term"
@@ -137,6 +148,22 @@ a 12 Three things are left for release 2.4: the list view of the calendar, the p
 EOF
 session lu.pm lumen idle 12 34
 
+handover lu.01 lumen working 6 "Calendar view" "grid done, list view next" <<'EOF'
+# Handover lu.01 — Stand 12.10.2026
+
+## Lage
+- Ticket: calendar view with a month grid and a list.
+- The month grid is done and tested (`CalendarGridView`).
+- The list view shares the month model; first version is written, tests are running.
+
+## Offen
+- Empty state for months without entries.
+- Check the list on the small phone.
+
+## Regeln und Lehren
+- Dates always through the app's calendar, never `Date()` plus seconds.
+EOF
+if [ -z "$real" ]; then
 cat > "$demo/term/lu.01.txt" <<EOF
 > The grid looks good. Please build the list view next, same data source.
 
@@ -158,27 +185,99 @@ $line
 $line
   ? for shortcuts
 EOF
-handover lu.01 lumen working 6 "Calendar view" "grid done, list view next" <<'EOF'
-# Handover lu.01 — Stand 12.10.2026
-
-## Lage
-- Ticket: calendar view with a month grid and a list.
-- The month grid is done and tested (`CalendarGridView`).
-- The list view shares the month model; first version is written, tests are running.
-
-## Offen
-- Empty state for months without entries.
-- Check the list on the small phone.
-
-## Regeln und Lehren
-- Dates always through the app's calendar, never `Date()` plus seconds.
-EOF
 transcript lu.01 lumen feat/calendar-view <<'EOF'
 u 22 The grid looks good. Please build the list view next, same data source.
 a 21 I will reuse the month model and add a list layout on top of it.
 t 4 Bash|swift test --filter Calendar|Running the calendar tests
 EOF
 session lu.01 lumen busy 1 58
+else
+  # A real Claude Code in a small sample project. It registers in the real ~/.claude, so its registry file and
+  # its transcript folder are linked into the demo home; cc-task and cc-note write into the demo (CC_HOME).
+  wt="$dev/lumen/worktrees/calendar-view"
+  mkdir -p "$wt/Sources/Lumen" "$wt/Tests/LumenTests"
+  cat > "$wt/Package.swift" <<'EOF'
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "Lumen",
+    targets: [
+        .target(name: "Lumen"),
+        .testTarget(name: "LumenTests", dependencies: ["Lumen"]),
+    ]
+)
+EOF
+  cat > "$wt/Sources/Lumen/CalendarMonth.swift" <<'EOF'
+import Foundation
+
+/// One entry in the calendar.
+public struct Entry: Equatable {
+    public let day: Int
+    public let title: String
+
+    public init(day: Int, title: String) {
+        self.day = day
+        self.title = title
+    }
+}
+
+/// One month as the grid shows it: weeks from Monday to Sunday, `nil` before the first and after the last day.
+public struct CalendarMonth: Equatable {
+    public let year: Int
+    public let month: Int
+    public let weeks: [[Int?]]
+
+    public init(year: Int, month: Int, calendar: Calendar = Calendar(identifier: .iso8601)) {
+        self.year = year
+        self.month = month
+        let first = calendar.date(from: DateComponents(year: year, month: month, day: 1))!
+        let count = calendar.range(of: .day, in: .month, for: first)!.count
+        // weekday 1 is Sunday; the grid starts on Monday
+        let lead = (calendar.component(.weekday, from: first) + 5) % 7
+        var cells: [Int?] = Array(repeating: nil, count: lead) + (1...count).map { Optional($0) }
+        while cells.count % 7 != 0 { cells.append(nil) }
+        weeks = stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<$0 + 7]) }
+    }
+}
+EOF
+  cat > "$wt/Tests/LumenTests/CalendarMonthTests.swift" <<'EOF'
+import XCTest
+@testable import Lumen
+
+final class CalendarMonthTests: XCTestCase {
+    func testOctober2026StartsOnAThursday() {
+        let month = CalendarMonth(year: 2026, month: 10)
+        XCTAssertEqual(month.weeks.first, [nil, nil, nil, 1, 2, 3, 4])
+        XCTAssertEqual(month.weeks.count, 5)
+    }
+
+    func testFebruary2027FillsFourWeeks() {
+        XCTAssertEqual(CalendarMonth(year: 2027, month: 2).weeks.count, 4)
+    }
+}
+EOF
+  cat > "$wt/README.md" <<'EOF'
+# lumen
+
+Calendar for the lumen app.
+
+- Done: the month grid (`CalendarMonth`)
+- Next: a list view of the month: one row per day that has entries, days without entries are left out
+EOF
+  printf '.build/\n' > "$wt/.gitignore"
+  git -C "$wt" init -q -b feat/calendar-view
+  git -C "$wt" -c user.name=Mika -c user.email=mika@lumen.example add -A
+  git -C "$wt" -c user.name=Mika -c user.email=mika@lumen.example commit -q -m "Month grid for the calendar"
+  git -C "$wt" config user.name Mika
+  git -C "$wt" config user.email mika@lumen.example
+  T new-session -d -s lu.01 -x 110 -y 40 -c "$wt" -e CC_HOME="$claude" -e CC_DEV_ROOT="$dev" -e HIVE_SESSION=lu.01 \
+    "exec $(command -v claude || echo claude) -n lu.01"
+  pid=$(T display-message -p -t '=lu.01:' '#{pane_pid}')
+  slug=$(printf %s "$wt" | sed 's/[^A-Za-z0-9]/-/g')
+  ln -s "$HOME/.claude/sessions/$pid.json" "$claude/sessions/$pid.json"
+  ln -s "$HOME/.claude/projects/$slug" "$claude/projects/$slug"
+fi
 printf 'Test accounts\n\n- staging: `mika@lumen.example`\n- reset the demo data: `make seed`\n\n---\n\nRun `make seed`, then restart the dev server.\n' \
   > "$claude/hive/notes/lu.01.md"
 
@@ -377,6 +476,7 @@ printf '{"written_at":%s,"rate_limits":{"five_hour":{"used_percentage":38,"reset
 defaults delete "$id" 2>/dev/null || true
 defaults write "$id" pinned -array lu.pm or.pm
 
-HIVE_HOME="$demo" HIVE_TMUX="$socket" HIVE_APP="$appname" HIVE_BUNDLE_ID="$id" sh restart.sh | sed -n '/^App:/p'
+env $unset_args HIVE_HOME="$demo" HIVE_TMUX="$socket" HIVE_APP="$appname" HIVE_BUNDLE_ID="$id" sh restart.sh | sed -n '/^App:/p'
 echo "demo.sh: sessions $(T ls -F '#{session_name}' | tr '\n' ' ')"
+[ -z "$real" ] || echo "demo.sh: lu.01 runs a real Claude Code in $dev/lumen/worktrees/calendar-view (README.md says what is next)"
 echo "demo.sh: stop it with: sh scripts/demo.sh stop"
