@@ -17,6 +17,9 @@ struct Workspace: View {
     @State private var area: CGSize = .zero
     /// What the collapsed tiles would take if they were open (see DockOpenSizes)
     @State private var openSizes: [DockPanel: CGFloat] = [:]
+    /// Size of the layer when its resizing started / pointer on its handle
+    @State private var peekStart: CGFloat?
+    @State private var peekHover = false
     @EnvironmentObject private var projects: ProjectInfoStore
     @EnvironmentObject private var dock: DockStore
     @Environment(\.colorScheme) private var scheme
@@ -344,7 +347,13 @@ struct Workspace: View {
     private func peekLayer(_ s: Session?) -> some View {
         if let p = dock.peek, let group = dock.layout.group(of: p), group.collapsed, p == .overview || s != nil,
            let anchor = group.panels.first(where: { frames[$0] != nil }), let bar = frames[anchor] {
-            let r = peekRect(bar: bar, anchor: anchor)
+            let upright = bar.height >= bar.width
+            let far = upright ? bar.midX > area.width / 2 : bar.midY > area.height / 2
+            // not beyond the window on the other side
+            let limit = max(Self.minPeek, (upright ? (far ? bar.minX : area.width - bar.maxX)
+                                                    : (far ? bar.minY : area.height - bar.maxY)) - Hive.margin)
+            let r = sized(peekRect(bar: bar, anchor: anchor), to: dock.peekSizes[anchor.rawValue].map { min(max($0, Self.minPeek), limit) },
+                          upright: upright, far: far)
             let (x, y, w, h) = (r.minX, r.minY, r.width, r.height)
             let it = item(p, s)
             ZStack(alignment: .topLeading) {
@@ -382,9 +391,56 @@ struct Workspace: View {
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Hive.hair, lineWidth: 1))
                 .shadow(color: .black.opacity(0.22), radius: 24, y: 12)
                 .offset(x: x.rounded(), y: y.rounded())
+                peekHandle(r, anchor: anchor, upright: upright, far: far, limit: limit)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+    }
+
+    private static let minPeek: CGFloat = 280
+
+    /// The layer with its own size along the bar's axis (dragged by hand), growing away from the bar.
+    private func sized(_ r: CGRect, to extent: CGFloat?, upright: Bool, far: Bool) -> CGRect {
+        guard let e = extent else { return r }
+        return upright ? CGRect(x: far ? r.maxX - e : r.minX, y: r.minY, width: e, height: r.height)
+                       : CGRect(x: r.minX, y: far ? r.maxY - e : r.minY, width: r.width, height: e)
+    }
+
+    /// Handle on the layer's edge away from the bar: dragging resizes the layer (remembered per tile), a
+    /// double click goes back to the size of the tile beneath. Lights up like the gaps between tiles.
+    private func peekHandle(_ r: CGRect, anchor: DockPanel, upright: Bool, far: Bool, limit: CGFloat) -> some View {
+        let on = peekHover || peekStart != nil
+        let t: CGFloat = 16
+        return Color.clear
+            .frame(width: upright ? t : r.width, height: upright ? r.height : t)
+            .overlay {
+                if on {
+                    RoundedRectangle(cornerRadius: 5).fill(Hive.shell.opacity(0.14))
+                        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Hive.shell.opacity(0.7), lineWidth: 1.5))
+                        .frame(width: upright ? 10 : nil, height: upright ? nil : 10)
+                        .padding(upright ? .vertical : .horizontal, Hive.margin)
+                }
+            }
+            .contentShape(Rectangle())
+            .onHover { inside in
+                peekHover = inside
+                if inside { (upright ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push() } else { NSCursor.pop() }
+            }
+            .onTapGesture(count: 2) { dock.setPeekSize(nil, for: anchor) }
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { v in
+                        let start = peekStart ?? (upright ? r.width : r.height)
+                        peekStart = start
+                        let d = upright ? v.translation.width : v.translation.height
+                        dock.setPeekSize(min(max(start + (far ? -d : d), Self.minPeek), limit).rounded(), for: anchor, persist: false)
+                    }
+                    .onEnded { _ in
+                        peekStart = nil
+                        dock.savePeekSizes()
+                    }
+            )
+            .offset(x: upright ? (far ? r.minX : r.maxX) - t / 2 : r.minX, y: upright ? r.minY : (far ? r.minY : r.maxY) - t / 2)
     }
 
     /// The overview is moved by dragging its view switcher.

@@ -9,11 +9,24 @@ final class DockStore: ObservableObject {
     @Published private(set) var layout: DockLayout
     /// Panel of a collapsed tile that is shown on top of the rest for the moment
     @Published var peek: DockPanel?
+    /// Own width (or height) of the layer per collapsed tile, keyed by the tile's first panel; without an
+    /// entry the layer is as large as the tile beneath it
+    @Published private(set) var peekSizes: [String: Double]
     private static let key = "dockLayout"
+    private static let peekKey = "dockPeekSizes"
 
     init() {
         layout = DockLayout(json: UserDefaults.standard.string(forKey: Self.key) ?? "")
+        peekSizes = UserDefaults.standard.dictionary(forKey: Self.peekKey) as? [String: Double] ?? [:]
     }
+
+    /// nil = back to the size of the tile beneath. `persist: false` while dragging.
+    func setPeekSize(_ size: CGFloat?, for anchor: DockPanel, persist: Bool = true) {
+        peekSizes[anchor.rawValue] = size.map(Double.init)
+        if persist { savePeekSizes() }
+    }
+
+    func savePeekSizes() { UserDefaults.standard.set(peekSizes, forKey: Self.peekKey) }
 
     /// `persist: false` while dragging a divider; `save()` when the gesture ends.
     func change(persist: Bool = true, _ f: (inout DockLayout) -> Void) {
@@ -26,7 +39,11 @@ final class DockStore: ObservableObject {
 
     func save() { UserDefaults.standard.set(layout.json, forKey: Self.key) }
 
-    func reset() { change { $0 = .standard } }
+    func reset() {
+        change { $0 = .standard }
+        peekSizes = [:]
+        savePeekSizes()
+    }
 }
 
 enum Dock {
