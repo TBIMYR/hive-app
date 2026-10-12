@@ -87,6 +87,10 @@ struct OverviewView: View {
     /// Offline sessions expanded (shared by all views, not remembered across restarts)
     @State private var showOffline = Self.offlineAtLaunch
     @State private var nav = SessionNavigator()
+    /// Sides at which the overview touches the window; there it keeps the full margin
+    var edges: Edge.Set = [.leading, .top, .bottom]
+    /// Grip to move the overview in the window, shown next to the view switcher
+    var handle: AnyView?
     #if DEBUG
     /// for screenshots of a test instance: HIVE_SHOW_OFFLINE=1 starts with offline sessions expanded
     private static let offlineAtLaunch = ProcessInfo.processInfo.environment["HIVE_SHOW_OFFLINE"] != nil
@@ -149,16 +153,22 @@ struct OverviewView: View {
         }
         let shown = shownOrder(favorites: parts.favorites, rest: parts.rest)
         nav.order = shown.map(\.name)
+        let leading = edges.contains(.leading) ? Hive.margin : Hive.margin / 2
+        let trailing = edges.contains(.trailing) ? Hive.margin : Hive.margin / 2
         return VStack(alignment: .leading, spacing: 0) {
-            ViewSwitcher(mode: $mode).fixedSize()
-                .padding(.leading, Hive.margin).padding(.trailing, Hive.margin / 2).padding(.top, Hive.margin).padding(.bottom, 4)
+            HStack(spacing: 6) {
+                ViewSwitcher(mode: $mode).fixedSize()
+                if let handle { handle }
+            }
+            .padding(.leading, leading).padding(.trailing, trailing)
+            .padding(.top, edges.contains(.top) ? Hive.margin : Hive.margin / 2).padding(.bottom, 4)
 
             ScrollViewReader { proxy in
                 ScrollView {
                     content(favorites: parts.favorites, rest: parts.rest)
                         .coordinateSpace(.named(NavFrameKey.space))
                         .onPreferenceChange(NavFrameKey.self) { nav.frames = $0 }
-                        .padding(.leading, Hive.margin).padding(.trailing, Hive.margin / 2).padding(.top, 20).padding(.bottom, 60)
+                        .padding(.leading, leading).padding(.trailing, trailing).padding(.top, 20).padding(.bottom, 60)
                 }
                 .scrollIndicators(.never)
                 // keeps the selection in view (arrow keys, ⌘H, notifications); nil anchor = scroll as little as needed

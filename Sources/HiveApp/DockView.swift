@@ -28,13 +28,15 @@ final class DockStore: ObservableObject {
 }
 
 enum Dock {
-    /// Coordinate space of the session card; tab drags and group frames are measured in it
+    /// Coordinate space of the window's content; tab drags and group frames are measured in it
     static let space = "dock"
+    /// Distance from the window's edge within which a drop goes across everything
+    static let windowEdge: CGFloat = 28
     /// Height of a tile's own tab strip
     static let strip: CGFloat = 42
 }
 
-/// A tab that is being dragged, with the pointer's place in the session card
+/// A tab that is being dragged, with the pointer's place in the window's content
 struct DockDrag: Equatable {
     let panel: DockPanel
     let title: String
@@ -42,7 +44,7 @@ struct DockDrag: Equatable {
     var location: CGPoint
 }
 
-/// Frames of the groups in the session card, keyed by each group's first panel
+/// Frames of the groups in the window's content, keyed by each group's first panel
 struct DockFrames: PreferenceKey {
     static let defaultValue: [DockPanel: CGRect] = [:]
     static func reduce(value: inout [DockPanel: CGRect], nextValue: () -> [DockPanel: CGRect]) {
@@ -120,8 +122,8 @@ struct DockTabs: View {
     }
 }
 
-/// Tiles side by side or stacked with a hairline between them; dragging a line shifts room between its two
-/// neighbours. Sizes are whole points, otherwise the terminal text gets blurry.
+/// Tiles side by side or stacked; dragging the gap between two shifts room between them. Sizes are whole
+/// points, otherwise the terminal text gets blurry.
 struct DockSplit: View {
     let axis: DockLayout.Axis
     let shares: [Double]
@@ -147,7 +149,7 @@ struct DockSplit: View {
         GeometryReader { geo in
             let horizontal = axis == .horizontal
             let n = shares.count
-            let room = max(0, (horizontal ? geo.size.width : geo.size.height) - CGFloat(n - 1))
+            let room = max(0, horizontal ? geo.size.width : geo.size.height)
             let sizes = Self.sizes(shares, total: room)
             let stack = horizontal ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
             stack {
@@ -163,8 +165,8 @@ struct DockSplit: View {
 
     private func divider(_ i: Int, room: CGFloat) -> some View {
         let horizontal = axis == .horizontal
-        return Rectangle().fill(Hive.hair)
-            .frame(width: horizontal ? 1 : nil, height: horizontal ? nil : 1)
+        return Color.clear
+            .frame(width: horizontal ? 0 : nil, height: horizontal ? nil : 0)
             .overlay {
                 Color.clear
                     .frame(width: horizontal ? 9 : nil, height: horizontal ? nil : 9)
@@ -185,7 +187,7 @@ struct DockSplit: View {
                             }
                     )
             }
-            // above the tiles, so the handle also catches the pointer next to the line
+            // above the tiles, so the handle catches the pointer in the gap between them
             .zIndex(1)
     }
 }

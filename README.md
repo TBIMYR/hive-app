@@ -18,9 +18,11 @@ Names in examples are made up.
 - Notifications and a dock badge count for sessions that need you
 - A notepad per session (Notes, ⌘T): Markdown, stored in `~/.claude/hive/notes/<session>.md`; write it yourself or
   let the session add to it with `cc-note`
-- Session area with Terminal, Handover, Project and Notes as tabs; drag a tab onto the area to place it beside or
-  below the others (drop on an edge) or back onto another tile's tabs (drop in the middle), drag the lines to resize.
-  The arrangement is the same for all sessions; View → Reset Session Area Layout puts everything back into one tile
+- The window is made of tiles: the overview, and Terminal, Handover, Project and Notes of the selected session as
+  tabs. Drag a tab (or the grip next to the view switcher for the overview) to place it beside or below another tile
+  (drop on its edge), across the whole window (drop at the window's edge) or back onto another tile's tabs (drop in
+  the middle); drag the gaps to resize. The arrangement is the same for all sessions; View → Reset Window
+  Layout restores the default. The overview always keeps a tile of its own
 - Quick reply and reply buttons in the cards view
 - Keeps the Mac awake while sessions work (switch in the title bar and in Settings, ⌘,)
 - Own right-click menu: Wake Up / Remote Control / Write Handover, Favorite / Start next, Restart… / Close… / Force Quit…

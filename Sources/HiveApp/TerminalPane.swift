@@ -2,57 +2,37 @@ import SwiftTerm
 import SwiftUI
 import HiveCore
 
-struct TerminalPane: View {
+/// The window's content: the overview and the selected session's views as tiles that can be arranged by
+/// dragging (see DockLayout). Every tile with session views is a card; the one with the terminal carries
+/// the session's name and status.
+struct Workspace: View {
     @EnvironmentObject private var store: StateStore
-    let session: Session?
     @State private var message: String?
     /// Open the project view in edit mode (after New Project)
     @State private var editOnOpen = false
-    /// Tab that is being dragged to another place
+    /// Tab (or the overview's handle) that is being dragged to another place
     @State private var drag: DockDrag?
-    /// Where the groups are in the card, to find the drop target
+    /// Where the groups are in the window, to find the drop target
     @State private var frames: [DockPanel: CGRect] = [:]
+    @State private var area: CGSize = .zero
     @EnvironmentObject private var projects: ProjectInfoStore
     @EnvironmentObject private var dock: DockStore
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        VStack(spacing: 0) {
-            if let s = session {
-                let visible = dock.layout.visible(available(s))
-                HStack(spacing: 8) {
-                    Circle().fill(store.color(for: s.groupKey)).frame(width: 8, height: 8)
-                    Text(s.name).font(.system(size: 15, weight: .semibold))
-                    Spacer(minLength: 4)
-                    if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted) }
-                    StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
-                    // everything in one group: its tabs sit here; tiles carry their own
-                    if case .group(let panels, let selected) = visible {
-                        tabs(panels, selected, s).fixedSize()
-                    }
-                }
-                .padding(.horizontal, 14).frame(height: 54)
-                Rectangle().fill(Hive.hair).frame(height: 1)
-                if let visible {
-                    if case .group = visible { node(visible, s, strip: false) } else { node(visible, s, strip: true) }
-                }
-            } else {
-                ContentUnavailableView("No session selected", systemImage: "terminal",
-                                       description: Text("Click a session on the left."))
-                    .frame(maxHeight: .infinity)
-            }
+        let s = store.displaySessions.first { $0.name == store.selected }
+        let visible = dock.layout.visible(available(s))
+        let header = visible.flatMap(headerGroup)
+        ZStack {
+            if let visible { node(visible, s, header: header, edges: .all) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Hive.bg)
         .coordinateSpace(name: Dock.space)
+        .background { GeometryReader { g in Color.clear.onChange(of: g.size, initial: true) { area = g.size } } }
         .onPreferenceChange(DockFrames.self) { frames = $0 }
         .overlay { if let drag { DockDropOverlay(drag: drag, target: target(drag)?.rect) } }
-        // a large card like the session cards: white, rounded, soft shadow (hairline on dark)
-        .background(Hive.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay { if scheme == .dark { RoundedRectangle(cornerRadius: 16).strokeBorder(Hive.hair, lineWidth: 1) } }
-        .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 1, y: 1)
-        .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 12, y: 6)
-        .onChange(of: session?.name) { _, name in
+        .onChange(of: store.selected) { _, name in
             message = nil
             editOnOpen = false
             // back to the session itself, as far as it shares its tile with other tabs
@@ -68,9 +48,11 @@ struct TerminalPane: View {
         .onChange(of: store.focusRequest) { dock.change { $0.select(.main) }; editOnOpen = false }
     }
 
-    /// Panels this session has: offline with a handover has no main view of its own.
-    private func available(_ s: Session) -> Set<DockPanel> {
-        var all: Set<DockPanel> = [.main, .project, .notes]
+    /// Panels to show: offline with a handover has no main view of its own; without a selection the main
+    /// tile says so.
+    private func available(_ s: Session?) -> Set<DockPanel> {
+        guard let s else { return [.overview, .main] }
+        var all: Set<DockPanel> = [.overview, .main, .project, .notes]
         if s.hasHandover == true {
             all.insert(.handover)
             if store.tmux(s) == nil && s.alive != true { all.remove(.main) }
@@ -78,8 +60,22 @@ struct TerminalPane: View {
         return all
     }
 
+    /// First panel of the group that carries the session's name and status: the one with the terminal,
+    /// otherwise the first with session views.
+    private func headerGroup(_ v: DockLayout.Visible) -> DockPanel? {
+        func groups(_ v: DockLayout.Visible) -> [[DockPanel]] {
+            switch v {
+            case .group(let panels, _): [panels]
+            case .split(_, _, let children): children.flatMap { groups($0.node) }
+            }
+        }
+        let all = groups(v).filter { $0 != [.overview] }
+        return (all.first { $0.contains(.main) } ?? all.first)?.first
+    }
+
     private func item(_ p: DockPanel, _ s: Session) -> DockTabs.Item {
         switch p {
+        case .overview: Self.overviewItem
         case .main:
             store.tmux(s) != nil ? .init(panel: p, title: "Terminal", symbol: "terminal", help: "Terminal")
                 : s.alive == true ? .init(panel: p, title: "Session", symbol: "macwindow", help: "Session")
@@ -90,67 +86,129 @@ struct TerminalPane: View {
         }
     }
 
+    private static let overviewItem = DockTabs.Item(panel: .overview, title: "Sessions", symbol: "square.grid.2x2", help: "All sessions")
+
     private func tabs(_ panels: [DockPanel], _ selected: DockPanel, _ s: Session, titles: Bool = true) -> some View {
         DockTabs(items: panels.map { item($0, s) }, selected: selected, titles: titles, drag: $drag,
                  select: { p in
                      editOnOpen = false
                      dock.change { $0.select(p) }
                  },
-                 drop: { d in
-                     guard let t = target(d) else { return }
-                     dock.change { $0.move(d.panel, to: t.anchor, zone: t.zone) }
-                 },
+                 drop: { drop($0) },
                  move: { p, zone in
                      if let zone { dock.change { $0.move(p, to: p, zone: zone) } } else { dock.reset() }
                  })
     }
 
-    /// Where a dragged tab would land: the group under the pointer and the zone in it. nil where a drop
-    /// changes nothing.
-    private func target(_ d: DockDrag) -> (anchor: DockPanel, zone: DockLayout.Zone, rect: CGRect)? {
+    private func drop(_ d: DockDrag) {
+        guard let t = target(d) else { return }
+        dock.change(t.apply)
+    }
+
+    private struct DropTarget {
+        let rect: CGRect
+        let apply: (inout DockLayout) -> Void
+    }
+
+    /// Where a dragged tab would land: at an edge of the window across everything, or on the group under
+    /// the pointer (on its tabs or beside it). nil where a drop changes nothing.
+    private func target(_ d: DockDrag) -> DropTarget? {
+        let window = CGRect(origin: .zero, size: area)
+        if let edge = DockLayout.windowEdge(at: d.location, in: window, margin: Dock.windowEdge) {
+            var probe = dock.layout
+            probe.move(d.panel, toEdge: edge)
+            if probe != dock.layout {
+                return DropTarget(rect: Self.part(of: window, edge, share: DockLayout.edgeShare)) { $0.move(d.panel, toEdge: edge) }
+            }
+        }
         guard let (anchor, frame) = frames.first(where: { $0.value.contains(d.location) }) else { return nil }
-        let zone = DockLayout.zone(at: d.location, in: frame)
+        let zone = DockLayout.zone(at: d.location, in: frame, center: d.panel != .overview && anchor != .overview)
         var probe = dock.layout
         probe.move(d.panel, to: anchor, zone: zone)
         guard probe != dock.layout else { return nil }
-        var r = frame
-        switch zone {
-        case .center: break
-        case .left: r.size.width /= 2
-        case .right: r.size.width /= 2; r.origin.x += r.width
-        case .top: r.size.height /= 2
-        case .bottom: r.size.height /= 2; r.origin.y += r.height
-        }
-        return (anchor, zone, r)
+        return DropTarget(rect: Self.part(of: frame, zone, share: 0.5)) { $0.move(d.panel, to: anchor, zone: zone) }
     }
 
-    /// A tile (group, with its own tab strip if there are several) or a split of tiles.
-    private func node(_ v: DockLayout.Visible, _ s: Session, strip: Bool) -> AnyView {
+    private static func part(of r: CGRect, _ zone: DockLayout.Zone, share: Double) -> CGRect {
+        var r = r
+        switch zone {
+        case .center: break
+        case .left: r.size.width *= share
+        case .right: r.origin.x += r.width * (1 - share); r.size.width *= share
+        case .top: r.size.height *= share
+        case .bottom: r.origin.y += r.height * (1 - share); r.size.height *= share
+        }
+        return r
+    }
+
+    /// Reports the tile's frame for drops.
+    private func framed(_ anchor: DockPanel) -> some View {
+        GeometryReader { g in
+            Color.clear.preference(key: DockFrames.self, value: [anchor: g.frame(in: .named(Dock.space))])
+        }
+    }
+
+    /// A tile or a split of tiles. `edges` are the sides at which the node touches the window; there a card
+    /// keeps the full margin, between tiles half of it each.
+    private func node(_ v: DockLayout.Visible, _ s: Session?, header: DockPanel?, edges: Edge.Set) -> AnyView {
         switch v {
+        case .group(let panels, _) where panels == [.overview]:
+            return AnyView(
+                OverviewView(edges: edges, handle: AnyView(overviewHandle))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background { framed(.overview) }
+            )
         case .group(let panels, let selected):
+            func inset(_ e: Edge.Set) -> CGFloat { edges.contains(e) ? Hive.margin : Hive.margin / 2 }
             return AnyView(
                 VStack(spacing: 0) {
-                    if strip {
-                        HStack(spacing: 0) {
-                            ViewThatFits(in: .horizontal) {
-                                tabs(panels, selected, s)
-                                tabs(panels, selected, s, titles: false)
+                    if let s {
+                        if panels[0] == header {
+                            HStack(spacing: 8) {
+                                Circle().fill(store.color(for: s.groupKey)).frame(width: 8, height: 8)
+                                Text(s.name).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                                Spacer(minLength: 4)
+                                if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted).lineLimit(1) }
+                                StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
+                                    .fixedSize()
+                                ViewThatFits(in: .horizontal) {
+                                    tabs(panels, selected, s)
+                                    tabs(panels, selected, s, titles: false)
+                                }
                             }
-                            Spacer(minLength: 0)
+                            .padding(.horizontal, 14).frame(height: 54)
+                        } else {
+                            HStack(spacing: 0) {
+                                ViewThatFits(in: .horizontal) {
+                                    tabs(panels, selected, s)
+                                    tabs(panels, selected, s, titles: false)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 10).frame(height: Dock.strip)
                         }
-                        .padding(.horizontal, 10).frame(height: Dock.strip)
                         Rectangle().fill(Hive.hair).frame(height: 1)
+                        content(selected, for: s)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ContentUnavailableView("No session selected", systemImage: "terminal",
+                                               description: Text("Click a session in the overview."))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    content(selected, for: s)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .background {
-                    GeometryReader { g in
-                        Color.clear.preference(key: DockFrames.self, value: [panels[0]: g.frame(in: .named(Dock.space))])
-                    }
-                }
+                // a card like the session cards: white, rounded, soft shadow (hairline on dark)
+                .background(Hive.card)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay { if scheme == .dark { RoundedRectangle(cornerRadius: 16).strokeBorder(Hive.hair, lineWidth: 1) } }
+                .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 1, y: 1)
+                .shadow(color: scheme == .dark ? .clear : .black.opacity(0.05), radius: 12, y: 6)
+                // whole points on all sides, otherwise the terminal text gets blurry
+                .padding(.leading, inset(.leading)).padding(.trailing, inset(.trailing))
+                .padding(.top, inset(.top)).padding(.bottom, inset(.bottom))
+                .background { framed(panels[0]) }
             )
         case .split(let axis, let path, let children):
+            let n = children.count
             return AnyView(
                 DockSplit(axis: axis, shares: children.map(\.share),
                           onResize: { i, delta in
@@ -159,14 +217,46 @@ struct TerminalPane: View {
                               }
                           },
                           onEnd: { dock.save() },
-                          content: { i in node(children[i].node, s, strip: true) })
+                          content: { i in
+                              var e = edges
+                              if axis == .horizontal {
+                                  if i > 0 { e.remove(.leading) }
+                                  if i < n - 1 { e.remove(.trailing) }
+                              } else {
+                                  if i > 0 { e.remove(.top) }
+                                  if i < n - 1 { e.remove(.bottom) }
+                              }
+                              return node(children[i].node, s, header: header, edges: e)
+                          })
             )
         }
+    }
+
+    /// Grip next to the overview's view switcher: drag it to move the overview to another side.
+    private var overviewHandle: some View {
+        let item = Self.overviewItem
+        return Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
+            .font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
+            .frame(width: 30, height: 30)
+            .contentShape(Rectangle())
+            .opacity(drag?.panel == .overview ? 0.4 : 1)
+            .gesture(
+                DragGesture(minimumDistance: 4, coordinateSpace: .named(Dock.space))
+                    .onChanged { v in drag = DockDrag(panel: .overview, title: item.title, symbol: item.symbol, location: v.location) }
+                    .onEnded { v in
+                        drop(DockDrag(panel: .overview, title: item.title, symbol: item.symbol, location: v.location))
+                        drag = nil
+                    }
+            )
+            .help("Drag to move the overview to another side of the window")
+            .contextMenu { Button("Reset Layout") { dock.reset() } }
     }
 
     @ViewBuilder
     private func content(_ panel: DockPanel, for s: Session) -> some View {
         switch panel {
+        case .overview:
+            EmptyView()
         case .project:
             ProjectInfoView(cwd: store.cwd(s), sessionPrefix: SessionNaming.prefix(s.name), startEditing: editOnOpen)
                 .id("\(s.name)#\(store.cwd(s) ?? "")")

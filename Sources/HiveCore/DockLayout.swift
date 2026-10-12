@@ -1,13 +1,17 @@
 import Foundation
 
-/// The views of the session area next to the overview.
+/// The views of the window: the overview of all sessions and the views of the selected one.
 public enum DockPanel: String, Codable, CaseIterable, Sendable {
-    case main, handover, project, notes
+    case overview, main, handover, project, notes
+
+    /// The views of the selected session, which may share a tile as tabs
+    public static let session: [DockPanel] = [.main, .handover, .project, .notes]
 }
 
-/// How the session area is divided: a tree of splits (side by side or stacked) whose leaves are groups of
-/// panels on top of each other with tabs. Every panel sits in exactly one group. The layout is the same
-/// for all sessions; panels a session doesn't have are left out when it is shown (`visible`).
+/// How the window is divided: a tree of splits (side by side or stacked) whose leaves are groups of
+/// panels on top of each other with tabs. Every panel sits in exactly one group; the overview always has
+/// a tile of its own, so the sessions never hide behind a tab. The layout is the same for all sessions;
+/// panels a session doesn't have are left out when it is shown (`visible`).
 public struct DockLayout: Codable, Equatable, Sendable {
     public enum Axis: String, Codable, Sendable { case horizontal, vertical }
 
@@ -49,8 +53,15 @@ public struct DockLayout: Codable, Equatable, Sendable {
         normalize()
     }
 
-    /// Everything in one group with tabs, the session's terminal in front.
-    public static let standard = DockLayout(root: .group(Group(DockPanel.allCases, selected: .main)))
+    /// The overview on the left, the session's views beside it in one group with tabs, the terminal in front.
+    public static let standard = DockLayout(root: .split(Split(.horizontal, [
+        .group(Group([.overview])), .group(Group(DockPanel.session, selected: .main)),
+    ], fractions: [1 - sessionShare, sessionShare])))
+
+    /// Room the session's views get next to the overview by default
+    public static let sessionShare = 0.34
+    /// Room a panel gets that is dropped at an edge of the window
+    public static let edgeShare = 0.3
 
     /// Smallest share a tile can be dragged to
     public static let minFraction = 0.12
@@ -86,6 +97,8 @@ public struct DockLayout: Codable, Equatable, Sendable {
     /// tabs; with nothing else in the group there is nothing to do.
     public mutating func move(_ panel: DockPanel, to target: DockPanel, zone: Zone) {
         guard let from = group(of: panel), let to = group(of: target) else { return }
+        // the overview takes no tabs and is no tab
+        if zone == .center, panel == .overview || target == .overview { return }
         // the group stays identifiable after the panel left it
         var anchor = target
         if from == to {
@@ -114,6 +127,27 @@ public struct DockLayout: Codable, Equatable, Sendable {
             case .top: return .split(Split(.vertical, [new, .group(g)]))
             case .bottom: return .split(Split(.vertical, [.group(g), new]))
             }
+        }
+        normalize()
+    }
+
+    /// Moves `panel` to an edge of the window, across everything else.
+    public mutating func move(_ panel: DockPanel, toEdge zone: Zone) {
+        guard zone != .center, group(of: panel) != nil else { return }
+        root = Self.map(root) { g in
+            var g = g
+            g.panels.removeAll { $0 == panel }
+            if g.selected == panel, let first = g.panels.first { g.selected = first }
+            return g
+        }
+        guard let rest = Self.tidy(root) else { return }
+        let new = Node.group(Group([panel]))
+        let (a, b) = (Self.edgeShare, 1 - Self.edgeShare)
+        switch zone {
+        case .left: root = .split(Split(.horizontal, [new, rest], fractions: [a, b]))
+        case .right: root = .split(Split(.horizontal, [rest, new], fractions: [b, a]))
+        case .top: root = .split(Split(.vertical, [new, rest], fractions: [a, b]))
+        default: root = .split(Split(.vertical, [rest, new], fractions: [b, a]))
         }
         normalize()
     }
@@ -169,29 +203,43 @@ public struct DockLayout: Codable, Equatable, Sendable {
 
     /// Drop zone for a point in a group's rectangle (both in the same coordinates): the nearest edge within
     /// `edge` of the size, otherwise the middle.
-    public static func zone(at p: CGPoint, in r: CGRect) -> Zone {
-        guard r.width > 0, r.height > 0 else { return .center }
+    /// With `center: false` (the overview is involved) it is always the nearest edge.
+    public static func zone(at p: CGPoint, in r: CGRect, center: Bool = true) -> Zone {
+        guard r.width > 0, r.height > 0 else { return center ? .center : .right }
         let x = (p.x - r.minX) / r.width, y = (p.y - r.minY) / r.height
         let nearest = [(x, Zone.left), (1 - x, .right), (y, .top), (1 - y, .bottom)].min { $0.0 < $1.0 }!
-        return nearest.0 < edge ? nearest.1 : .center
+        return nearest.0 < edge || !center ? nearest.1 : .center
+    }
+
+    /// The edge of the window (`area`) a point is at, within `margin` points; nil further inside.
+    public static func windowEdge(at p: CGPoint, in area: CGRect, margin: CGFloat) -> Zone? {
+        guard area.contains(p) else { return nil }
+        let nearest = [(p.x - area.minX, Zone.left), (area.maxX - p.x, .right), (p.y - area.minY, .top), (area.maxY - p.y, .bottom)]
+            .min { $0.0 < $1.0 }!
+        return nearest.0 < margin ? nearest.1 : nil
     }
 
     // MARK: Keeping it valid
 
-    /// Every panel exactly once, no empty groups, no splits with one child or nested along the same axis,
-    /// fractions that fit. Also repairs a stored layout from an older version.
+    /// Every panel exactly once, the overview alone in its group, no empty groups, no splits with one child
+    /// or nested along the same axis, fractions that fit. Also repairs a stored layout from an older version.
     public mutating func normalize() {
         var seen: Set<DockPanel> = []
         var node = Self.map(root) { g in
             var g = g
             g.panels = g.panels.filter { seen.insert($0).inserted }
+            // the overview shares no tile; it is put back beside everything below
+            if g.panels.count > 1, g.panels.contains(.overview) {
+                g.panels.removeAll { $0 == .overview }
+                seen.remove(.overview)
+            }
             return g
         }
-        let missing = DockPanel.allCases.filter { !seen.contains($0) }
+        let missing = DockPanel.session.filter { !seen.contains($0) }
         if !missing.isEmpty {
-            // new panels join the terminal's group (or the first one)
-            let home = Self.groups(node).first { $0.panels.contains(.main) }?.panels.first
-                ?? Self.groups(node).first { !$0.panels.isEmpty }?.panels.first
+            // new panels join the terminal's group (or the first one with session views)
+            let groups = Self.groups(node).filter { !$0.panels.isEmpty && !$0.panels.contains(.overview) }
+            let home = (groups.first { $0.panels.contains(.main) } ?? groups.first)?.panels.first
             var added = false
             node = Self.map(node) { g in
                 guard !added, let home, g.panels.contains(home) else { return g }
@@ -200,9 +248,14 @@ public struct DockLayout: Codable, Equatable, Sendable {
                 g.panels += missing
                 return g
             }
-            if !added { node = .group(Group(missing)) }
+            if !added { node = .split(Split(.horizontal, [node, .group(Group(missing))], fractions: [1 - Self.sessionShare, Self.sessionShare])) }
         }
-        root = Self.tidy(node) ?? Self.standard.root
+        guard var tidy = Self.tidy(node) else { root = Self.standard.root; return }
+        if !seen.contains(.overview) {
+            tidy = Self.tidy(.split(Split(.horizontal, [.group(Group([.overview])), tidy],
+                                          fractions: [1 - Self.sessionShare, Self.sessionShare]))) ?? tidy
+        }
+        root = tidy
     }
 
     private static func tidy(_ n: Node) -> Node? {
@@ -214,9 +267,17 @@ public struct DockLayout: Codable, Equatable, Sendable {
         case .split(let s):
             var children: [Node] = [], fractions: [Double] = []
             let even = 1 / Double(max(s.children.count, 1))
+            // room of a tile that is gone, waiting for the next one (if there was none before it)
+            var freed = 0.0
             for (i, c) in s.children.enumerated() {
-                guard let t = tidy(c) else { continue }
-                let f = s.fractions.count == s.children.count && s.fractions[i] > 0 ? s.fractions[i] : even
+                var f = s.fractions.count == s.children.count && s.fractions[i] > 0 ? s.fractions[i] : even
+                guard let t = tidy(c) else {
+                    // its neighbour gets the room, not everyone a bit
+                    if fractions.isEmpty { freed += f } else { fractions[fractions.count - 1] += f }
+                    continue
+                }
+                f += freed
+                freed = 0
                 // a split along the same axis dissolves into its parent
                 if case .split(let inner) = t, inner.axis == s.axis {
                     children += inner.children

@@ -68,7 +68,7 @@ struct HiveApp: App {
             CommandGroup(after: .toolbar) {
                 Button("Notes") { delegate.toggleNotes() }
                     .keyboardShortcut("t")
-                Button("Reset Session Area Layout") { delegate.dock.reset() }
+                Button("Reset Window Layout") { delegate.dock.reset() }
             }
         }
         // Hive → Settings… (⌘,)
@@ -130,20 +130,6 @@ struct SettingsView: View {
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
     @EnvironmentObject private var usage: UsageStore
-    /// Width of the terminal in points, changed by dragging the divider; 0 = default (⅓ of the window)
-    @AppStorage("terminalWidth") private var terminalWidth: Double = 0
-    @State private var dragStart: Double?
-
-    private static let minTerminal: Double = 340
-    private static let minOverview: Double = 420
-
-    /// Terminal width for the window width, clamped and rounded to whole points
-    /// (otherwise the terminal sits between two pixels and the text gets blurry).
-    private func width(for total: Double, wanted: Double) -> Double {
-        let w = wanted > 0 ? wanted : total / 3
-        return min(max(w, Self.minTerminal), max(Self.minTerminal, total - Self.minOverview)).rounded()
-    }
-
     /// Mark and wordmark on the left of the title bar
     private var brandLabel: some View {
         HStack(spacing: 8) {
@@ -212,39 +198,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            let total = Double(geo.size.width)
-            let w = width(for: total, wanted: terminalWidth)
-            HStack(spacing: 0) {
-                OverviewView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                TerminalPane(session: store.displaySessions.first { $0.name == store.selected })
-                    // whole points on all sides, otherwise the terminal text gets blurry
-                    .padding(.vertical, Hive.margin).padding(.trailing, Hive.margin).padding(.leading, Hive.margin / 2)
-                    .frame(width: w)
-                    .frame(maxHeight: .infinity)
-                    .background(Hive.bg)
-            }
-            // invisible handle on the divider: dragging changes the terminal's width
-            .overlay(alignment: .topLeading) {
-                Color.clear
-                    .frame(width: 9).frame(maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .offset(x: total - w + Hive.margin / 2 - 4.5)  // centered on the left edge of the terminal card
-                    .onHover { inside in
-                        if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 1)
-                            .onChanged { v in
-                                let start = dragStart ?? w
-                                dragStart = start
-                                terminalWidth = width(for: total, wanted: start - Double(v.translation.width))
-                            }
-                            .onEnded { _ in dragStart = nil }
-                    )
-            }
-        }
+        Workspace()
         // instead of the window title: mark and wordmark on the left of the title bar
         .onAppear { NSApp.windows.forEach { $0.titleVisibility = .hidden } }
         .toolbar {
