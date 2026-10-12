@@ -28,6 +28,14 @@ new=".build/new/$appname.app"
 rm -rf .build/new
 mkdir -p "$new/Contents/MacOS"
 cp ".build/$config/HiveApp" "$new/Contents/MacOS/HiveApp"
+# macOS picks the look of the window (e.g. the glass title bar from macOS 26) by the SDK version stamped
+# into the binary. Newer SwiftPM stamps the deployment target there, so set the SDK that was really used.
+sdk=$(xcrun --sdk macosx --show-sdk-version 2>/dev/null || true)
+min=$(xcrun vtool -show-build "$new/Contents/MacOS/HiveApp" 2>/dev/null | awk '$1 == "minos" { print $2 }')
+if [ -n "$sdk" ] && [ -n "$min" ]; then
+  xcrun vtool -set-build-version macos "$min" "$sdk" -replace -output "$new/Contents/MacOS/HiveApp.sdk" "$new/Contents/MacOS/HiveApp" 2>/dev/null \
+    && mv "$new/Contents/MacOS/HiveApp.sdk" "$new/Contents/MacOS/HiveApp" || rm -f "$new/Contents/MacOS/HiveApp.sdk"
+fi
 mkdir -p "$new/Contents/Resources"
 cp Resources/AppIcon.icns "$new/Contents/Resources/AppIcon.icns"
 cat > "$new/Contents/Info.plist" <<EOF
