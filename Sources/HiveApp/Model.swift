@@ -87,6 +87,8 @@ final class StateStore: ObservableObject {
     /// The Mac is currently kept awake
     @Published private(set) var holdingAwake = false
     private let sleepGuard = SleepGuard()
+    /// "Sleep When Done" (title bar switch): one-shot, not stored
+    @Published private(set) var sleepWhenDone = SleepWhenDone()
     /// Incremented after a restart: the terminal attaches to the new tmux session of the same name
     @Published private(set) var terminalEpoch = 0
 
@@ -112,6 +114,10 @@ final class StateStore: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { await self?.refresh() }
         }
+        #if DEBUG
+        // for trying it out in a test instance: HIVE_SLEEP_WHEN_DONE=1 arms the switch at launch
+        if ProcessInfo.processInfo.environment["HIVE_SLEEP_WHEN_DONE"] != nil { setSleepWhenDone(true) }
+        #endif
     }
 
     /// Reload immediately after creating, instead of waiting up to 2 s.
@@ -136,6 +142,7 @@ final class StateStore: ObservableObject {
                 pickedInitial = true
                 if selected == nil { selected = initialSelection() }
             }
+            stepSleepWhenDone()
             notifier.update(needs, selected: selected)
             updateSleepGuard()
             // the time labels are minute-grained ("5 min"), so publishing the clock every 10 s is enough
@@ -166,8 +173,41 @@ final class StateStore: ObservableObject {
         if m != load { load = m }
     }
 
+    /// Arms or disarms "Sleep When Done"; turning it off also ends a running grace period.
+    func setSleepWhenDone(_ on: Bool) {
+        var s = sleepWhenDone
+        if on { s.arm() } else { s.cancel() }
+        sleepWhenDone = s
+        stepSleepWhenDone()
+        updateSleepGuard()
+    }
+
+    func sleepNow() {
+        setSleepWhenDone(false)
+        // for trying it out without putting the Mac to sleep
+        if ProcessInfo.processInfo.environment["HIVE_SLEEP_DRYRUN"] != nil {
+            notice = "The Mac would go to sleep now."
+            FileHandle.standardError.write(Data("hive: would sleep now\n".utf8))
+            return
+        }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+        p.arguments = ["sleepnow"]
+        try? p.run()
+    }
+
+    private func stepSleepWhenDone() {
+        var s = sleepWhenDone
+        let sleep = s.update(working: KeepAwake.working(displaySessions.map { status($0).core }), now: Date())
+        if s != sleepWhenDone { sleepWhenDone = s }
+        // whoever waits for Mika gets its push before the Mac sleeps, not only after the away time
+        notifier.leaving = s.deadline != nil
+        if sleep { sleepNow() }
+    }
+
     private func updateSleepGuard() {
-        sleepGuard.hold(KeepAwake.reason(enabled: keepAwake, statuses: displaySessions.map { status($0).core }))
+        // armed, the Mac has to stay awake until the work is done, whatever the Keep Awake switch says
+        sleepGuard.hold(KeepAwake.reason(enabled: keepAwake || sleepWhenDone.armed, statuses: displaySessions.map { status($0).core }))
         if sleepGuard.isHolding != holdingAwake { holdingAwake = sleepGuard.isHolding }
     }
 

@@ -84,6 +84,29 @@ struct HiveApp: App {
     }
 }
 
+/// Grace period before the Mac sleeps: counts down, Cancel turns Sleep When Done off.
+struct SleepCountdown: View {
+    @EnvironmentObject private var store: StateStore
+    let deadline: Date
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "powersleep").font(.system(size: 34)).foregroundStyle(.tint)
+            Text("No session is working any more").font(.headline)
+            TimelineView(.periodic(from: .now, by: 1)) { t in
+                Text("The Mac goes to sleep in \(max(0, Int(deadline.timeIntervalSince(t.date).rounded(.up)))) s.")
+                    .monospacedDigit().foregroundStyle(.secondary)
+            }
+            HStack {
+                Button("Sleep Now") { store.sleepNow() }
+                Button("Cancel") { store.setSleepWhenDone(false) }.keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 320)
+    }
+}
+
 /// Options of the app.
 struct SettingsView: View {
     @EnvironmentObject private var store: StateStore
@@ -175,14 +198,25 @@ struct ContentView: View {
     /// Keep-awake switch: cup with steam while it holds the Mac awake, empty cup while on but nothing works.
     private var awakeButton: some View {
         Button { store.keepAwake.toggle() } label: {
-            Label("Keep Awake", systemImage: !store.keepAwake ? "moon.zzz" : store.holdingAwake ? "cup.and.heat.waves.fill" : "cup.and.saucer")
+            Label("Keep Awake", systemImage: store.holdingAwake ? "cup.and.heat.waves.fill" : store.keepAwake ? "cup.and.saucer" : "moon.zzz")
         }
-        .help(!store.keepAwake ? "Mac may sleep while sessions work. Click to keep it awake."
+        .help(store.holdingAwake && !store.keepAwake ? "Awake until the sessions are done, then the Mac sleeps (Sleep When Done). Click to keep it awake whenever sessions work."
+              : !store.keepAwake ? "Mac may sleep while sessions work. Click to keep it awake."
               : store.holdingAwake ? "Keeping the Mac awake while sessions work. Click to turn off."
               : "Keeps the Mac awake as soon as a session works. Click to turn off.")
     }
 
-    /// Plan usage, then Keep Awake and New Session at the right edge of the title bar; from macOS 26 a
+    /// Sleep When Done: armed once, off again after the Mac slept or the grace period was cancelled.
+    private var sleepButton: some View {
+        Button { store.setSleepWhenDone(!store.sleepWhenDone.armed) } label: {
+            Label("Sleep When Done", systemImage: "powersleep")
+                .foregroundStyle(store.sleepWhenDone.armed ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+        }
+        .help(store.sleepWhenDone.armed ? "The Mac goes to sleep once no session works any more. Click to turn off."
+              : "Put the Mac to sleep once no session works any more (once, with 60 s to cancel).")
+    }
+
+    /// Plan usage, then Keep Awake, Sleep When Done and New Session at the right edge of the title bar; from macOS 26 a
     /// flexible spacer pushes them there. Without usage data the usage item is left out.
     @ToolbarContentBuilder
     private var actions: some ToolbarContent {
@@ -195,10 +229,12 @@ struct ContentView: View {
                 ToolbarSpacer(.fixed)
             }
             ToolbarItem(placement: .automatic) { awakeButton }
+            ToolbarItem(placement: .automatic) { sleepButton }
             ToolbarItem(placement: .automatic) { newSessionButton }
         } else {
             if hasUsage { ToolbarItem(placement: .primaryAction) { UsageButton() } }
             ToolbarItem(placement: .primaryAction) { awakeButton }
+            ToolbarItem(placement: .primaryAction) { sleepButton }
             ToolbarItem(placement: .primaryAction) { newSessionButton }
         }
     }
@@ -218,6 +254,11 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $store.newProjectOpen) { NewProjectSheet() }
+        // grace period of Sleep When Done
+        .sheet(isPresented: Binding(get: { store.sleepWhenDone.deadline != nil },
+                                    set: { if !$0 { store.setSleepWhenDone(false) } })) {
+            if let deadline = store.sleepWhenDone.deadline { SleepCountdown(deadline: deadline) }
+        }
         // confirmation for Close…/Restart… from the right-click menu
         .alert(store.closeRequest?.title ?? "",
                isPresented: Binding(get: { store.closeRequest != nil },

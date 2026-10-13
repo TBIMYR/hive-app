@@ -12,6 +12,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     private var tracker = AttentionTracker()
     private var phone = PhonePush()
+    /// The Mac is about to sleep (Sleep When Done): counts as away for the phone push
+    var leaving = false
     private let center: UNUserNotificationCenter?
 
     override init() {
@@ -34,7 +36,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         NSApp.dockTile.badgeLabel = needs.isEmpty ? nil : String(needs.count)
         let (added, removed) = tracker.update(needs, now: now)
         if Self.phoneOn, let topic = Self.phoneTopic {
-            let away = Self.idleSeconds >= Double(Self.awayMinutes) * 60
+            let away = leaving || Self.idleSeconds >= Double(Self.awayMinutes) * 60
             for (name, reason) in phone.update(added: added, removed: removed, away: away) {
                 Self.sendToPhone(topic: topic, title: name, body: reason)
             }

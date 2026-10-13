@@ -39,7 +39,7 @@ Added since, not on the first roadmap:
   temporary layer (`DockLayout`).
 - A notepad per session (`cc-note`, ⌘T).
 - CPU load per session, plan limits with outlook in the title bar, token usage by project and session.
-- Keeps the Mac awake while sessions work.
+- Keeps the Mac awake while sessions work; Sleep When Done puts it to sleep once all of them are finished.
 - New Project… (⇧⌘N).
 
 ## Open
