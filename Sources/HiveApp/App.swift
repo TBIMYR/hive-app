@@ -91,7 +91,7 @@ struct SleepCountdown: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "powersleep").font(.system(size: 34)).foregroundStyle(.tint)
+            Image(systemName: "moon.stars.fill").font(.system(size: 34)).foregroundStyle(.tint)
             Text("No session is working any more").font(.headline)
             TimelineView(.periodic(from: .now, by: 1)) { t in
                 Text("The Mac goes to sleep in \(max(0, Int(deadline.timeIntervalSince(t.date).rounded(.up)))) s.")
@@ -209,7 +209,7 @@ struct ContentView: View {
     /// Sleep When Done: armed once, off again after the Mac slept or the grace period was cancelled.
     private var sleepButton: some View {
         Button { store.setSleepWhenDone(!store.sleepWhenDone.armed) } label: {
-            Label("Sleep When Done", systemImage: "powersleep")
+            Label("Sleep When Done", systemImage: store.sleepWhenDone.armed ? "moon.stars.fill" : "moon.stars")
                 .foregroundStyle(store.sleepWhenDone.armed ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
         }
         .help(store.sleepWhenDone.armed ? "The Mac goes to sleep once no session works any more. Click to turn off."
