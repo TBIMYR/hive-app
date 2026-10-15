@@ -101,6 +101,7 @@ struct Tile: View {
     let toggleFavorite: () -> Void
 
     private var isPm: Bool { session.isPm == true }
+    private var show = Show()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -112,20 +113,25 @@ struct Tile: View {
                     Spacer(minLength: 8)
                     if status.cls == "off" {
                         WakeUpButton(session: session)
-                    } else {
-                        CardStatus(status: status, since: session.alive == true ? dur(session.statusUpdatedAt, now: now) : "")
+                    } else if show.status || show.since {
+                        CardStatus(status: status, since: show.since && session.alive == true ? dur(session.statusUpdatedAt, now: now) : "",
+                                   text: show.status ? nil : "")
                             .layoutPriority(-1)
                     }
-                    RemoteControlBadge(on: session.remoteControl)
-                    BackgroundBadge(count: session.backgroundTasks)
-                    LoadBadge(session: session)
-                    NoteBadge(name: session.name)
+                    if show.badges {
+                        RemoteControlBadge(on: session.remoteControl)
+                        BackgroundBadge(count: session.backgroundTasks)
+                    }
+                    if show.load { LoadBadge(session: session) }
+                    if show.badges { NoteBadge(name: session.name) }
                     StarButton(isOn: isFavorite, toggle: toggleFavorite)
                         .padding(.trailing, -4)
                 }
 
-                ContextLine(percent: session.contextPercent)
-                    .padding(.top, 12)
+                if show.context {
+                    ContextLine(percent: session.contextPercent)
+                        .padding(.top, 12)
+                }
 
                 let line = NowLine(session, rank: status.rank)
 
@@ -134,27 +140,30 @@ struct Tile: View {
                 Text(session.task?.text ?? "No task line")
                     .font(.system(size: 15, weight: session.task?.text == nil || outdated ? .medium : .semibold))
                     .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
-                    .lineLimit(2, reservesSpace: session.task?.detail == nil)
+                    .lineLimit(2, reservesSpace: !show.detail || session.task?.detail == nil)
                     .padding(.top, 12)
-                if let detail = session.task?.detail {
+                if show.detail, let detail = session.task?.detail {
                     Text(detail).font(.system(size: 13)).foregroundStyle(Hive.muted).lineLimit(2)
                         .padding(.top, 3)
                 }
 
                 // always two lines high, so plain cards are equally tall; without a "Now" line the reason (if any)
                 // in the status color
-                Group {
-                    if let line {
-                        NowBox(line: line, now: now, answerFor: canAnswer ? session : nil)
-                    } else {
-                        NowSlot {
-                            if let why = status.why {
-                                Text(why).font(.system(size: 13, weight: .medium)).foregroundStyle(status.color).lineLimit(2)
+                // hidden: only an open question keeps its box, for the answer buttons
+                if show.now || canAnswer {
+                    Group {
+                        if let line {
+                            NowBox(line: line, now: now, answerFor: canAnswer ? session : nil)
+                        } else {
+                            NowSlot {
+                                if let why = status.why {
+                                    Text(why).font(.system(size: 13, weight: .medium)).foregroundStyle(status.color).lineLimit(2)
+                                }
                             }
                         }
                     }
+                    .padding(.top, 10)
                 }
-                .padding(.top, 10)
 
                 if canReply { ReplyField(session: session).padding(.top, 12) }
             }
@@ -162,21 +171,25 @@ struct Tile: View {
 
             // Meta: project · branch, on the right where the session runs
             HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 8, height: 8)
-                Text(label)
-                if let b = session.branch, b != "HEAD" {
-                    Text("·")
-                    Text(b).truncationMode(.middle)
+                if show.project {
+                    Circle().fill(color).frame(width: 8, height: 8)
+                    Text(label)
+                    if let b = session.branch, b != "HEAD" {
+                        Text("·")
+                        Text(b).truncationMode(.middle)
+                    }
                 }
                 Spacer(minLength: 6)
                 if !session.errors.isEmpty {
                     Image(systemName: "exclamationmark.triangle")
                         .help("Read error: " + session.errors.joined(separator: "\n"))
                 }
-                if inTmux {
-                    Image(systemName: "terminal").help("Runs in the app")
-                } else if session.alive == true && session.kind != "bg" {
-                    Text("iTerm").fixedSize()
+                if show.place {
+                    if inTmux {
+                        Image(systemName: "terminal").help("Runs in the app")
+                    } else if session.alive == true && session.kind != "bg" {
+                        Text("iTerm").fixedSize()
+                    }
                 }
             }
             .lineLimit(1)

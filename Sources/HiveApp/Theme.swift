@@ -21,11 +21,18 @@ enum Hive {
     static let hair2 = dyn(0xCFCFCC, 0x3A3A38)
     static let soft = dyn(0xEFEFED, 0x1D1D1C)
 
-    static let need = Color(nsColor: NSColor(hex: 0xE5341F))
-    static let block = Color(nsColor: NSColor(hex: 0xF08C00))
-    static let busy = Color(nsColor: NSColor(hex: 0x12A150))
-    static let wait = Color(nsColor: NSColor(hex: 0x8B5CF6))
-    static let shell = Color(nsColor: NSColor(hex: 0x2F6FED))
+    /// Settings → Monochrome: the status and project colors give way to black, white and gray. The window
+    /// content is rebuilt when it changes (ContentView), so reading it here is enough.
+    static let monoKey = "monochrome"
+    static var isMono: Bool { UserDefaults.standard.bool(forKey: monoKey) }
+
+    static var need: Color { isMono ? ink : Color(nsColor: NSColor(hex: 0xE5341F)) }
+    static var block: Color { isMono ? ink : Color(nsColor: NSColor(hex: 0xF08C00)) }
+    static var busy: Color { isMono ? ink2 : Color(nsColor: NSColor(hex: 0x12A150)) }
+    static var wait: Color { isMono ? ink2 : Color(nsColor: NSColor(hex: 0x8B5CF6)) }
+    static var shell: Color { isMono ? ink2 : Color(nsColor: NSColor(hex: 0x2F6FED)) }
+    /// Text on a filled status or project color: white, in monochrome the background color (the fill is ink then)
+    static var onColor: Color { isMono ? bg : .white }
     static let idle = dyn(0xB4B4B0, 0x5C5C59)
     static let off = dyn(0xD4D4D0, 0x333331)
 

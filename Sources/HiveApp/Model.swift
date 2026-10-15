@@ -22,11 +22,11 @@ struct Status {
     var label: String { core.label }
     var why: String? { core.why }
 
-    private static let look: [String: (Color, Bool)] = [
+    private static var look: [String: (Color, Bool)] { [
         "need": (Hive.need, true), "block": (Hive.block, true), "busy": (Hive.busy, true),
         "wait": (Hive.wait, true), "shell": (Hive.shell, false), "agent": (Hive.ink2, false),
         "off": (Hive.off, false), "idle": (Hive.idle, false),
-    ]
+    ] }
 
     init(_ s: Session, tmuxCommand: String? = nil) {
         core = SessionStatus(s, tmuxCommand: tmuxCommand)
@@ -302,7 +302,7 @@ final class StateStore: ObservableObject {
     func groupColors(_ labels: [String: String]) -> [String: Color] {
         var m: [String: Color] = [:]
         for (i, key) in labels.keys.sorted().enumerated() {
-            m[key] = Color(nsColor: NSColor(hex: Hive.palette[i % Hive.palette.count]))
+            m[key] = Hive.isMono ? Hive.muted : Color(nsColor: NSColor(hex: Hive.palette[i % Hive.palette.count]))
         }
         return m
     }

@@ -10,7 +10,7 @@ struct Token: View {
     var body: some View {
         Text(text.uppercased())
             .font(.hiveMono(10.5, .bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Hive.onColor)
             .padding(.horizontal, 5)
             .frame(minWidth: 22, minHeight: 22)
             .background(color)
@@ -27,12 +27,12 @@ struct StatusLabel: View {
     var body: some View {
         let loud = status.rank == 0
         HStack(spacing: 5) {
-            Circle().fill(loud ? Color.white : status.color).frame(width: 7, height: 7)
+            Circle().fill(loud ? Hive.onColor : status.color).frame(width: 7, height: 7)
             Text(status.label).lineLimit(1).truncationMode(.tail)
-            if !since.isEmpty { Text(since).foregroundStyle(loud ? Color.white.opacity(0.8) : Hive.muted).fixedSize() }
+            if !since.isEmpty { Text(since).foregroundStyle(loud ? Hive.onColor.opacity(0.8) : Hive.muted).fixedSize() }
         }
         .font(.system(size: 12, weight: loud ? .semibold : .medium))
-        .foregroundStyle(loud ? Color.white : Hive.ink2)
+        .foregroundStyle(loud ? Hive.onColor : Hive.ink2)
         .padding(.horizontal, loud ? 9 : 0).padding(.vertical, loud ? 3 : 0)
         .background(loud ? status.color : Color.clear)
         .clipShape(Capsule())
@@ -54,7 +54,7 @@ struct CardStatus: View {
         let label = text ?? status.label
         HStack(spacing: 6) {
             if dot { Circle().fill(status.color).frame(width: 8, height: 8) }
-            Text(since.isEmpty ? label : "\(label) · \(since)")
+            Text(since.isEmpty ? label : label.isEmpty ? since : "\(label) · \(since)")
                 .lineLimit(1).truncationMode(.tail)
         }
         .font(.system(size: size, weight: loud ? .semibold : .medium))
@@ -203,7 +203,7 @@ struct BackgroundBadge: View {
                 }
                 Text("\(count)").font(.system(size: 12, weight: .semibold)).monospacedDigit()
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Hive.onColor)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(Capsule().fill(Hive.busy))
             .fixedSize()
@@ -390,4 +390,20 @@ struct EmptyState: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
+
+// MARK: Display options
+
+/// Settings → Display: which details the overview and the terminal header show. All on by default; the
+/// task (title) and the status dot always stay.
+struct Show: DynamicProperty {
+    @AppStorage("show.status") var status = true
+    @AppStorage("show.since") var since = true
+    @AppStorage("show.detail") var detail = true
+    @AppStorage("show.now") var now = true
+    @AppStorage("show.context") var context = true
+    @AppStorage("show.load") var load = true
+    @AppStorage("show.badges") var badges = true
+    @AppStorage("show.project") var project = true
+    @AppStorage("show.place") var place = true
 }

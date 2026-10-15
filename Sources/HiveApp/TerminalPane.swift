@@ -23,6 +23,7 @@ struct Workspace: View {
     @EnvironmentObject private var projects: ProjectInfoStore
     @EnvironmentObject private var dock: DockStore
     @Environment(\.colorScheme) private var scheme
+    private var show = Show()
 
     var body: some View {
         let s = store.displaySessions.first { $0.name == store.selected }
@@ -261,8 +262,10 @@ struct Workspace: View {
                                 Text(s.name).font(.system(size: 15, weight: .semibold)).lineLimit(1)
                                 Spacer(minLength: 4)
                                 if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted).lineLimit(1) }
-                                StatusLabel(status: store.status(s), since: s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
-                                    .fixedSize()
+                                if show.status {
+                                    StatusLabel(status: store.status(s), since: show.since && s.alive == true ? dur(s.statusUpdatedAt, now: store.now) : "")
+                                        .fixedSize()
+                                }
                                 tabRow(panels, selected, s)
                             } else {
                                 tabRow(panels, selected, s)

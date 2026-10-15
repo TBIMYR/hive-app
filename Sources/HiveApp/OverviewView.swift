@@ -59,10 +59,10 @@ struct RailSwitcher<Value: Hashable>: View {
                         Text(item.title).font(.system(size: 13, weight: on ? .semibold : .medium))
                     }
                     .foregroundStyle(on ? Hive.bg : (hover == item.value ? Hive.ink2 : Hive.muted))
-                    .padding(.horizontal, 14).frame(height: 30)
+                    .padding(.horizontal, 14).frame(height: 36)
                     .background {
                         if on {
-                            RoundedRectangle(cornerRadius: 8).fill(Hive.ink)
+                            RoundedRectangle(cornerRadius: 9).fill(Hive.ink)
                                 .matchedGeometryEffect(id: "on", in: ns)
                         }
                     }
@@ -74,8 +74,8 @@ struct RailSwitcher<Value: Hashable>: View {
             }
         }
         .padding(3)
-        .background(RoundedRectangle(cornerRadius: 11).fill(Hive.card))
-        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Hive.hair))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Hive.card))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hive.hair))
     }
 }
 

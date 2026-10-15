@@ -115,6 +115,7 @@ struct SessionRow: View {
     /// Indentation of the content (workers); the row still spans the full width
     var indent: CGFloat = 0
     let toggleFavorite: () -> Void
+    private var show = Show()
 
     static let nameWidth: CGFloat = 140
     /// x of the name column (padding + dot column + spacing), where the hairline starts
@@ -125,43 +126,47 @@ struct SessionRow: View {
         let loud = st.rank == 0
         let task = item.session.task?.text
         // working/waiting: the "Now" box briefly, after the task
-        let now = item.now?.text
+        let now = show.now ? item.now?.text : nil
         let r = SessionListView.radius
         let shape = UnevenRoundedRectangle(topLeadingRadius: first ? r : 0, bottomLeadingRadius: last ? r : 0,
                                            bottomTrailingRadius: last ? r : 0, topTrailingRadius: first ? r : 0)
         HStack(spacing: 14) {
-            ContextDot(color: st.color, percent: item.session.contextPercent).frame(width: 14)
+            ContextDot(color: st.color, percent: show.context ? item.session.contextPercent : nil).frame(width: 14)
             Text(item.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
                 .frame(width: nameWidth, alignment: .leading)
             HStack(spacing: 6) {
                 // status as colored text like on the cards; the leading dot is the row's status dot
                 if st.cls == "off" {
                     WakeUpButton(session: item.session)
-                } else {
+                } else if show.status {
                     CardStatus(status: st, text: loud && now == nil ? [st.label, st.why].compactMap { $0 }.joined(separator: " · ") : nil,
                                size: 12.5, dot: false)
                 }
-                RemoteControlBadge(on: item.session.remoteControl)
-                BackgroundBadge(count: item.session.backgroundTasks)
-                LoadBadge(session: item.session)
-                NoteBadge(name: item.session.name)
+                if show.badges {
+                    RemoteControlBadge(on: item.session.remoteControl)
+                    BackgroundBadge(count: item.session.backgroundTasks)
+                }
+                if show.load { LoadBadge(session: item.session) }
+                if show.badges { NoteBadge(name: item.session.name) }
             }
-            .frame(width: 210, alignment: .leading)
+            .frame(width: show.status || show.badges || show.load ? 210 : nil, alignment: .leading)
             HStack(spacing: 6) {
-                Circle().fill(item.color).frame(width: 6, height: 6)
+                if show.project { Circle().fill(item.color).frame(width: 6, height: 6) }
                 // the task is the title like on the cards; the "Now" line (or else the detail) follows in gray,
                 // as far as the row has room
                 if let task {
                     Text(task).fontWeight(.medium).foregroundStyle(Hive.ink)
-                        + Text((now ?? item.session.task?.detail).map { "  \($0)" } ?? "").foregroundStyle(Hive.muted)
+                        + Text((now ?? (show.detail ? item.session.task?.detail : nil)).map { "  \($0)" } ?? "").foregroundStyle(Hive.muted)
                 } else {
                     Text(now ?? "No task line").foregroundStyle(now == nil ? Hive.muted : Hive.ink2)
                 }
             }
             .help(item.project)
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text(item.since).font(.system(size: 12)).foregroundStyle(Hive.muted).monospacedDigit()
-                .frame(width: 56, alignment: .trailing)
+            if show.since {
+                Text(item.since).font(.system(size: 12)).foregroundStyle(Hive.muted).monospacedDigit()
+                    .frame(width: 56, alignment: .trailing)
+            }
             StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                 .padding(.leading, -4)
         }

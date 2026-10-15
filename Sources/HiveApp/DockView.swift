@@ -114,10 +114,10 @@ struct DockTabs: View {
                     if titles { Text(item.title).font(.system(size: 13, weight: on ? .semibold : .medium)).fixedSize() }
                 }
                 .foregroundStyle(on ? Hive.bg : (hover == item.panel ? Hive.ink2 : Hive.muted))
-                .padding(.horizontal, titles ? 14 : 11).frame(height: 30)
+                .padding(.horizontal, titles ? 14 : 11).frame(height: 36)
                 .background {
                     if on {
-                        RoundedRectangle(cornerRadius: 8).fill(Hive.ink)
+                        RoundedRectangle(cornerRadius: 9).fill(Hive.ink)
                             .matchedGeometryEffect(id: "on", in: ns)
                     }
                 }
@@ -147,8 +147,8 @@ struct DockTabs: View {
             }
         }
         .padding(3)
-        .background(RoundedRectangle(cornerRadius: 11).fill(Hive.card))
-        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Hive.hair))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Hive.card))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hive.hair))
     }
 }
 
@@ -288,8 +288,8 @@ struct DockDropOverlay: View {
                 Text(drag.title).font(.system(size: 13, weight: .semibold))
             }
             .foregroundStyle(Hive.bg)
-            .padding(.horizontal, 14).frame(height: 30)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Hive.ink))
+            .padding(.horizontal, 14).frame(height: 36)
+            .background(RoundedRectangle(cornerRadius: 9).fill(Hive.ink))
             .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
             .fixedSize()
             .position(x: drag.location.x, y: drag.location.y + 24)

@@ -114,6 +114,8 @@ struct SettingsView: View {
     @AppStorage(Notifier.phoneKey) private var phonePush = false
     @AppStorage(Notifier.topicKey) private var topic = ""
     @AppStorage(Notifier.awayKey) private var awayMinutes = 5
+    @AppStorage(Hive.monoKey) private var mono = false
+    private var show = Show()
 
     var body: some View {
         Form {
@@ -125,6 +127,30 @@ struct SettingsView: View {
                 Toggle(isOn: $notifySound) {
                     Text("Ping when a session needs you")
                     Text("Plays a sound with the notification. Banner style and badge are set in System Settings → Notifications → Hive.")
+                }
+            }
+            Section("Display") {
+                Toggle(isOn: $mono) {
+                    Text("Monochrome")
+                    Text("Black, white and gray instead of status and project colors. The terminal keeps its colors.")
+                }
+                Toggle("Status", isOn: show.$status)
+                Toggle("Time in status", isOn: show.$since)
+                Toggle("Detail line under the task", isOn: show.$detail)
+                Toggle(isOn: show.$now) {
+                    Text("\"Now\" line")
+                    Text("Last step, question or result. An open question keeps its answer buttons.")
+                }
+                Toggle("Context usage", isOn: show.$context)
+                Toggle("CPU load", isOn: show.$load)
+                Toggle(isOn: show.$badges) {
+                    Text("Badges")
+                    Text("Background tasks, notes and Remote Control.")
+                }
+                Toggle("Project and branch", isOn: show.$project)
+                Toggle(isOn: show.$place) {
+                    Text("Where the session runs")
+                    Text("Terminal icon (in Hive) or \"iTerm\" at the bottom right of a card.")
                 }
             }
             Section {
@@ -159,6 +185,8 @@ struct SettingsView: View {
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
     @EnvironmentObject private var usage: UsageStore
+    /// Settings → Monochrome; the whole window content is rebuilt so every color is read again
+    @AppStorage(Hive.monoKey) private var mono = false
     /// Mark and wordmark on the left of the title bar
     private var brandLabel: some View {
         HStack(spacing: 8) {
@@ -293,5 +321,19 @@ struct ContentView: View {
         } message: {
             Text(store.notice ?? "")
         }
+        .tint(mono ? Hive.ink : nil)
+        .id(mono)
+        #if DEBUG
+        // for checking the look without screen recording: HIVE_SNAPSHOT=<file.png> saves the window content
+        // a few seconds after launch (drawn by the app itself, so the title bar is missing)
+        .task {
+            guard let path = ProcessInfo.processInfo.environment["HIVE_SNAPSHOT"] else { return }
+            try? await Task.sleep(for: .seconds(5))
+            guard let view = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil })?.contentView,
+                  let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+            view.cacheDisplay(in: view.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        }
+        #endif
     }
 }

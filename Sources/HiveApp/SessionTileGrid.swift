@@ -55,13 +55,14 @@ struct SmallTile: View {
     /// Height of the tallest middle part (the title) in the grid; this one grows to it
     var minBody: CGFloat = 0
     let toggleFavorite: () -> Void
+    private var show = Show()
 
     var body: some View {
         let st = item.status
         let loud = st.rank == 0
         let task = item.session.task?.text
         // only the title (the task) like on the cards; without one the content of "Now" or the reason
-        let text = task ?? item.now?.text ?? (loud ? st.why : nil)
+        let text = task ?? (show.now ? item.now?.text : nil) ?? (loud ? st.why : nil)
         VStack(alignment: .leading, spacing: 8) {
             // name, then the status as dot + colored text like on the cards; the status gives way first
             HStack(spacing: 8) {
@@ -70,13 +71,15 @@ struct SmallTile: View {
                 Spacer(minLength: 4)
                 if st.cls == "off" {
                     WakeUpButton(session: item.session)
-                } else {
+                } else if show.status {
                     CardStatus(status: st, size: 11.5).layoutPriority(-1)
                 }
-                RemoteControlBadge(on: item.session.remoteControl)
-                BackgroundBadge(count: item.session.backgroundTasks)
-                LoadBadge(session: item.session)
-                NoteBadge(name: item.session.name)
+                if show.badges {
+                    RemoteControlBadge(on: item.session.remoteControl)
+                    BackgroundBadge(count: item.session.backgroundTasks)
+                }
+                if show.load { LoadBadge(session: item.session) }
+                if show.badges { NoteBadge(name: item.session.name) }
                 StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                     .padding(.trailing, -4)
             }
@@ -85,17 +88,20 @@ struct SmallTile: View {
                 .foregroundStyle(text == nil ? Hive.muted : task == nil ? Hive.ink2 : Hive.ink)
                 .lineLimit(2, reservesSpace: true)
             .matchTallest(minBody)
-            HStack(spacing: 6) {
-                Circle().fill(item.color).frame(width: 6, height: 6)
-                Text(item.since.isEmpty ? item.project : "\(item.project) · \(item.since)")
+            let since = show.since ? item.since : ""
+            if show.project || !since.isEmpty {
+                HStack(spacing: 6) {
+                    if show.project { Circle().fill(item.color).frame(width: 6, height: 6) }
+                    Text(!show.project ? since : since.isEmpty ? item.project : "\(item.project) · \(since)")
+                }
+                .font(.system(size: 11.5)).foregroundStyle(Hive.muted).lineLimit(1)
+                .padding(.top, 2)
             }
-            .font(.system(size: 11.5)).foregroundStyle(Hive.muted).lineLimit(1)
-            .padding(.top, 2)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         // below the ring, so a selected tile's ring covers it
-        .overlay { ContextEdge(percent: item.session.contextPercent, radius: 14) }
+        .overlay { if show.context { ContextEdge(percent: item.session.contextPercent, radius: 14) } }
         .cardBackground(status: st, isSelected: isSelected, radius: 14)
         .opacity(st.rank == 3 ? 0.55 : 1)
         .contentShape(Rectangle())
