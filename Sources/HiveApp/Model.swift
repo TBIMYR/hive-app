@@ -302,7 +302,7 @@ final class StateStore: ObservableObject {
     func groupColors(_ labels: [String: String]) -> [String: Color] {
         var m: [String: Color] = [:]
         for (i, key) in labels.keys.sorted().enumerated() {
-            m[key] = Hive.isMono ? Hive.muted : Color(nsColor: NSColor(hex: Hive.palette[i % Hive.palette.count]))
+            m[key] = Hive.isMono ? Hive.ink : Color(nsColor: NSColor(hex: Hive.palette[i % Hive.palette.count]))
         }
         return m
     }
