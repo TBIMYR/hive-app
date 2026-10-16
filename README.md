@@ -2,8 +2,8 @@
 
 Mac app for parallel Claude Code sessions: the overview of all sessions next to the real terminal of the
 selected session (tmux), its handover, its project info and its notes, arranged as tiles. The session tools the app reads from
-(`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`, `cc-note`) live in `tools/`. Until 2026-10-07 they were a
-separate repo `hive` together with a Node/HTML dashboard; its history is merged in here.
+(`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`, `cc-note`)
+live in `tools/`.
 
 Current session rules for the global CLAUDE.md: `docs/claude-md-session-status.md`
 
