@@ -72,6 +72,15 @@ test('--name writes to another session', () => {
   assert.equal(notes(home), null);
 });
 
+test('--global writes to the notepad for all sessions', () => {
+  const home = setup();
+  const r = run(home, ['--global', 'standup at 9:30']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /global notes/);
+  assert.equal(notes(home, '.global'), 'standup at 9:30\n');
+  assert.equal(notes(home), null);
+});
+
 test('rejects empty notes, unknown sessions and unsafe names', () => {
   const home = setup();
   assert.equal(run(home, ['  \n ']).status, 2);

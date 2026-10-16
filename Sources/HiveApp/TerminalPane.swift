@@ -471,7 +471,7 @@ struct Workspace: View {
         case .handover:
             HandoverView(name: s.name)
         case .notes:
-            NotepadView(name: s.name).id(s.name)
+            NotesSplit(name: s.name)
         case .main:
             mainContent(for: s)
         }

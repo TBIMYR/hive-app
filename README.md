@@ -60,8 +60,9 @@ See [Session tools](#session-tools).
 - Plan limits in the title bar (5 hours and week), colored by the outlook: green lasts until the reset, orange gets
   tight, red runs out before it; a click shows tokens over 1/7/30 days by project and session
 - New Session (⌘N) and New Project… (⇧⌘N)
-- A notepad per session (Notes, ⌘T): Markdown, stored in `~/.claude/hive/notes/<session>.md`; write it yourself or
-  let the session add to it with `cc-note`
+- A notepad per session (Notes, ⌘T): Markdown with task checkboxes (`- [ ]`), stored in
+  `~/.claude/hive/notes/<session>.md`; write it yourself or let the session add to it with `cc-note`. Below it a
+  global notepad that stays the same for every session (`cc-note --global`)
 - The window is made of tiles: the overview, and Terminal, Handover, Project and Notes of the selected session as
   tabs. Drag a tab (for the overview its view switcher) to place it beside or below another tile
   (drop on its edge), across the whole window (drop at the window's edge) or back onto another tile's tabs (drop in
@@ -179,6 +180,7 @@ cc-spawn lu.01 ~/Development/lumen/worktrees/x "Ticket: …"   # new session (hi
 cc-close lu.01                               # type /exit; refused when busy or without handover
 cc-close --force lu.01                       # close anyway
 cc-note "Run `make seed`, then restart"      # add to this session's notes (Markdown; long text on stdin)
+cc-note --global "Standup at 9:30"           # add to the notes for all sessions
 ```
 
 Skills (symlinked into `~/.claude/skills/`): `/status` sets the task line by hand; `/handover`

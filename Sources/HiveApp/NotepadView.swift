@@ -71,7 +71,9 @@ struct NotepadView: View {
         }
         .overlay(alignment: .topLeading) {
             if text.isEmpty {
-                Text("Notes for \(name). Markdown works; they stay until you delete them.")
+                Text(name == Notes.global
+                     ? "Notes for all sessions. They stay the same whichever session is selected."
+                     : "Notes for \(name). Markdown works; they stay until you delete them.")
                     .font(.system(size: 15)).foregroundStyle(Hive.muted)
                     .padding(.horizontal, 16).padding(.top, 2)
                     .allowsHitTesting(false)
@@ -104,5 +106,58 @@ struct NotepadView: View {
             synced = disk
             text = disk
         }
+    }
+}
+
+/// The notes tab: the selected session's notepad on top, the one for all sessions below, with a line
+/// in between that can be dragged (the split is remembered).
+struct NotesSplit: View {
+    let name: String
+    /// share of the height for the session's notes
+    @AppStorage("notesSplit") private var split = 0.62
+    @State private var start: Double?
+    @State private var hover = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let room = max(geo.size.height - 12, 1)
+            VStack(spacing: 0) {
+                part(name) { NotepadView(name: name).id(name) }
+                    .frame(height: room * split)
+                handle(room: room)
+                part("Global") { NotepadView(name: Notes.global) }
+            }
+        }
+    }
+
+    private func part(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted)
+                .padding(.horizontal, 28).padding(.top, 12)
+            content()
+        }
+    }
+
+    private func handle(room: CGFloat) -> some View {
+        Rectangle().fill(Color.clear).frame(height: 12)
+            .overlay {
+                Rectangle().fill(hover || start != nil ? Hive.muted.opacity(0.6) : Hive.hair)
+                    .frame(height: hover || start != nil ? 2 : 1)
+                    .padding(.horizontal, 16)
+            }
+            .contentShape(Rectangle())
+            .onHover { inside in
+                hover = inside
+                if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { v in
+                        let from = start ?? split
+                        start = from
+                        split = min(max(from + Double(v.translation.height / room), 0.15), 0.85)
+                    }
+                    .onEnded { _ in start = nil }
+            )
     }
 }

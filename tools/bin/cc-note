@@ -3,6 +3,7 @@
 #
 #   cc-note [--name NAME] "TEXT"
 #   cc-note [--name NAME] < file      (text from stdin, also with "-" as TEXT)
+#   cc-note --global "TEXT"           (the notepad for all sessions, shown below the session's notes)
 #
 # TEXT is Markdown and may have several lines; it goes below what is already there, set apart by a line.
 # Without --name the entry goes to the calling session. The notepad is the file <notes>/<NAME>.md.
@@ -16,6 +17,7 @@ name=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) name="$2"; shift 2 ;;
+    --global) name=.global; shift ;;
     --) shift; break ;;
     -) break ;;
     -*) echo "cc-note: unknown option $1" >&2; exit 2 ;;
@@ -24,7 +26,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ $# -gt 1 ]; then
-  echo "usage: cc-note [--name NAME] \"TEXT\"   (or text on stdin)" >&2
+  echo "usage: cc-note [--name NAME | --global] \"TEXT\"   (or text on stdin)" >&2
   exit 2
 fi
 
@@ -64,4 +66,4 @@ else
 fi
 chmod 644 "$tmp.all"
 mv "$tmp.all" "$file"
-echo "cc-note: added to the notes of $name"
+if [ "$name" = .global ]; then echo "cc-note: added to the global notes"; else echo "cc-note: added to the notes of $name"; fi

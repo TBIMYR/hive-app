@@ -7,6 +7,9 @@ public enum Notes {
         ProcessInfo.processInfo.environment["HIVE_NOTES"] ?? "\(claudeHome)/hive/notes"
     }
 
+    /// Key of the notepad shared by all sessions (a hidden file, so it never counts as a session's notes)
+    public static let global = ".global"
+
     /// Between two entries that were appended (same as in `cc-note`)
     public static let separator = "\n\n---\n\n"
 
