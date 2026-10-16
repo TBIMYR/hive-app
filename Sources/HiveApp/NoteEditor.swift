@@ -228,9 +228,10 @@ final class NoteTextView: NSTextView {
         super.draw(dirtyRect)
         for box in boxes {
             guard let r = rect(of: box), r.intersects(dirtyRect) else { continue }
-            let color: NSColor = box.checked ? .labelColor : .secondaryLabelColor
+            // checked: a check in the background color on a filled box, so it stays visible in light and dark mode
+            let colors: [NSColor] = box.checked ? [.textBackgroundColor, .labelColor] : [.secondaryLabelColor]
             let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
-                .applying(.init(paletteColors: [color]))
+                .applying(.init(paletteColors: colors))
             guard let image = NSImage(systemSymbolName: box.checked ? "checkmark.square.fill" : "square",
                                       accessibilityDescription: box.checked ? "Done" : "Open")?
                 .withSymbolConfiguration(config) else { continue }
