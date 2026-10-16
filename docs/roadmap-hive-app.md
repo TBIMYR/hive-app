@@ -1,7 +1,7 @@
 # Roadmap: hive as a Mac app (as of 2026-10-16, version 0.3)
 
 The app replaced the web dashboard and iTerm in Mika's daily work. The first roadmap (2026-10-03) planned three
-stages; this version says what of it exists and what is still open. Specs live under `specs/`, plans under `plans/`.
+stages; this version says what of it exists and what is still open.
 
 ## Starting point
 

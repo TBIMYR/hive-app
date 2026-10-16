@@ -12,7 +12,8 @@ One repo for the Mac app (`Sources/`, `Tests/`) and the session tools it reads f
   ticket numbers. Check with `git grep` before committing.
 - Use `~/` for paths in commands (e.g. `git -C ~/Development/hive-app …`) so they work for everyone.
   Rules with the real home folder belong in `.claude/settings.local.json` (not checked in).
-- Specs live in `docs/specs/`, plans in `docs/plans/`. No tool-specific folders or header lines.
+- Specs and plans live outside the repo in `~/.claude/hive-app-docs/specs/` and `.../plans/` (they describe
+  Mika's way of working). No tool-specific folders or header lines.
 - Log changes made outside the repo (global settings, handover files, other projects' hooks) in
   `~/.claude/keeper-log.md`. It is not part of the repo because it describes Mika's personal setup.
 - `tools/bin/*` and `tools/skills/*` are symlinked into `~/.claude` (`sh tools/install.sh`), so changes
