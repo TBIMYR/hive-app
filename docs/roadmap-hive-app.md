@@ -1,4 +1,4 @@
-# Roadmap: hive as a Mac app (as of 2026-10-12, version 0.2)
+# Roadmap: hive as a Mac app (as of 2026-10-16, version 0.3)
 
 The app replaced the web dashboard and iTerm in Mika's daily work. The first roadmap (2026-10-03) planned three
 stages; this version says what of it exists and what is still open. Specs live under `specs/`, plans under `plans/`.
@@ -39,8 +39,9 @@ Added since, not on the first roadmap:
   temporary layer (`DockLayout`).
 - A notepad per session (`cc-note`, ⌘T).
 - CPU load per session, plan limits with outlook in the title bar, token usage by project and session.
-- Keeps the Mac awake while sessions work; Sleep When Done puts it to sleep once all of them are finished.
+- Keeps the Mac awake while sessions work; Sleep When Done puts it to sleep once all of them are finished (0.3).
 - New Project… (⇧⌘N).
+- Settings → Display: monochrome look and switches to hide details of the overview (0.3).
 
 ## Open
 
@@ -65,7 +66,7 @@ Open source:
 - Things tailored to Mika become configurable: `~/Development`, naming scheme `xx.pm`/`xx.01`, iTerm jump.
 - Setup on first launch instead of `install.sh`: checks tmux, installs `cc-task`, the hooks and the CLAUDE.md
   section (with consent, showing the changes first).
-- Documentation of the conventions (task line, handover, PM/worker) for others, README with screenshots, CI build.
+- Documentation of the conventions (task line, handover, PM/worker) for others, CI build.
 - German translation of the UI.
 - Signing and notarization (Apple Developer account, $99/year), automatic updates (Sparkle).
 

@@ -37,10 +37,11 @@ Names in examples and screenshots are made up (`sh scripts/demo.sh` starts the a
 - At launch the first running favorite is selected, else the first working session
 - Quick reply and reply buttons in the cards view
 - Keeps the Mac awake while sessions work (switch in the title bar and in Settings, ⌘,)
-- Settings → Display: monochrome (black, white and gray instead of status and project colors) and switches to
-  hide details such as status, time, detail line, "Now" line, context, CPU load, badges, project and place
 - Sleep When Done: armed once in the title bar, puts the Mac to sleep as soon as no session works any more
   (60 s to cancel; a session that starts working again stops the countdown)
+- Settings → Display: a monochrome look (black, white and gray instead of status and project colors; the
+  terminal keeps its colors) and switches to hide details: status, time in status, detail line, "Now" line,
+  context usage, CPU load, badges, project and branch, and where the session runs
 - Own right-click menu: Wake Up / Remote Control / Write Handover, Favorite / Start next, Restart… / Close… / Force Quit…
 - Drag & drop into the terminal
 
