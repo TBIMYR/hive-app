@@ -14,7 +14,7 @@ One repo for the Mac app (`Sources/`, `Tests/`) and the session tools it reads f
   Rules with the real home folder belong in `.claude/settings.local.json` (not checked in).
 - Specs live in `docs/specs/`, plans in `docs/plans/`. No tool-specific folders or header lines.
 - Log changes made outside the repo (global settings, handover files, other projects' hooks) in
-  `docs/keeper-log.md`.
+  `~/.claude/keeper-log.md`. It is not part of the repo because it describes Mika's personal setup.
 - `tools/bin/*` and `tools/skills/*` are symlinked into `~/.claude` (`sh tools/install.sh`), so changes
   there are live immediately for every running session.
 - Never quit Mika's running app (`/Applications/Hive.app`): `sh restart.sh` rebuilds and restarts it. For trying things out, start a test

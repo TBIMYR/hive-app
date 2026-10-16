@@ -8,6 +8,8 @@ settings="$home/settings.json"
 claude_md="$home/CLAUDE.md"
 
 mkdir -p "$home/bin" "$home/handover" "$home/skills"
+# a fresh Claude Code install may not have a settings file yet
+[ -f "$settings" ] || echo '{}' > "$settings"
 
 for b in cc-task cc-handover-load cc-spawn cc-close cc-note; do
   chmod +x "$here/bin/$b"

@@ -5,14 +5,51 @@ selected session (tmux), its handover, its project info and its notes, arranged 
 (`cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`, `cc-note`) live in `tools/`. Until 2026-10-07 they were a
 separate repo `hive` together with a Node/HTML dashboard; its history is merged in here.
 
-What the master session `keeper` changed (including outside the repo): `docs/keeper-log.md`
 Current session rules for the global CLAUDE.md: `docs/claude-md-session-status.md`
 
 ![Hive: the sessions as cards next to the terminal of the selected one](docs/screenshots/cards.png)
 
 Names in examples and screenshots are made up (`sh scripts/demo.sh` starts the app with them).
 
-## Features
+## Getting started
+
+You need macOS 14 or later, the Swift toolchain (Xcode or its command line tools), [Claude Code](https://code.claude.com),
+and from Homebrew `tmux` and `jq`.
+
+```sh
+brew install tmux jq
+git clone https://github.com/TBIMYR/hive-app.git ~/Development/hive-app
+cd ~/Development/hive-app
+sh tools/install.sh   # links cc-task & co. into ~/.claude, registers a hook, adds the session rules to ~/.claude/CLAUDE.md
+sh restart.sh         # builds the app and installs it as /Applications/Hive.app, then starts it
+```
+
+`install.sh` backs up `~/.claude/settings.json` before it changes it and adds the rules only if your
+`~/.claude/CLAUDE.md` has no `# Session-Status` section yet. The rules are written in German for now
+(`docs/claude-md-session-status.md`); they tell Claude to keep its task line up to date with `cc-task`.
+
+**Your first session.** In Hive press ⌘N, give the session a name and pick its folder, then press Enter in the
+terminal that opens (`claude -n <name>` is already typed). Or start it anywhere yourself:
+
+```sh
+claude -n myapp.01
+```
+
+Hive shows every Claude Code session on this Mac; sessions started from Hive run in its own tmux server, so
+their terminal is shown right in the window (others say "iTerm"). The name is the key for the task line and the
+handover, so give each session one with `-n`. Hive works out the project from the folder (the first folder
+under `~/Development`, otherwise the folder's name).
+
+**One session is enough.** You don't need a PM. A single `myapp.01`, or a few sessions side by side
+(`myapp.01`, `myapp.02`, `blog.01`), works just as well. The part before the dot groups sessions of one
+project.
+
+**Optionally, a PM with workers.** A session named `<prefix>.pm` (e.g. `myapp.pm`) is shown as the project's
+PM, and the sessions with the same prefix appear under it. The PM can hand out work with
+`cc-spawn myapp.02 <folder> "<task>"` and close finished workers with `cc-close myapp.02`; each worker (as the session rules ask)
+reports back when it's done and leaves a handover, which a later session of the same name reads at startup.
+See [Session tools](#session-tools).
+
 
 - Views: List, Tiles, Cards
 - Favorites with a star
