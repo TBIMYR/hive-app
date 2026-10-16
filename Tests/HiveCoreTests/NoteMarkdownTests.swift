@@ -12,6 +12,8 @@ private func found(_ text: String) -> [String] {
         case .code: return "code:\(piece)"
         case .codeBlock: return "block:\(piece)"
         case .listMarker: return "list:\(piece)"
+        case .checkbox(let checked, let scope): return "box\(checked ? "x" : ""):\(piece)|\(ns.substring(with: scope))"
+        case .done: return "done:\(piece)"
         case .listItem(let prefix): return "item:\(ns.substring(with: prefix))|\(piece)"
         case .markup(let scope): return "markup:\(piece)|\(ns.substring(with: scope))"
         }
@@ -29,6 +31,31 @@ private func found(_ text: String) -> [String] {
     // no markup: hashtag, a minus without a space, stars inside code, lone stars
     #expect(found("#tag\n-x\n3.14\n2 ** 3") == [])
     #expect(found("`a ** b ** c`") == ["code:a ** b ** c", "markup:`|`a ** b ** c`", "markup:`|`a ** b ** c`"])
+}
+
+@Test func noteMarkdownFindsTaskItems() {
+    #expect(found("- [ ] read the templates") == [
+        "item:- [ ] |- [ ] read the templates", "markup:- |- [ ] read the templates",
+        "box:[ ]|- [ ] read the templates",
+    ])
+    #expect(found("  * [x] done") == ["item:  * [x] |  * [x] done", "markup:* |  * [x] done", "boxx:[x]|  * [x] done", "done:done"])
+    #expect(found("1. [X]") == ["item:1. [X]|1. [X]", "markup:1. |1. [X]", "boxx:[X]|1. [X]"])
+    // not a task: no list marker, empty brackets, text glued to the brackets
+    #expect(found("[ ] a") == [])
+    #expect(found("- [] a") == ["item:- |- [] a", "list:-"])
+    #expect(found("- [ ]a") == ["item:- |- [ ]a", "list:-"])
+}
+
+@Test func togglingFlipsTheMarkBetweenTheBrackets() throws {
+    let text = "a\n- [ ] b\n- [x] c"
+    let boxes = NoteMarkdown.spans(text).compactMap { s -> NSRange? in
+        if case .checkbox = s.kind { return s.range } else { return nil }
+    }
+    #expect(boxes.count == 2)
+    let open = try #require(NoteMarkdown.toggle(text, box: boxes[0]))
+    #expect(open.range == NSRange(location: 5, length: 1) && open.with == "x")
+    #expect(try #require(NoteMarkdown.toggle(text, box: boxes[1])).with == " ")
+    #expect(NoteMarkdown.toggle(text, box: NSRange(location: 40, length: 3)) == nil)
 }
 
 @Test func noteMarkdownFindsFencedCode() {

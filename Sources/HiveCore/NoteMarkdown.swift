@@ -1,7 +1,7 @@
 import Foundation
 
-/// Where a note's Markdown gets which look, enough for instructions: headings, list markers, bold, inline
-/// code and fenced code. The note editor styles its text with these spans while one types, and hides the
+/// Where a note's Markdown gets which look, enough for instructions: headings, list markers, task checkboxes,
+/// bold, inline code and fenced code. The note editor styles its text with these spans while one types, and hides the
 /// markup characters of every line the cursor is not on.
 public enum NoteMarkdown {
     public enum Kind: Equatable, Sendable {
@@ -14,6 +14,11 @@ public enum NoteMarkdown {
         case codeBlock
         /// "-", "*", "1." in front of a list item
         case listMarker
+        /// "[ ]" or "[x]" right after a list marker: a task item. Outside `scope` (its line) the editor draws a
+        /// checkbox there and hides the list marker.
+        case checkbox(checked: Bool, scope: NSRange)
+        /// text of a checked task item
+        case done
         /// whole line of a list item; `prefix` is its indentation, marker and the space after it, so wrapped
         /// lines can be indented to where the item's text starts
         case listItem(prefix: NSRange)
@@ -28,7 +33,7 @@ public enum NoteMarkdown {
     }
 
     private static let headingPattern = try! NSRegularExpression(pattern: #"^(#{1,6})[ \t]+(?=\S)"#)
-    private static let listPattern = try! NSRegularExpression(pattern: #"^[ \t]*([-*+]|\d{1,3}[.)])[ \t]+"#)
+    private static let listPattern = try! NSRegularExpression(pattern: #"^[ \t]*([-*+]|\d{1,3}[.)])[ \t]+(?:(\[[ xX]\])(?:[ \t]+|$))?"#)
     private static let codePattern = try! NSRegularExpression(pattern: #"`([^`]+)`"#)
     private static let boldPattern = try! NSRegularExpression(pattern: #"\*\*(?=\S)(.+?)(?<=\S)\*\*"#)
 
@@ -72,7 +77,18 @@ public enum NoteMarkdown {
                 out.append(Span(range: m.range, kind: .markup(scope: line)))
             } else if let m = listPattern.firstMatch(in: text, range: line) {
                 out.append(Span(range: line, kind: .listItem(prefix: m.range)))
-                out.append(Span(range: m.range(at: 1), kind: .listMarker))
+                let box = m.range(at: 2)
+                if box.location != NSNotFound {
+                    let checked = ns.substring(with: box) != "[ ]"
+                    let marker = m.range(at: 1).location
+                    out.append(Span(range: NSRange(location: marker, length: box.location - marker), kind: .markup(scope: line)))
+                    out.append(Span(range: box, kind: .checkbox(checked: checked, scope: line)))
+                    if checked, NSMaxRange(m.range) < NSMaxRange(line) {
+                        out.append(Span(range: NSRange(location: NSMaxRange(m.range), length: NSMaxRange(line) - NSMaxRange(m.range)), kind: .done))
+                    }
+                } else {
+                    out.append(Span(range: m.range(at: 1), kind: .listMarker))
+                }
             }
             var codeRanges: [NSRange] = []
             for m in codePattern.matches(in: text, range: line) {
@@ -91,6 +107,15 @@ public enum NoteMarkdown {
         // an unclosed fence (still being typed): its lines already look like code, the fence stays visible
         if fence != nil { out += fenceBody.map { Span(range: $0, kind: .codeBlock) } }
         return out
+    }
+
+    /// The edit that flips the task item whose checkbox sits at `box` (from a `.checkbox` span): the character
+    /// between the brackets and its replacement.
+    public static func toggle(_ text: String, box: NSRange) -> (range: NSRange, with: String)? {
+        let ns = text as NSString
+        guard box.length == 3, NSMaxRange(box) <= ns.length else { return nil }
+        let mark = NSRange(location: box.location + 1, length: 1)
+        return (mark, ns.substring(with: mark) == " " ? "x" : " ")
     }
 
     /// Whether markup with this scope is shown: only while the selection touches the scope (or sits at its end).

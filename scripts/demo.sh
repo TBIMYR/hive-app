@@ -278,7 +278,7 @@ EOF
   ln -s "$HOME/.claude/sessions/$pid.json" "$claude/sessions/$pid.json"
   ln -s "$HOME/.claude/projects/$slug" "$claude/projects/$slug"
 fi
-printf 'Test accounts\n\n- staging: `mika@lumen.example`\n- reset the demo data: `make seed`\n\n---\n\nRun `make seed`, then restart the dev server.\n' \
+printf 'Test accounts\n\n- staging: `mika@lumen.example`\n- reset the demo data: `make seed`\n\n- [x] seed the staging data\n- [ ] check the list on the small phone\n\n---\n\nRun `make seed`, then restart the dev server.\n' \
   > "$claude/hive/notes/lu.01.md"
 
 cat > "$demo/term/lu.02.txt" <<EOF

@@ -19,7 +19,8 @@ struct NoteEditor: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         scroll.scrollerStyle = .overlay
-        let tv = NoteTextView()
+        // TextKit 1: the checkboxes are placed with the layout manager
+        let tv = NoteTextView(usingTextLayoutManager: false)
         tv.delegate = context.coordinator
         tv.onFocus = { [weak coordinator = context.coordinator] focused in coordinator?.focusChanged(focused) }
         tv.drawsBackground = false
@@ -126,6 +127,8 @@ struct NoteEditor: NSViewRepresentable {
             let selection = focused ? tv.selectedRange() : nil
             storage.beginEditing()
             storage.setAttributes(Self.base, range: all)
+            var items: [NSRange] = []
+            var boxes: [NoteTextView.Box] = []
             for span in NoteMarkdown.spans(storage.string) where NSMaxRange(span.range) <= storage.length {
                 switch span.kind {
                 case .heading(let level):
@@ -138,11 +141,21 @@ struct NoteEditor: NSViewRepresentable {
                 case .codeBlock:
                     storage.addAttributes([.font: Self.mono, .foregroundColor: NSColor.secondaryLabelColor], range: span.range)
                 case .listItem(let prefix):
-                    let lead = (storage.string as NSString).substring(with: prefix).replacingOccurrences(of: "\t", with: "    ")
-                    let width = (lead as NSString).size(withAttributes: [.font: Self.body]).width
-                    storage.addAttribute(.paragraphStyle, value: Self.paragraph(indent: width.rounded(.up)), range: span.range)
+                    items.append(prefix)
+                    storage.addAttribute(.paragraphStyle, value: Self.paragraph(indent: 0), range: span.range)
                 case .listMarker:
                     storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: span.range)
+                case .checkbox(let checked, let scope):
+                    if NoteMarkdown.showsMarkup(scope: scope, selection: selection) {
+                        storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: span.range)
+                    } else {
+                        // the brackets keep their place but turn invisible; the text view draws the box over them
+                        storage.addAttributes([.foregroundColor: NSColor.clear, .kern: 1.5], range: span.range)
+                        boxes.append(.init(range: span.range, checked: checked))
+                    }
+                case .done:
+                    storage.addAttributes([.foregroundColor: NSColor.secondaryLabelColor,
+                                           .strikethroughStyle: NSUnderlineStyle.single.rawValue], range: span.range)
                 case .markup(let scope):
                     if NoteMarkdown.showsMarkup(scope: scope, selection: selection) {
                         storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: span.range)
@@ -152,8 +165,15 @@ struct NoteEditor: NSViewRepresentable {
                     }
                 }
             }
+            // wrapped lines of a list item continue under its text, measured with the look it has right now
+            for prefix in items {
+                let width = storage.attributedSubstring(from: prefix).size().width
+                let line = (storage.string as NSString).paragraphRange(for: prefix)
+                storage.addAttribute(.paragraphStyle, value: Self.paragraph(indent: width.rounded(.up)), range: line)
+            }
             storage.endEditing()
             tv.typingAttributes = Self.base
+            tv.boxes = boxes
         }
     }
 }
@@ -176,4 +196,64 @@ final class NoteTextView: NSTextView {
 
     // Esc leaves the note
     override func cancelOperation(_ sender: Any?) { window?.makeFirstResponder(nil) }
+
+    // MARK: Task checkboxes
+
+    struct Box: Equatable {
+        let range: NSRange
+        let checked: Bool
+    }
+
+    /// Checkboxes to draw: task items off the cursor line.
+    var boxes: [Box] = [] {
+        didSet {
+            guard boxes != oldValue else { return }
+            needsDisplay = true
+            window?.invalidateCursorRects(for: self)
+        }
+    }
+
+    private func rect(of box: Box) -> NSRect? {
+        guard let lm = layoutManager, let tc = textContainer, NSMaxRange(box.range) <= (textStorage?.length ?? 0) else { return nil }
+        let glyphs = lm.glyphRange(forCharacterRange: box.range, actualCharacterRange: nil)
+        let line = lm.lineFragmentUsedRect(forGlyphAt: glyphs.location, effectiveRange: nil)
+        let chars = lm.boundingRect(forGlyphRange: glyphs, in: tc)
+        let side: CGFloat = 15
+        let origin = textContainerOrigin
+        return NSRect(x: chars.minX + origin.x + (chars.width - side) / 2,
+                      y: line.minY + origin.y + (line.height - side) / 2, width: side, height: side)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        for box in boxes {
+            guard let r = rect(of: box), r.intersects(dirtyRect) else { continue }
+            let color: NSColor = box.checked ? .labelColor : .secondaryLabelColor
+            let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+                .applying(.init(paletteColors: [color]))
+            guard let image = NSImage(systemSymbolName: box.checked ? "checkmark.square.fill" : "square",
+                                      accessibilityDescription: box.checked ? "Done" : "Open")?
+                .withSymbolConfiguration(config) else { continue }
+            let size = image.size
+            image.draw(in: NSRect(x: r.midX - size.width / 2, y: r.midY - size.height / 2, width: size.width, height: size.height))
+        }
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        for box in boxes { if let r = rect(of: box) { addCursorRect(r.insetBy(dx: -3, dy: -3), cursor: .pointingHand) } }
+    }
+
+    /// A click on a checkbox flips it (undoable) without moving the cursor or starting to edit.
+    override func mouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        if let box = boxes.first(where: { rect(of: $0)?.insetBy(dx: -3, dy: -3).contains(p) == true }),
+           let edit = NoteMarkdown.toggle(string, box: box.range),
+           shouldChangeText(in: edit.range, replacementString: edit.with) {
+            textStorage?.replaceCharacters(in: edit.range, with: edit.with)
+            didChangeText()
+            return
+        }
+        super.mouseDown(with: event)
+    }
 }
