@@ -1,22 +1,22 @@
-# Session-Status
+# Session status
 
-- Sessions immer mit `claude -n <name>` starten (z. B. `lu.pm`, `lu.01`); der Name ist der Schlüssel für Dashboard und Handover.
-- Aufgaben-Zeile selbst setzen bei Auftragsannahme, bei einem Blocker und bei Abschluss: `~/.claude/bin/cc-task "<Thema>" <working|blocked|waiting|done>` direkt per Bash, NICHT über den Skill `/status`. Den Aufruf parallel im selben Schritt wie einen ohnehin anstehenden Tool-Aufruf abschicken (z. B. mit dem ersten Read/Bash eines Auftrags oder mit der letzten Aktion davor), damit keine zusätzliche Modell-Anfrage entsteht.
-- Die Aufgaben-Zeile nennt nur das Thema, höchstens 4 Wörter / 40 Zeichen, ohne Ticketnummern und ohne Ablauf (z. B. „Android-App“, „Neuer iPhone-Build“). Den Zustand zeigt das Dashboard ohnehin. `cc-task` lehnt längere Zeilen ab.
-- Mehr Kontext optional als Subline: `cc-task --detail "<eine Zeile, höchstens 120 Zeichen>" "<Thema>" <state>`, z. B. was gerade konkret läuft oder worauf genau gewartet wird. Jeder Aufruf ersetzt sie, ohne `--detail` ist sie leer.
-- `blocked` nur, wenn die Session ohne eine Entscheidung oder Freigabe von mir nicht weiterkommt. Ist die eigene Arbeit fertig und es fehlt nur noch eine Rückmeldung (von mir, Kim, einer anderen Session), dann `waiting` und in Klammern nennen, auf wen gewartet wird (z. B. „Release (lu.pm)“).
-- Notizen: Sage ich „schreib das in die Notizen“ oder „auf einen Zettel“ (z. B. eine Anleitung, die sonst im Verlauf verschwindet), den Text per `~/.claude/bin/cc-note "<Text>"` ablegen (Markdown, mehrzeilig möglich; langer Text per stdin). Er wird unten an den Notizblock der Session angehängt; Hive zeigt ihn unter „Notes“ (⌘T). Nur auf Wunsch, nicht von selbst.
-- Wann Handover + `/clear`, wann weiterlaufen lassen (jede Anfrage schickt den ganzen Verlauf mit; nach längerer Pause muss der Cache neu geschrieben werden; langer Verlauf verschlechtert die Qualität):
-  - Handover + `/clear`: nächster Auftrag ist unabhängig (anderes Ticket), Session liegt voraussichtlich lange still, oder der Verlauf ist schon sehr groß.
-  - Weiterlaufen lassen: Nachfrage oder Fix zum gerade erledigten Auftrag, Folgearbeit am selben Thema.
-  - PM-Sessions laufen weiter, aktualisieren aber regelmäßig ihr Handover und werden nur bei einem Themenwechsel geleert.
-  - Mittelweg: `/compact`, wenn die Session weiterarbeiten soll, der Verlauf aber zu lang wird. Überlebt keinen Neustart, das Handover schon.
-- Statt `/clear` darf eine Session auch geschlossen und neu gestartet werden; entscheidend ist derselbe Name.
-- Ablauf PM ↔ Worker:
-  1. PM vergibt einen Auftrag per `~/.claude/bin/cc-spawn <name> <verzeichnis> "<Auftrag>"` (neuer iTerm-Tab, lädt das Handover zum Namen, lehnt laufende Namen ab).
-     Freie Namen zuerst: Vor einem neuen Namen (z. B. `lu.05`) eine bestehende Offline-Session des Projekts mit Handover wiederverwenden (`lu.01` …); `cc-spawn` lädt ihr Handover. Neue Nummern nur, wenn alle vorhandenen laufen.
-  2. Worker ist fertig: Handover schreiben, `cc-task … done` (oder `waiting`), dann seinem PM per SendMessage kurz melden, was fertig ist. Die Nachricht weckt den PM; niemand muss pollen.
-  3. PM entscheidet: Folgearbeit am selben Thema → SendMessage an den Worker, er läuft weiter. Neues, unabhängiges Ticket oder nichts mehr zu tun → `~/.claude/bin/cc-close <name>` (tippt `/exit`, schließt den Tab; lehnt ab, solange der Worker arbeitet oder kein Handover hat) und bei Bedarf neu per `cc-spawn`.
-  4. Bei einem neuen Verzeichnis (frischer Worktree) fragt Claude Code einmal nach Vertrauen; das bestätige ich selbst. Echte Entscheidungen bleiben `blocked`.
-- `/handover` vor jedem geplanten Ende oder Neustart. Die Nachfolger-Session mit demselben Namen liest es beim Start automatisch.
-- Die PM-Session darf `~/.claude/handover/<name>.md` der Worker jederzeit lesen, statt sie zu fragen.
+- Always start sessions with `claude -n <name>` (e.g. `lu.pm`, `lu.01`); the name is the key for the dashboard and the handover.
+- Set the task line yourself when you take on a task, when you are blocked and when you are done: `~/.claude/bin/cc-task "<topic>" <working|blocked|waiting|done>` directly via Bash, NOT via the `/status` skill. Send the call in parallel in the same step as a tool call that is due anyway (e.g. with the first Read/Bash of a task or with the last action before), so that no extra model request is needed.
+- The task line names only the topic, at most 4 words / 40 characters, without ticket numbers and without steps (e.g. "Android app", "New iPhone build"). The dashboard shows the state anyway. `cc-task` rejects longer lines.
+- More context optionally as a subline: `cc-task --detail "<one line, at most 120 characters>" "<topic>" <state>`, e.g. what exactly is running or what exactly you are waiting for. Every call replaces it; without `--detail` it is empty.
+- `blocked` only when the session cannot go on without a decision or approval from me. If your own work is done and only a reply is missing (from me, Kim, another session), then `waiting`, naming in brackets whom you are waiting for (e.g. "Release (lu.pm)").
+- Notes: when I say "put that in the notes" or "on a sticky note" (e.g. instructions that would otherwise get lost in the history), store the text with `~/.claude/bin/cc-note "<text>"` (Markdown, multiple lines allowed; long text via stdin). It is appended to the bottom of the session's notepad; Hive shows it under "Notes" (⌘T). Only on request, not on your own.
+- When to write a handover + `/clear`, when to keep going (every request sends the whole history; after a longer break the cache has to be written again; a long history lowers the quality):
+  - Handover + `/clear`: the next task is independent (another ticket), the session will probably sit idle for a long time, or the history is already very large.
+  - Keep going: a follow-up question or fix for the task just finished, follow-up work on the same topic.
+  - PM sessions keep running, but update their handover regularly and are only cleared when the topic changes.
+  - Middle ground: `/compact` when the session should keep working but the history gets too long. It does not survive a restart, the handover does.
+- Instead of `/clear`, a session may also be closed and started again; what matters is the same name.
+- PM ↔ worker flow:
+  1. The PM hands out a task with `~/.claude/bin/cc-spawn <name> <directory> "<task>"` (new tab, loads the handover for the name, refuses names that are running).
+     Free names first: before a new name (e.g. `lu.05`), reuse an existing offline session of the project with a handover (`lu.01` …); `cc-spawn` loads its handover. New numbers only when all existing ones are running.
+  2. The worker is done: write the handover, `cc-task … done` (or `waiting`), then tell its PM briefly via SendMessage what is done. The message wakes the PM; nobody has to poll.
+  3. The PM decides: follow-up work on the same topic → SendMessage to the worker, it keeps running. A new, independent ticket or nothing left to do → `~/.claude/bin/cc-close <name>` (types `/exit`, closes the tab; refuses while the worker is working or has no handover) and, if needed, a new one via `cc-spawn`.
+  4. In a new directory (fresh worktree) Claude Code asks once for trust; I confirm that myself. Real decisions stay `blocked`.
+- `/handover` before every planned end or restart. The successor session with the same name reads it automatically at startup.
+- The PM session may read the workers' `~/.claude/handover/<name>.md` at any time instead of asking them.

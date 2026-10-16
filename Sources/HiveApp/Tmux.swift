@@ -14,17 +14,17 @@ enum Tmux {
     static let socket = ProcessInfo.processInfo.environment["HIVE_TMUX"] ?? "hive"
 
     static let config = """
-    # von der hive-App geschrieben, wird bei jedem Start überschrieben
-    set -g status off                       # verdeckt sonst die unterste Zeile von Claude Code
-    set -g mouse on                         # Mausrad blättert im Verlauf statt in der Eingabe-Historie
-    set -sg escape-time 0                   # Esc sofort an Claude durchreichen
+    # written by the hive app, overwritten on every start
+    set -g status off                       # would hide the bottom line of Claude Code
+    set -g mouse on                         # mouse wheel scrolls the history, not the input history
+    set -sg escape-time 0                   # pass Esc on to Claude right away
     set -g history-limit 50000
     set -g default-terminal "tmux-256color"
-    set -as terminal-features ",xterm-256color:RGB"   # True Color statt 256 Farben
-    set -s extended-keys on                 # Shift+Enter u. a. unterscheidbar
+    set -as terminal-features ",xterm-256color:RGB"   # true color instead of 256 colors
+    set -s extended-keys on                 # tells Shift+Enter and others apart
     set -g focus-events on
-    set -s set-clipboard on                 # Kopieren per OSC 52 ins System
-    set -g aggressive-resize on             # Größe folgt dem gerade angezeigten Terminal
+    set -s set-clipboard on                 # copy to the system clipboard via OSC 52
+    set -g aggressive-resize on             # size follows the terminal shown right now
     """
 
     static let configPath: String = {

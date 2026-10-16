@@ -124,19 +124,19 @@ $line
   ? for shortcuts
 EOF
 handover lu.pm lumen waiting 12 "Release 2.4 (Mika)" "release notes drafted, two workers still on it" <<'EOF'
-# Handover lu.pm — Stand 12.10.2026
+# Handover lu.pm — as of 2026-10-12
 
-## Lage
+## Situation
 - Release 2.4 is planned for Thursday. Scope: calendar view, sync conflict fix, new empty states.
 - `lu.01` builds the calendar view (grid done, list view next).
 - `lu.02` fixed the sync conflict and waits for the approval to push.
 - Release notes are drafted in `docs/release-2.4.md`.
 
-## Offen
+## Open
 - Mika: read the release notes, decide whether testers get them today.
 - After both workers are done: merge, tag, build for TestFlight.
 
-## Regeln und Lehren
+## Rules and lessons
 - Never merge on a red pipeline, not even for "only docs".
 - Workers report with a short message, the PM does not poll.
 EOF
@@ -149,18 +149,18 @@ EOF
 session lu.pm lumen idle 12 34
 
 handover lu.01 lumen working 6 "Calendar view" "grid done, list view next" <<'EOF'
-# Handover lu.01 — Stand 12.10.2026
+# Handover lu.01 — as of 2026-10-12
 
-## Lage
+## Situation
 - Ticket: calendar view with a month grid and a list.
 - The month grid is done and tested (`CalendarGridView`).
 - The list view shares the month model; first version is written, tests are running.
 
-## Offen
+## Open
 - Empty state for months without entries.
 - Check the list on the small phone.
 
-## Regeln und Lehren
+## Rules and lessons
 - Dates always through the app's calendar, never `Date()` plus seconds.
 EOF
 if [ -z "$real" ]; then
@@ -300,17 +300,17 @@ $line
    3. No, and tell Claude what to do differently (esc)
 EOF
 handover lu.02 lumen working 9 "Sync conflict" "fix done, all tests green" <<'EOF'
-# Handover lu.02 — Stand 12.10.2026
+# Handover lu.02 — as of 2026-10-12
 
-## Lage
+## Situation
 - Bug: two devices change the same entry, one change got lost.
 - Fix: the newer change wins, the older one is kept as a copy.
 - 212 tests pass, four of them new.
 
-## Offen
+## Open
 - Push the branch and open the pull request.
 
-## Regeln und Lehren
+## Rules and lessons
 - Reproduce a sync bug with two simulators before touching code.
 EOF
 transcript lu.02 lumen fix/sync-conflict <<'EOF'
@@ -334,16 +334,16 @@ $line
   ? for shortcuts
 EOF
 handover or.pm orbit done 95 "Billing export" <<'EOF'
-# Handover or.pm — Stand 12.10.2026
+# Handover or.pm — as of 2026-10-12
 
-## Lage
+## Situation
 - The billing export is merged and live.
 - `or.01` works on the invoice PDF.
 
-## Offen
+## Open
 - Nothing on the PM's side.
 
-## Regeln und Lehren
+## Rules and lessons
 - Amounts are integers in cents everywhere.
 EOF
 transcript or.pm orbit main <<'EOF'
@@ -368,16 +368,16 @@ $line
   ? for shortcuts
 EOF
 handover or.01 orbit working 3 "Invoice PDF" "address block, then page numbers" <<'EOF'
-# Handover or.01 — Stand 12.10.2026
+# Handover or.01 — as of 2026-10-12
 
-## Lage
+## Situation
 - The invoice PDF gets the new address block and page numbers.
 - The address block is in the template.
 
-## Offen
+## Open
 - Page numbers, then compare three sample invoices with the old ones.
 
-## Regeln und Lehren
+## Rules and lessons
 - Always render the sample with the longest address.
 EOF
 transcript or.01 orbit feat/invoice-pdf <<'EOF'
@@ -403,16 +403,16 @@ $line
   ? for shortcuts
 EOF
 handover fj.01 fjord blocked 26 "Login redirect" "back to the last page or always to the dashboard?" <<'EOF'
-# Handover fj.01 — Stand 12.10.2026
+# Handover fj.01 — as of 2026-10-12
 
-## Lage
+## Situation
 - After login the visitor lands on an empty page.
 - Cause found: the target is lost when the session is renewed.
 
-## Offen
+## Open
 - Decision: back to the page the visitor came from, or always to the dashboard.
 
-## Regeln und Lehren
+## Rules and lessons
 - Test the login in a private window, cookies hide this bug.
 EOF
 transcript fj.01 fjord fix/login-redirect <<'EOF'
@@ -424,27 +424,27 @@ session fj.01 fjord idle 26 47
 # ---- kiosk: offline ----
 
 handover ki.pm kiosk done 1500 "Price labels" <<'EOF'
-# Handover ki.pm — Stand 11.10.2026
+# Handover ki.pm — as of 2026-10-11
 
-## Lage
+## Situation
 - The price labels print correctly on both printers.
 
-## Offen
+## Open
 - Nothing.
 
-## Regeln und Lehren
+## Rules and lessons
 - Test on the small label printer first.
 EOF
 handover ki.01 kiosk done 1440 "Receipt layout" <<'EOF'
-# Handover ki.01 — Stand 11.10.2026
+# Handover ki.01 — as of 2026-10-11
 
-## Lage
+## Situation
 - The receipt has the new layout with the logo on top.
 
-## Offen
+## Open
 - Nothing.
 
-## Regeln und Lehren
+## Rules and lessons
 - The printer cuts off the last line without a trailing line feed.
 EOF
 

@@ -40,7 +40,7 @@ private func entry(pid: Int, _ r: (entries: [RegistryEntry], errors: [String])) 
     #expect(entry(pid: 100, r)?.tmuxPane == "%1")
     #expect(entry(pid: 101, r)?.tmuxPane == nil)
     #expect(Registry.paneOf("keeper.01:@13.%13") == "%13")
-    #expect(Registry.paneOf("kaputt") == nil)
+    #expect(Registry.paneOf("broken") == nil)
 }
 
 @Test func statusUpdatedAtFallsBackToUpdatedAt() {

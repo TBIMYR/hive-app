@@ -7,16 +7,16 @@ private func full() throws -> String { try String(contentsOfFile: file, encoding
 
 @Test func lastTextReplyIsNotToolUseOrThinking() throws {
     let r = Transcript.parseTail(try full())
-    #expect(r.lastAssistant?.text == "Ich fange mit dem Layout an.")
+    #expect(r.lastAssistant?.text == "I will start with the layout.")
     #expect(r.lastAssistant?.at == "2026-09-30T10:00:02.000Z")
 }
 
 @Test func lastRealPromptExcludesMetaAngleBracketsAndToolResult() throws {
-    #expect(Transcript.parseTail(try full()).lastUser?.text == "Bitte die Startseite umbauen")
+    #expect(Transcript.parseTail(try full()).lastUser?.text == "Please rebuild the home page")
 }
 
 @Test func branchFromMostRecentLineWithGitBranch() throws {
-    #expect(Transcript.parseTail(try full()).branch == "feat/startseite")
+    #expect(Transcript.parseTail(try full()).branch == "feat/home-page")
 }
 
 @Test func emptyTextYieldsEmptyResult() {

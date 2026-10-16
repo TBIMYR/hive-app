@@ -3,10 +3,9 @@
 One repo for the Mac app (`Sources/`, `Tests/`) and the session tools it reads from (`tools/`:
 `cc-task`, `cc-spawn`, `cc-close`, `cc-handover-load`, `cc-note`, skills `/status` and `/handover`).
 
-- Everything is in English: UI, code comments, script output, test names, docs, commit messages.
-  Deliberately German: `docs/claude-md-session-status.md` (copy of the user's German global CLAUDE.md;
-  `tools/install.sh` greps for `# Session-Status`), the handover headings `## Lage` / `## Offen` /
-  `## Regeln und Lehren` and the task line `neu gestartet, Handover gelesen` (other tools compare them).
+- Everything is in English: UI, code comments, script output, test names, test data, docs, commit messages,
+  the session rules (`docs/claude-md-session-status.md`) and the handover template. Older handover files may
+  still have the German headings `## Lage` / `## Offen` / `## Regeln und Lehren`; nothing parses them.
 - Names in docs, tests and examples are made up: projects `lumen`, `orbit`, `fjord`, `kiosk` with the
   session prefixes `lu`, `or`, `fj`, `ki`; "Mika" stands for the user. No real names, home paths or
   ticket numbers. Check with `git grep` before committing. The repo is public: local git hooks (not in the

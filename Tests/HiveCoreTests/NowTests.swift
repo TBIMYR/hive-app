@@ -96,7 +96,7 @@ private func action(_ lines: String...) -> WorkAction? { Transcript.parseTail(li
 }
 
 @Test func withoutToolUseNoWorkStep() {
-    #expect(action(said("Fertig.")) == nil)
+    #expect(action(said("Done.")) == nil)
 }
 
 // MARK: last sentence
@@ -104,25 +104,25 @@ private func action(_ lines: String...) -> WorkAction? { Transcript.parseTail(li
 private func sentence(_ text: String) -> String? { Transcript.parseTail(said(text)).lastSentence }
 
 @Test func lastSentenceOfTheLastParagraph() {
-    #expect(sentence("Erster Absatz. Mit zwei Sätzen.\n\nDer Export ist fertig. Er wartet auf fj.pm zur Durchsicht.")
-            == "Er wartet auf fj.pm zur Durchsicht.")
+    #expect(sentence("First paragraph. With two sentences.\n\nThe export is done. It waits for fj.pm to review it.")
+            == "It waits for fj.pm to review it.")
 }
 
 @Test func markdownIsStripped() {
-    #expect(sentence("Alles gut.\n\n**Fertig:** `npm test` läuft *grün*.") == "Fertig: npm test läuft grün.")
-    #expect(sentence("## Ergebnis\n\nSiehe [Doku](https://x.y/z) für mehr.") == "Siehe Doku für mehr.")
+    #expect(sentence("All good.\n\n**Done:** `npm test` runs *green*.") == "Done: npm test runs green.")
+    #expect(sentence("## Result\n\nSee [docs](https://x.y/z) for more.") == "See docs for more.")
 }
 
 @Test func listReturnsTheLastItem() {
-    #expect(sentence("Offen:\n\n- Tests schreiben\n- Push an or.pm") == "Push an or.pm")
+    #expect(sentence("Open:\n\n- Write tests\n- Push to or.pm") == "Push to or.pm")
 }
 
 @Test func questionAtTheEnd() {
-    #expect(sentence("Ich habe zwei Wege gefunden. Soll ich A nehmen, z. B. mit Cache?") == "Soll ich A nehmen, z. B. mit Cache?")
+    #expect(sentence("I found two ways. Should I take A, e.g. with a cache?") == "Should I take A, e.g. with a cache?")
 }
 
 @Test func sentenceIsTruncated() throws {
-    let s = try #require(sentence(String(repeating: "lang ", count: 60) + "Ende."))
+    let s = try #require(sentence(String(repeating: "long ", count: 60) + "End."))
     #expect(s.count <= 141)
     #expect(s.hasSuffix("…"))
 }
@@ -133,7 +133,7 @@ private func sentence(_ text: String) -> String? { Transcript.parseTail(said(tex
 
 @Test func fixtureProvidesBoth() throws {
     let tail = Transcript.parseTail(try String(contentsOfFile: fixture("transcript.jsonl"), encoding: .utf8))
-    #expect(tail.lastSentence == "Ich fange mit dem Layout an.")
+    #expect(tail.lastSentence == "I will start with the layout.")
     #expect(tail.lastAction?.text == "Bash")
     #expect(tail.lastAction?.pending == false)
 }
@@ -160,7 +160,7 @@ private func work(_ tool: String = "Bash", text: String = "Running tests", detai
 
 @Test func permissionViaWaitingFor() throws {
     let s = Session(name: "lu.01", group: "lu", alive: true, status: "waiting", waitingFor: "Permission prompt",
-                    lastAction: work(text: "Pushing", detail: "git push origin feat/sort"), lastSentence: "Soll ich?")
+                    lastAction: work(text: "Pushing", detail: "git push origin feat/sort"), lastSentence: "Should I?")
     let n = try #require(NowLine(s, rank: 0))
     #expect(n.kind == .permission)
     #expect(n.text == "Allow Bash?")
@@ -194,16 +194,16 @@ private func work(_ tool: String = "Bash", text: String = "Running tests", detai
 
 @Test func waitingOtherwiseWithLastSentence() throws {
     let s = Session(name: "or.01", group: "or", status: "waiting", waitingFor: "idle", lastAction: work(),
-                    lastSentence: "Soll ich pushen?")
+                    lastSentence: "Should I push?")
     let n = try #require(NowLine(s, rank: 0))
     #expect(n.kind == .question)
-    #expect(n.text == "Soll ich pushen?")
+    #expect(n.text == "Should I push?")
     #expect(NowLine(Session(name: "or.01", group: "or", status: "waiting"), rank: 0) == nil)
 }
 
 @Test func readyWithLastSentenceOtherwiseNothing() {
-    let s = Session(name: "fj.01", group: "fj", alive: true, status: "idle", lastAction: work(), lastSentence: "Export fertig.")
-    #expect(NowLine(s, rank: 2) == NowLine(kind: .done, text: "Export fertig.", detail: nil, at: nil))
+    let s = Session(name: "fj.01", group: "fj", alive: true, status: "idle", lastAction: work(), lastSentence: "Export done.")
+    #expect(NowLine(s, rank: 2) == NowLine(kind: .done, text: "Export done.", detail: nil, at: nil))
     #expect(NowLine(Session(name: "fj.01", group: "fj", status: "idle", lastAction: work()), rank: 2) == nil)
 }
 

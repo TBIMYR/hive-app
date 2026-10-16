@@ -15,7 +15,7 @@ private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.s
     let off = try #require(session("be.pm", s))
     #expect(off.alive == false)
     #expect(off.status == "offline")
-    #expect(off.task?.text == "Handover geschrieben, wartet auf Neustart")
+    #expect(off.task?.text == "Handover written, waiting for restart")
     #expect(off.project == "beta")
     #expect(off.cwd == nil)
     #expect(off.pid == nil)
@@ -23,10 +23,10 @@ private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.s
 
 @Test func transcriptAndHandoverAreLinked() throws {
     let pm = try #require(session("al.pm"))
-    #expect(pm.lastAssistant?.text == "Ich fange mit dem Layout an.")
-    #expect(pm.lastUser?.text == "Bitte die Startseite umbauen")
-    #expect(pm.branch == "feat/startseite")
-    #expect(pm.lastSentence == "Ich fange mit dem Layout an.")
+    #expect(pm.lastAssistant?.text == "I will start with the layout.")
+    #expect(pm.lastUser?.text == "Please rebuild the home page")
+    #expect(pm.branch == "feat/home-page")
+    #expect(pm.lastSentence == "I will start with the layout.")
     #expect(pm.lastAction?.tool == "Bash")
     #expect(pm.project == "alpha")
     #expect(pm.group == "al")
@@ -36,7 +36,7 @@ private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.s
     let w = try #require(session("al.01"))
     #expect(w.hasHandover)
     #expect(w.task?.state == "working")
-    #expect(w.lastAssistant == nil, "kein Transkript für sid-102 → nil, kein Fehler")
+    #expect(w.lastAssistant == nil, "no transcript for sid-102 → nil, no error")
     #expect(w.errors.isEmpty)
 }
 
@@ -67,7 +67,7 @@ private func session(_ name: String, _ s: HiveState = build()) -> Session? { s.s
     let long = String(repeating: "a", count: 700)
     let c = StateBuilder.clip(Said(text: long, at: nil))
     #expect(c?.text == String(repeating: "a", count: 600) + "…")
-    #expect(StateBuilder.clip(Said(text: "kurz", at: "x")) == Said(text: "kurz", at: "x"))
+    #expect(StateBuilder.clip(Said(text: "short", at: "x")) == Said(text: "short", at: "x"))
 }
 
 @Test func registerErrorsEndUpInState() {

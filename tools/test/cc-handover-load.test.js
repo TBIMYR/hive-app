@@ -55,7 +55,7 @@ test('with handover file: print content, set task line, create marker', () => {
   assert.match(r.stdout, /Handover of the predecessor session lu\.01/);
   assert.match(r.stdout, /Content/);
   const f = fs.readFileSync(path.join(home, 'handover', 'lu.01.md'), 'utf8');
-  assert.match(f, /task: neu gestartet, Handover gelesen/);
+  assert.match(f, /task: restarted, handover read/);
   assert.match(f, /state: working/);
   assert.ok(fs.existsSync(path.join(home, 'handover', '.loaded', 'sid-4242')));
 });

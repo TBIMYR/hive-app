@@ -36,7 +36,7 @@ test('creates file with frontmatter and template', () => {
   assert.equal(fields.task, 'rework layout');
   assert.equal(fields.state, 'working');
   assert.match(fields.updated, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$/);
-  assert.match(body, /^# Handover lu\.01\n\n## Lage\n\n## Offen\n\n## Regeln und Lehren\n$/);
+  assert.match(body, /^# Handover lu\.01\n\n## Situation\n\n## Open\n\n## Rules and lessons\n$/);
 });
 
 test('updates fields, body stays byte-identical, other fields are kept', () => {
@@ -102,7 +102,7 @@ test('line breaks in the task become spaces, backslashes are kept', () => {
 
 test('task line longer than 4 words or 40 characters → exit 2, file untouched', () => {
   const home = setup();
-  for (const long of ['fix the login bug today', 'Überarbeitungdesgesamtenanmeldeformulars-x']) {
+  for (const long of ['fix the login bug today', 'Rewriteofthewholesignupformandvalidation-x']) {
     const r = run(home, [long]);
     assert.equal(r.status, 2, long);
     assert.match(r.stderr, /at most 4 words/);
@@ -112,7 +112,7 @@ test('task line longer than 4 words or 40 characters → exit 2, file untouched'
 
 test('short task lines pass, umlauts count as one character', () => {
   const home = setup();
-  for (const ok of ['New iPhone build (or.pm)', 'neu gestartet, Handover gelesen', 'Überprüfung Größenänderung äöü']) {
+  for (const ok of ['New iPhone build (or.pm)', 'restarted, handover read', 'Crème brûlée façade naïveté']) {
     assert.equal(run(home, [ok]).status, 0, ok);
   }
 });

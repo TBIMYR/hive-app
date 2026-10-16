@@ -9,9 +9,9 @@ import Testing
 }
 
 @Test func withoutFrontmatterEverythingIsBody() {
-    let r = Handover.parseFrontmatter("# Nur Body\n")
+    let r = Handover.parseFrontmatter("# Body only\n")
     #expect(r.fields.isEmpty)
-    #expect(r.body == "# Nur Body\n")
+    #expect(r.body == "# Body only\n")
 }
 
 @Test func unclosedFrontmatterHasNoFields() {
@@ -21,7 +21,7 @@ import Testing
 @Test func directoryIsReadByName() {
     let m = Handover.readDir(fixture("handover"))
     let e = m["al.01"]
-    #expect(e?.task == "Startseite Layout #12, PR offen")
+    #expect(e?.task == "Home page layout #12, PR open")
     #expect(e?.state == "working")
     #expect(e?.updatedAt == "2026-09-30T16:09:00+02:00")
     #expect(e?.project == "alpha")
@@ -30,8 +30,8 @@ import Testing
 
 @Test func brokenFilesHaveNoTaskAndNoError() {
     let m = Handover.readDir(fixture("handover-broken"))
-    #expect(m["kaputt"]?.task == nil)
-    #expect(m["kaputt"]?.error == nil)
+    #expect(m["broken"]?.task == nil)
+    #expect(m["broken"]?.error == nil)
     #expect(m["nofm"]?.task == nil)
 }
 
@@ -41,7 +41,7 @@ import Testing
 
 @Test func textWithoutFrontmatterForTheView() {
     #expect(Handover.body("al.01", dir: fixture("handover"))?.hasPrefix("# Handover al.01") == true)
-    #expect(Handover.body("nofm", dir: fixture("handover-broken")) == "# Nur Body\n")
+    #expect(Handover.body("nofm", dir: fixture("handover-broken")) == "# Body only\n")
     #expect(Handover.body("gibtsnicht", dir: fixture("handover")) == nil)
     #expect(Handover.body("../handover/al.01", dir: fixture("handover")) == nil, "only simple names, as in the server")
 }

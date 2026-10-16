@@ -1,7 +1,7 @@
 #!/bin/sh
 # cc-handover-load — SessionStart/UserPromptSubmit hook.
 # Outputs the handover of the predecessor session with the same name once as context
-# and sets the task line to "neu gestartet" ("restarted"). Never exits ≠ 0.
+# and sets the task line to "restarted, handover read". Never exits ≠ 0.
 #
 # Marker rule: as soon as this session's name can be resolved for the first time,
 # ~/.claude/handover/.loaded/<session_id> is created, whether a handover file exists
@@ -37,9 +37,9 @@ mkdir -p "$home/handover/.loaded" 2>/dev/null && : > "$marker"
 file="$home/handover/$name.md"
 [ -f "$file" ] || exit 0
 
-printf 'Handover of the predecessor session %s (from %s). Read it as your starting point; the task line is set to "neu gestartet", set it via ~/.claude/bin/cc-task as soon as you have a task.\n\n' "$name" "$file"
+printf 'Handover of the predecessor session %s (from %s). Read it as your starting point; the task line is set to "restarted", set it via ~/.claude/bin/cc-task as soon as you have a task.\n\n' "$name" "$file"
 cat "$file"
 printf '\n'
 
-sh "$cc_task" --name "$name" --no-create "neu gestartet, Handover gelesen" working >/dev/null 2>&1 || true
+sh "$cc_task" --name "$name" --no-create "restarted, handover read" working >/dev/null 2>&1 || true
 exit 0

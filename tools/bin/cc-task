@@ -132,7 +132,7 @@ tmp=$(mktemp "$dir/.cc-task.XXXXXX")
   elif [ -f "$file" ]; then
     tail -n +"$((fm_end + 1))" "$file"
   else
-    printf '# Handover %s\n\n## Lage\n\n## Offen\n\n## Regeln und Lehren\n' "$name"
+    printf '# Handover %s\n\n## Situation\n\n## Open\n\n## Rules and lessons\n' "$name"
   fi
 } > "$tmp"
 mv "$tmp" "$file"

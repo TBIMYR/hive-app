@@ -4,19 +4,19 @@ import Testing
 // Screens as `tmux capture-pane -p` delivers them (shortened)
 
 private let ask = """
-⏺ Ich habe den Export für lu.01 fertig. Zwei Punkte:
-  1. Die Tabelle ist sortiert
-  2. Der Kopf fehlt noch
+⏺ The export for lu.01 is done. Two points:
+  1. The table is sorted
+  2. The header is still missing
 
 ────────────────────────────────────────
  ☐ Export
 
-│ Soll ich den Export gleich nach stage pushen?
+│ Should I push the export to stage right away?
 
-❯ 1. Ja, jetzt pushen
-     Danach läuft der Build auf stage.
-  2. Später
-     Erst nach der Durchsicht durch lu.pm.
+❯ 1. Yes, push now
+     The build on stage runs after that.
+  2. Later
+     Only after lu.pm has reviewed it.
   3. Type something.
 ────────────────────────────────────────
   4. Chat about this
@@ -51,27 +51,27 @@ private let boxed = """
 """
 
 private let wrapped = """
-│ Welche Variante für fj.01?
+│ Which variant for fj.01?
 
-❯ 1. Die lange Variante mit allen Feldern und der zusätzlichen Spalte für
-     Notizen
-  2. Kurz
+❯ 1. The long variant with all fields and the extra column for
+     notes
+  2. Short
 """
 
 @Test func parsesNumberedDialogOptions() throws {
     let d = try #require(ScreenDialog.parse(ask))
     #expect(d.options.map(\.number) == [1, 2, 3, 4])
-    #expect(d.options.map(\.label) == ["Ja, jetzt pushen", "Später", "Type something.", "Chat about this"])
+    #expect(d.options.map(\.label) == ["Yes, push now", "Later", "Type something.", "Chat about this"])
     #expect(d.options.map(\.selected) == [true, false, false, false])
 }
 
 @Test func numberedListInPrecedingTextDoesNotCount() throws {
     let d = try #require(ScreenDialog.parse(ask))
-    #expect(!d.options.contains { $0.label == "Die Tabelle ist sortiert" })
+    #expect(!d.options.contains { $0.label == "The table is sorted" })
 }
 
 @Test func noOptionsWithoutDialog() {
-    #expect(ScreenDialog.parse("⏺ Fertig.\n  1. erstens\n\n> ") == nil)
+    #expect(ScreenDialog.parse("⏺ Done.\n  1. first\n\n> ") == nil)
     #expect(ScreenDialog.parse("") == nil)
     // a single line is not a dialog
     #expect(ScreenDialog.parse("❯ 1. Yes") == nil)
@@ -86,22 +86,22 @@ private let wrapped = """
 
 @Test func findsOptionByItsText() throws {
     let d = try #require(ScreenDialog.parse(ask))
-    #expect(d.option(labeled: "Später")?.number == 2)
-    #expect(d.option(labeled: "  ja, jetzt pushen ")?.number == 1)
+    #expect(d.option(labeled: "Later")?.number == 2)
+    #expect(d.option(labeled: "  yes, push now ")?.number == 1)
     // shortened from the transcript
-    #expect(d.option(labeled: "Ja, jetzt pu…")?.number == 1)
-    #expect(d.option(labeled: "Nie") == nil)
+    #expect(d.option(labeled: "Yes, push n…")?.number == 1)
+    #expect(d.option(labeled: "Never") == nil)
 }
 
 @Test func wrappedOptionMatchesByItsPrefix() throws {
     let d = try #require(ScreenDialog.parse(wrapped))
-    let long = "Die lange Variante mit allen Feldern und der zusätzlichen Spalte für Notizen"
+    let long = "The long variant with all fields and the extra column for notes"
     #expect(d.option(labeled: long)?.number == 1)
 }
 
 @Test func ambiguousPrefixFindsNothing() throws {
-    let d = try #require(ScreenDialog.parse("❯ 1. Ja, jetzt\n  2. Ja, später"))
-    #expect(d.option(labeled: "Ja") == nil)
+    let d = try #require(ScreenDialog.parse("❯ 1. Yes, now\n  2. Yes, later"))
+    #expect(d.option(labeled: "Yes") == nil)
 }
 
 @Test func permissionMapsYesAndNo() throws {
@@ -136,19 +136,19 @@ private let wrapped = """
 }
 
 @Test func pickSelectsByAnswer() throws {
-    #expect(ScreenDialog.pick(.option("Später"), on: ask)?.number == 2)
+    #expect(ScreenDialog.pick(.option("Later"), on: ask)?.number == 2)
     #expect(ScreenDialog.pick(.permission(.deny), on: bash)?.number == 3)
     #expect(ScreenDialog.pick(.permission(.allow), on: ask) == nil)
-    #expect(ScreenDialog.pick(.option("Später"), on: "⏺ Fertig.") == nil)
+    #expect(ScreenDialog.pick(.option("Later"), on: "⏺ Done.") == nil)
 }
 
 @Test func customInputInFreeTextOptionLocksSelection() throws {
     // someone is currently typing into "Type something": the selected option is none of the known ones
-    let typing = ask.replacingOccurrences(of: "❯ 1. Ja", with: "  1. Ja")
-        .replacingOccurrences(of: "  3. Type something.", with: "❯ 3. eigentlich lieber morgen")
+    let typing = ask.replacingOccurrences(of: "❯ 1. Yes", with: "  1. Yes")
+        .replacingOccurrences(of: "  3. Type something.", with: "❯ 3. rather tomorrow, actually")
     let d = try #require(ScreenDialog.parse(typing))
-    #expect(d.selectionOutside(["Ja, jetzt pushen", "Später"]))
-    #expect(try #require(ScreenDialog.parse(ask)).selectionOutside(["Ja, jetzt pushen", "Später"]) == false)
+    #expect(d.selectionOutside(["Yes, push now", "Later"]))
+    #expect(try #require(ScreenDialog.parse(ask)).selectionOutside(["Yes, push now", "Later"]) == false)
 }
 
 @Test func controlArguments() {

@@ -7,8 +7,8 @@ private func live(_ name: String, pid: Int, pane: String?) -> Session {
 private func offline(_ name: String) -> Session { Session(name: name, group: "al", hasHandover: true) }
 
 @Test func tmuxMatchesViaPaneEvenAfterRename() {
-    // via /rename al.01 became al.neu; tmux still calls it al.01, and the old al.01 handover still exists
-    let s = [live("al.neu", pid: 1, pane: "%3"), offline("al.01")]
+    // via /rename al.01 became al.new; tmux still calls it al.01, and the old al.01 handover still exists
+    let s = [live("al.new", pid: 1, pane: "%3"), offline("al.01")]
     let m = TmuxMatch.resolve(s, tmuxSessions: ["al.01"], sessionOfPane: ["%3": "al.01"])
     #expect(m[s[0].id] == "al.01")
     #expect(m[s[1].id] == nil)

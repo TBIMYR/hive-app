@@ -44,9 +44,9 @@ private func found(_ text: String) -> [String] {
 }
 
 @Test func noteMarkdownRangesAreUTF16() {
-    let text = "ü 🙂 **fett**"
+    let text = "ü 🙂 **bold**"
     let span = NoteMarkdown.spans(text).first { $0.kind == .bold }
-    #expect(span.map { (text as NSString).substring(with: $0.range) } == "fett")
+    #expect(span.map { (text as NSString).substring(with: $0.range) } == "bold")
 }
 
 @Test func markupShowsOnlyOnTheCursorLine() {

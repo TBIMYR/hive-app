@@ -25,8 +25,7 @@ sh restart.sh         # builds the app and installs it as /Applications/Hive.app
 ```
 
 `install.sh` backs up `~/.claude/settings.json` before it changes it and adds the rules only if your
-`~/.claude/CLAUDE.md` has no `# Session-Status` section yet. The rules are written in German for now
-(`docs/claude-md-session-status.md`); they tell Claude to keep its task line up to date with `cc-task`.
+`~/.claude/CLAUDE.md` has no `# Session status` section yet (`docs/claude-md-session-status.md`). They tell Claude to keep its task line up to date with `cc-task`.
 
 **Your first session.** In Hive press ⌘N, give the session a name and pick its folder, then press Enter in the
 terminal that opens (`claude -n <name>` is already typed). Or start it anywhere yourself:
@@ -161,16 +160,15 @@ detail: grid done, list view next   # optional subline, at most 120 characters
 state: working               # working | blocked | waiting | done | handover
 updated: 2026-09-30T16:09:00+02:00
 ---
-# Handover lu.01 — Stand 30.09.2026
-## Lage
-## Offen
-## Regeln und Lehren
+# Handover lu.01 — as of 2026-09-30
+## Situation
+## Open
+## Rules and lessons
 ```
 
 The name is the key: a new session started with `claude -n lu.01` gets the file as context at
-startup (hook `cc-handover-load`), and its task line is set to "neu gestartet" ("restarted").
-Previous versions live under `~/.claude/handover/archive/<name>/`. The handover template stays
-German on purpose.
+startup (hook `cc-handover-load`), and its task line is set to "restarted".
+Previous versions live under `~/.claude/handover/archive/<name>/`.
 
 ```sh
 cc-task "Topic" [state]                      # set the task line (body is kept)

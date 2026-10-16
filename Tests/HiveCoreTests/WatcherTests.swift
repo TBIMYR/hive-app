@@ -21,6 +21,6 @@ private final class Counter: @unchecked Sendable {
     for i in 0..<5 { try "x".write(to: dir.appending(path: "f\(i)"), atomically: false, encoding: .utf8) }
     try await Task.sleep(for: .milliseconds(1500))
     #expect(count.value - base >= 1)
-    #expect(count.value - base <= 2, "fünf Schreibvorgänge kurz hintereinander lösen höchstens zwei Meldungen aus")
+    #expect(count.value - base <= 2, "five writes in quick succession trigger at most two events")
     withExtendedLifetime(watcher) {}
 }

@@ -38,9 +38,9 @@ else
   echo "hook: $settings missing, not registered" >&2
 fi
 
-if ! grep -q '^# Session-Status' "$claude_md" 2>/dev/null; then
+if ! grep -qE '^# Session[- ][Ss]tatus' "$claude_md" 2>/dev/null; then
   { printf '\n'; cat "$here/../docs/claude-md-session-status.md"; } >> "$claude_md"
-  echo "CLAUDE.md: Session-Status section appended"
+  echo "CLAUDE.md: session status section appended"
 else
   echo "CLAUDE.md: section already present"
 fi
