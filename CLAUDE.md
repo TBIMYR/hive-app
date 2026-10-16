@@ -9,7 +9,9 @@ One repo for the Mac app (`Sources/`, `Tests/`) and the session tools it reads f
   `## Regeln und Lehren` and the task line `neu gestartet, Handover gelesen` (other tools compare them).
 - Names in docs, tests and examples are made up: projects `lumen`, `orbit`, `fjord`, `kiosk` with the
   session prefixes `lu`, `or`, `fj`, `ki`; "Mika" stands for the user. No real names, home paths or
-  ticket numbers. Check with `git grep` before committing.
+  ticket numbers. Check with `git grep` before committing. The repo is public: local git hooks (not in the
+  repo) refuse commits with another author than `TBIMYR`, with private terms, or with plans/specs inside the
+  repo. Never bypass them with `--no-verify`; fix the change instead.
 - Use `~/` for paths in commands (e.g. `git -C ~/Development/hive-app …`) so they work for everyone.
   Rules with the real home folder belong in `.claude/settings.local.json` (not checked in).
 - Specs and plans live outside the repo in `~/.claude/hive-app-docs/specs/` and `.../plans/` (they describe
