@@ -12,7 +12,7 @@ enum Hive {
         })
     }
 
-    static let bg = dyn(0xF6F6F5, 0x0A0A0A)
+    static let bg = dyn(0xF9F9F8, 0x0A0A0A)
     static let card = dyn(0xFFFFFF, 0x141414)
     static let ink = dyn(0x0B0B0B, 0xF5F5F4)
     static let ink2 = dyn(0x3D3D3D, 0xC9C9C6)

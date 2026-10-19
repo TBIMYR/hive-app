@@ -58,12 +58,14 @@ struct RailSwitcher<Value: Hashable>: View {
                         Image(systemName: item.symbol).font(.system(size: 12, weight: .semibold))
                         Text(item.title).font(.system(size: 13, weight: on ? .semibold : .medium))
                     }
-                    .foregroundStyle(on ? Hive.bg : (hover == item.value ? Hive.ink2 : Hive.muted))
+                    .foregroundStyle(on ? Hive.bg : Hive.ink)
                     .padding(.horizontal, 14).frame(height: 36)
                     .background {
                         if on {
                             RoundedRectangle(cornerRadius: 9).fill(Hive.ink)
                                 .matchedGeometryEffect(id: "on", in: ns)
+                        } else if hover == item.value {
+                            RoundedRectangle(cornerRadius: 9).fill(Hive.soft)
                         }
                     }
                     .contentShape(Rectangle())
@@ -93,15 +95,15 @@ struct SessionSearchField: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
-            TextField("Find session", text: $query)
+            Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.ink)
+            TextField("Find session", text: $query, prompt: Text("Find session").foregroundStyle(Hive.ink))
                 .textFieldStyle(.plain).font(.system(size: 13))
                 .focused(focused)
                 .onSubmit(submit)
                 .onExitCommand { query = ""; focused.wrappedValue = false }
             if !query.isEmpty {
                 Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(Hive.muted)
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(Hive.ink)
                 }
                 .buttonStyle(.plain)
                 .help("Clear the search")
@@ -220,7 +222,7 @@ struct OverviewView: View {
                 if let collapse {
                     Button(action: collapse) {
                         Image(systemName: "arrow.down.right.and.arrow.up.left").font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Hive.muted).frame(width: 30, height: 30).contentShape(Rectangle())
+                            .foregroundStyle(Hive.ink).frame(width: 30, height: 30).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help("Collapse the overview to a bar")

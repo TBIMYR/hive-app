@@ -177,7 +177,7 @@ struct Workspace: View {
     private func iconButton(_ symbol: String, help: String, on: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(on ? Hive.bg : Hive.muted)
+                .foregroundStyle(on ? Hive.bg : Hive.ink)
                 .frame(width: 30, height: 30)
                 .background { if on { RoundedRectangle(cornerRadius: 8).fill(Hive.ink) } }
                 .contentShape(Rectangle())
@@ -367,7 +367,7 @@ struct Workspace: View {
                     .onTapGesture { dock.peek = nil }
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
-                        Image(systemName: it.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
+                        Image(systemName: it.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.ink)
                         Text(p == .overview ? it.title : "\(it.title) · \(s?.name ?? "")")
                             .font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
                         Spacer(minLength: 4)

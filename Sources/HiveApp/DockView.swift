@@ -113,12 +113,14 @@ struct DockTabs: View {
                     Image(systemName: item.symbol).font(.system(size: 12, weight: .semibold))
                     if titles { Text(item.title).font(.system(size: 13, weight: on ? .semibold : .medium)).fixedSize() }
                 }
-                .foregroundStyle(on ? Hive.bg : (hover == item.panel ? Hive.ink2 : Hive.muted))
+                .foregroundStyle(on ? Hive.bg : Hive.ink)
                 .padding(.horizontal, titles ? 14 : 11).frame(height: 36)
                 .background {
                     if on {
                         RoundedRectangle(cornerRadius: 9).fill(Hive.ink)
                             .matchedGeometryEffect(id: "on", in: ns)
+                    } else if hover == item.panel {
+                        RoundedRectangle(cornerRadius: 9).fill(Hive.soft)
                     }
                 }
                 .opacity(drag?.panel == item.panel ? 0.4 : 1)

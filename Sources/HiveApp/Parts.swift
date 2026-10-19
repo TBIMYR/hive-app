@@ -306,7 +306,7 @@ struct StarButton: View {
         Button(action: toggle) {
             Image(systemName: isOn ? "star.fill" : "star")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(isOn ? Hive.ink : Hive.muted)
+                .foregroundStyle(Hive.ink)
                 .frame(width: 20, height: 20)
                 .contentShape(Rectangle())
         }

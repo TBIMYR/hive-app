@@ -137,11 +137,11 @@ struct UsageButton: View {
     private func part(_ name: String, _ w: PlanLimits.Window, length: TimeInterval, now: Date) -> Text {
         // colored like the arrow: what counts is whether it lasts, not how much is used
         var main = Text("\(name) \(Int(w.percent.rounded()))%")
-            .foregroundColor(w.outlook(length: length, now: now)?.color ?? Hive.ink2)
+            .foregroundColor(w.outlook(length: length, now: now)?.color ?? Hive.ink)
         if let pace = w.pace(length: length, now: now) { main = main + Text(" ") + PaceArrow.text(pace) }
         guard let r = w.resetsAt else { return main }
         return main + Text(" (\(UsageFormat.countdown(r.timeIntervalSince(now))))")
-            .font(.system(size: 11)).foregroundColor(Hive.muted)
+            .font(.system(size: 11)).foregroundColor(Hive.ink)
     }
 }
 
@@ -255,7 +255,7 @@ private struct PeriodSwitcher: View {
                 } label: {
                     Text(p.label)
                         .font(.system(size: 12, weight: on ? .semibold : .medium))
-                        .foregroundStyle(on ? Hive.bg : Hive.muted)
+                        .foregroundStyle(on ? Hive.bg : Hive.ink)
                         .frame(maxWidth: .infinity).frame(height: 24)
                         .background {
                             if on {
