@@ -86,6 +86,15 @@ public struct PlanLimits: Equatable, Sendable {
 
     public var isEmpty: Bool { fiveHour == nil && sevenDay == nil && scoped.isEmpty }
 
+    /// Worth publishing after `old`: other values, or the time stamp moved on by a minute (the age is shown by
+    /// the minute). The status line rewrites its file on every turn, mostly with the same numbers, and each
+    /// publish redraws the whole window.
+    public func isNews(after old: PlanLimits?) -> Bool {
+        guard let old else { return true }
+        return fiveHour != old.fiveHour || sevenDay != old.sevenDay || scoped != old.scoped || source != old.source
+            || abs(fetchedAt.timeIntervalSince(old.fetchedAt)) >= 60
+    }
+
     // MARK: Parsing
 
     /// `{"rate_limits":{"five_hour":{"used_percentage":19,"resets_at":<epoch s>},…},"written_at":<epoch s>}`

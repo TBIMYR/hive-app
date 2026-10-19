@@ -100,6 +100,20 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
     #expect(PlanLimits.choose(statusLine: expired, cache: cache, now: at(1800001000))?.source == .claudeCache)
 }
 
+@Test func rewriteWithSameNumbersIsNoNews() {
+    func line(_ percent: Double, written: TimeInterval) -> PlanLimits {
+        PlanLimits(fiveHour: .init(percent: percent, resetsAt: at(1800003600)), sevenDay: nil,
+                   source: .statusLine, fetchedAt: at(written))
+    }
+    let old = line(30, written: 1800000000)
+    // the status line rewrites the file on every turn: only a new time stamp is not worth a redraw
+    #expect(!line(30, written: 1800000020).isNews(after: old))
+    #expect(line(31, written: 1800000020).isNews(after: old))
+    // the popover shows the age by the minute, so a minute later it is news again
+    #expect(line(30, written: 1800000060).isNews(after: old))
+    #expect(line(30, written: 1800000000).isNews(after: nil))
+}
+
 @Test func countdownFormat() {
     #expect(UsageFormat.countdown(-5) == "<1m")
     #expect(UsageFormat.countdown(59) == "<1m")

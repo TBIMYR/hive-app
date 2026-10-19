@@ -47,7 +47,10 @@ final class UsageStore: ObservableObject {
     func reloadLimits() {
         queue.async { [weak self] in
             let l = PlanLimits.load()
-            Task { @MainActor in if self?.limits != l { self?.limits = l } }
+            Task { @MainActor in
+                guard let self else { return }
+                if let l, l.isNews(after: self.limits) { self.limits = l } else if l == nil, self.limits != nil { self.limits = nil }
+            }
         }
     }
 
