@@ -193,14 +193,7 @@ struct BackgroundBadge: View {
         if count > 0 {
             let help = count == 1 ? "1 background task running" : "\(count) background tasks running"
             HStack(spacing: 4) {
-                // the system's symbol effect turns the arrows; a TimelineView would redraw the card 60 times a
-                // second (measured: a good part of the app's CPU), a repeating animation drifts with layout moves
-                let icon = Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 11, weight: .bold))
-                if #available(macOS 15, *), !reduceMotion {
-                    icon.symbolEffect(.rotate, options: .repeating)
-                } else {
-                    icon
-                }
+                TurningArrows(color: NSColor(Hive.onColor), turning: !reduceMotion)
                 Text("\(count)").font(.system(size: 12, weight: .semibold)).monospacedDigit()
             }
             .foregroundStyle(Hive.onColor)
@@ -212,6 +205,80 @@ struct BackgroundBadge: View {
             .accessibilityLabel(help)
         }
     }
+}
+
+/// The badge's arrows, turned by Core Animation on a layer of their own: the render server turns them and the app
+/// does nothing per frame. SwiftUI redraws the whole window on every frame for a TimelineView or a repeating
+/// symbol effect (measured with the symbol effect: about 16 % CPU against under 2 % without it), and a repeating
+/// SwiftUI animation drifts with layout moves.
+private struct TurningArrows: NSViewRepresentable {
+    let color: NSColor
+    let turning: Bool
+
+    final class View: NSView {
+        private let arrows = CALayer()
+        private var color: NSColor?
+        private var image: NSImage?
+
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            wantsLayer = true
+            arrows.contentsGravity = .resizeAspect
+            layer?.addSublayer(arrows)
+        }
+
+        required init?(coder: NSCoder) { fatalError("not used") }
+
+        override var intrinsicContentSize: NSSize { image?.size ?? NSSize(width: 13, height: 12) }
+
+        func set(color: NSColor, turning: Bool) {
+            if color != self.color {
+                self.color = color
+                let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .bold)
+                    .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+                image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)?
+                    .withSymbolConfiguration(config)
+                arrows.contents = image
+                invalidateIntrinsicContentSize()
+            }
+            if turning, arrows.animation(forKey: "turn") == nil {
+                let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+                turn.fromValue = 0
+                turn.toValue = -2 * Double.pi   // clockwise
+                turn.duration = 2
+                turn.repeatCount = .infinity
+                // keeps turning when the window is hidden and shown again
+                turn.isRemovedOnCompletion = false
+                arrows.add(turn, forKey: "turn")
+            } else if !turning {
+                arrows.removeAnimation(forKey: "turn")
+            }
+        }
+
+        override func layout() {
+            super.layout()
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            // turns around its center: anchor in the middle, position at the middle of the view
+            arrows.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            arrows.bounds = bounds
+            arrows.position = CGPoint(x: bounds.midX, y: bounds.midY)
+            CATransaction.commit()
+        }
+
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            arrows.contentsScale = window?.backingScaleFactor ?? 2
+        }
+    }
+
+    func makeNSView(context: Context) -> View {
+        let v = View(frame: .zero)
+        v.set(color: color, turning: turning)
+        return v
+    }
+
+    func updateNSView(_ v: View, context: Context) { v.set(color: color, turning: turning) }
 }
 
 /// Phone icon while Remote Control is connected (the session can be continued on claude.ai or the phone).
