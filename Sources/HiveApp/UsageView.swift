@@ -13,6 +13,7 @@ final class UsageStore: ObservableObject {
     private let scanner = UsageScanner()
     private let queue = DispatchQueue(label: "hive.usage", qos: .utility)
     private var scanning = false
+    private var scannedAt = Date.distantPast
     private var timer: Timer?
     private var limitsWatcher: Watcher?
     private var transcriptWatcher: Watcher?
@@ -25,15 +26,18 @@ final class UsageStore: ObservableObject {
         limitsWatcher = Watcher(paths: ["\(home)/hive"]) { [weak self] in
             Task { @MainActor in self?.reloadLimits() }
         }
-        // transcripts change all the time: at most one scan per 10 s from events
-        transcriptWatcher = Watcher(paths: ["\(home)/projects"], delay: 10) { [weak self] in
+        // transcripts change all the time: at most one scan per minute from events (nobody reads the token
+        // numbers by the second)
+        transcriptWatcher = Watcher(paths: ["\(home)/projects"], delay: 60) { [weak self] in
             Task { @MainActor in self?.rescan() }
         }
-        // ~/.claude.json is not watched (its folder is the home folder): the timer picks it up
+        // ~/.claude.json is not watched (its folder is the home folder): the timer picks it up; a scan every
+        // 5 min moves the days on after midnight even when no transcript changes
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.reloadLimits()
-                self?.rescan()
+                guard let self else { return }
+                self.reloadLimits()
+                if Date().timeIntervalSince(self.scannedAt) >= 300 { self.rescan() }
             }
         }
     }
@@ -50,6 +54,7 @@ final class UsageStore: ObservableObject {
     func rescan() {
         guard !scanning else { return }
         scanning = true
+        scannedAt = Date()
         let scanner = scanner
         queue.async { [weak self] in
             #if DEBUG

@@ -129,9 +129,11 @@ public struct UsageStats: Equatable, Sendable {
         stats.days = (0..<keptDays).map { i in
             Day(start: calendar.date(byAdding: .day, value: -i, to: today) ?? today)
         }
+        // the day of a record by comparing with the day starts: calendar calls per record (ICU time zones)
+        // made every rescan cost about a second with a month of transcripts
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? .distantFuture
         for r in records {
-            guard let i = calendar.dateComponents([.day], from: calendar.startOfDay(for: r.at), to: today).day,
-                  (0..<keptDays).contains(i) else { continue }
+            guard r.at < tomorrow, let i = stats.days.firstIndex(where: { $0.start <= r.at }) else { continue }
             var t = r.tokens
             t.usd = ModelPricing.usd(model: r.model, t) ?? 0
             stats.days[i].tokens += t
