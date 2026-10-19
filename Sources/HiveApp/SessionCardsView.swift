@@ -10,10 +10,16 @@ struct SessionCardsView: View {
     /// Remaining sessions, already sorted (SessionOrder), without favorites
     let items: [OverviewItem]
     @Binding var showOffline: Bool
+    /// One namespace for all sections, so a card that changes status glides from its old place to the new one
+    @Namespace private var cards
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let sections: [(rank: Int, title: String, color: Color)] = [
         (0, "Needs you", Hive.need), (1, "Working", Hive.busy), (2, "Ready", Hive.idle), (3, "Offline", Hive.off),
     ]
+
+    /// Order and section of every card; animates only when that changes, not on every clock tick
+    private var layout: [String] { (favorites + items).map { "\($0.id):\($0.status.rank)" } }
 
     var body: some View {
         // PMs have no section of their own among the remaining cards; they stand out by the project chip next to the name (Tile)
@@ -30,15 +36,17 @@ struct SessionCardsView: View {
                 }
             }
         }
+        .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82), value: layout)
     }
 
-    private func grid(_ part: [OverviewItem]) -> some View { CardGrid(part: part) }
+    private func grid(_ part: [OverviewItem]) -> some View { CardGrid(part: part, ns: cards) }
 }
 
 /// Grid of one section: columns of at least 360 pt; the cards of one row are as tall as the tallest of that
 /// row (a long question only stretches its own row).
 private struct CardGrid: View {
     let part: [OverviewItem]
+    let ns: Namespace.ID
     @State private var width: CGFloat = 0
 
     private static let minWidth: CGFloat = 360
@@ -48,7 +56,7 @@ private struct CardGrid: View {
         let columns = max(1, Int((width + Self.spacing) / (Self.minWidth + Self.spacing)))
         let rows = stride(from: 0, to: part.count, by: columns).map { Array(part[$0..<min($0 + columns, part.count)]) }
         VStack(alignment: .leading, spacing: Self.spacing) {
-            ForEach(rows, id: \.first?.id) { row in CardRow(items: row, columns: columns, spacing: Self.spacing) }
+            ForEach(rows, id: \.first?.id) { row in CardRow(items: row, columns: columns, spacing: Self.spacing, ns: ns) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
@@ -61,6 +69,7 @@ private struct CardRow: View {
     let items: [OverviewItem]
     let columns: Int
     let spacing: CGFloat
+    let ns: Namespace.ID
     @State private var tallest: CGFloat = 0
 
     var body: some View {
@@ -76,6 +85,7 @@ private struct CardRow: View {
                     .onTapGesture { store.selected = it.name }
                     .sessionMenu(store, it.session)
                     .navFrame(it.name)
+                    .matchedGeometryEffect(id: it.id, in: ns)
             }
             ForEach(items.count..<columns, id: \.self) { _ in Color.clear.frame(maxWidth: .infinity, maxHeight: 1) }
         }
