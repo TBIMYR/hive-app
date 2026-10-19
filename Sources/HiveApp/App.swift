@@ -72,6 +72,8 @@ struct HiveApp: App {
                     .keyboardShortcut("h")
             }
             CommandGroup(after: .toolbar) {
+                Button("Find Session") { NotificationCenter.default.post(name: .findSession, object: nil) }
+                    .keyboardShortcut("f")
                 Button("Notes") { delegate.toggleNotes() }
                     .keyboardShortcut("t")
                 Button("Reset Window Layout") { delegate.dock.reset() }
@@ -118,67 +120,91 @@ struct SettingsView: View {
     private var show = Show()
 
     var body: some View {
-        Form {
-            Section {
-                Toggle(isOn: $store.keepAwake) {
-                    Text("Keep the Mac awake while sessions work")
-                    Text("Like Amphetamine: no idle sleep as long as at least one session is working, also in the background. The display may still turn off.")
-                }
-                Toggle(isOn: $notifySound) {
-                    Text("Ping when a session needs you")
-                    Text("Plays a sound with the notification. Banner style and badge are set in System Settings → Notifications → Hive.")
-                }
+        TabView {
+            page { general }.tabItem { Label("General", systemImage: "gearshape") }
+            page { notifications }.tabItem { Label("Notifications", systemImage: "bell") }
+            page { display }.tabItem { Label("Display", systemImage: "eye") }
+        }
+    }
+
+    /// One tab: grouped form, as tall as its content
+    private func page<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        Form { content() }
+            .formStyle(.grouped)
+            .frame(width: 460)
+            .fixedSize()
+    }
+
+    @ViewBuilder
+    private var general: some View {
+        Section {
+            Toggle(isOn: $store.keepAwake) {
+                Text("Keep the Mac awake while sessions work")
+                Text("Like Amphetamine: no idle sleep as long as at least one session is working, also in the background. The display may still turn off.")
             }
-            Section("Display") {
-                Toggle(isOn: $mono) {
-                    Text("Monochrome")
-                    Text("Black, white and gray instead of status and project colors. The terminal keeps its colors.")
-                }
-                Toggle("Status", isOn: show.$status)
-                Toggle("Time in status", isOn: show.$since)
-                Toggle("Detail line under the task", isOn: show.$detail)
-                Toggle(isOn: show.$now) {
-                    Text("\"Now\" line")
-                    Text("Last step, question or result. An open question keeps its answer buttons.")
-                }
-                Toggle("Context usage", isOn: show.$context)
-                Toggle("CPU load", isOn: show.$load)
-                Toggle(isOn: show.$badges) {
-                    Text("Badges")
-                    Text("Background tasks, notes and Remote Control.")
-                }
-                Toggle("Project and branch", isOn: show.$project)
-                Toggle(isOn: show.$place) {
-                    Text("Where the session runs")
-                    Text("Terminal icon (in Hive) or \"iTerm\" at the bottom right of a card.")
-                }
+        }
+    }
+
+    @ViewBuilder
+    private var notifications: some View {
+        Section {
+            Toggle(isOn: $notifySound) {
+                Text("Ping when a session needs you")
+                Text("Plays a sound with the notification. Banner style and badge are set in System Settings → Notifications → Hive.")
             }
-            Section {
-                Toggle(isOn: $phonePush) {
-                    Text("Push to the phone when I'm away")
-                    Text("Sends \"needs you\" via ntfy once the Mac has had no mouse or keyboard input for a while. Install the ntfy app and subscribe to the topic below.")
-                }
-                if phonePush {
-                    Stepper("Away after \(awayMinutes) min without input", value: $awayMinutes, in: 1...60)
-                    LabeledContent("Topic") {
-                        HStack(spacing: 8) {
-                            Text(topic).font(.hiveMono(12)).textSelection(.enabled)
-                            Button("Copy") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(topic, forType: .string)
-                            }
-                            Button("Send test") {
-                                Notifier.sendToPhone(topic: topic, title: "Hive", body: "Test: phone notifications work.")
-                            }
+        }
+        Section {
+            Toggle(isOn: $phonePush) {
+                Text("Push to the phone when I'm away")
+                Text("Sends \"needs you\" via ntfy once the Mac has had no mouse or keyboard input for a while. Install the ntfy app and subscribe to the topic below.")
+            }
+            if phonePush {
+                Stepper("Away after \(awayMinutes) min without input", value: $awayMinutes, in: 1...60)
+                LabeledContent("Topic") {
+                    HStack(spacing: 8) {
+                        Text(topic).font(.hiveMono(12)).textSelection(.enabled)
+                        Button("Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(topic, forType: .string)
+                        }
+                        Button("Send test") {
+                            Notifier.sendToPhone(topic: topic, title: "Hive", body: "Test: phone notifications work.")
                         }
                     }
                 }
             }
-            .onChange(of: phonePush) { _, on in if on && topic.isEmpty { topic = Notifier.newTopic() } }
         }
-        .formStyle(.grouped)
-        .frame(width: 460)
-        .fixedSize()
+        .onChange(of: phonePush) { _, on in if on && topic.isEmpty { topic = Notifier.newTopic() } }
+    }
+
+    @ViewBuilder
+    private var display: some View {
+        Section {
+            Toggle(isOn: $mono) {
+                Text("Monochrome")
+                Text("Black, white and gray instead of status and project colors. The terminal keeps its colors.")
+            }
+        }
+        Section("Shown on the sessions") {
+            Toggle("Status", isOn: show.$status)
+            Toggle("Time in status", isOn: show.$since)
+            Toggle("Detail line under the task", isOn: show.$detail)
+            Toggle(isOn: show.$now) {
+                Text("\"Now\" line")
+                Text("Last step, question or result. An open question keeps its answer buttons.")
+            }
+            Toggle("Context usage", isOn: show.$context)
+            Toggle("CPU load", isOn: show.$load)
+            Toggle(isOn: show.$badges) {
+                Text("Badges")
+                Text("Background tasks, notes and Remote Control.")
+            }
+            Toggle("Project and branch", isOn: show.$project)
+            Toggle(isOn: show.$place) {
+                Text("Where the session runs")
+                Text("Terminal icon (in Hive) or \"iTerm\" at the bottom right of a card.")
+            }
+        }
     }
 }
 
