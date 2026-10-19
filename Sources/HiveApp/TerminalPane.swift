@@ -529,6 +529,8 @@ final class HiveTerminalView: LocalProcessTerminalView {
     var wantsFocus = false
     /// tmux session this terminal is attached to
     var sessionName = ""
+    /// color scheme the colors were last set for (nil: not set yet), see TmuxTerminal.applyColors
+    var colorsDark: Bool?
 
     override func send(source: TerminalView, data: ArraySlice<UInt8>) {
         super.send(source: source, data: data)
@@ -623,9 +625,13 @@ struct TmuxTerminal: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     // same tones as the cards in the hive dashboard (--card / --ink).
-    // SwiftTerm applies colors statically when set, so set them again on every mode change.
+    // SwiftTerm applies colors statically when set, so set them again on every mode change, but only then:
+    // updateNSView runs on every publish of the store, and setting a color redraws the whole terminal
+    // (measured: the largest part of the app's idle CPU)
     private func applyColors(_ view: HiveTerminalView) {
         let dark = scheme == .dark
+        guard view.colorsDark != dark else { return }
+        view.colorsDark = dark
         view.nativeBackgroundColor = NSColor(hex: dark ? 0x141414 : 0xFFFFFF)
         view.nativeForegroundColor = NSColor(hex: dark ? 0xF5F5F4 : 0x0B0B0B)
         view.caretColor = NSColor(hex: dark ? 0xF5F5F4 : 0x0B0B0B)
