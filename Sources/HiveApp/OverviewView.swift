@@ -79,6 +79,43 @@ struct RailSwitcher<Value: Hashable>: View {
     }
 }
 
+extension Notification.Name {
+    /// View → Find Session (⌘F): puts the cursor into the overview's search field
+    static let findSession = Notification.Name("hive.findSession")
+}
+
+/// Search field beside the view switcher, in the same white rail look. Enter opens the first match,
+/// Esc empties the field and leaves it.
+struct SessionSearchField: View {
+    @Binding var query: String
+    var focused: FocusState<Bool>.Binding
+    let submit: () -> Void
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
+            TextField("Find session", text: $query)
+                .textFieldStyle(.plain).font(.system(size: 13))
+                .focused(focused)
+                .onSubmit(submit)
+                .onExitCommand { query = ""; focused.wrappedValue = false }
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(Hive.muted)
+                }
+                .buttonStyle(.plain)
+                .help("Clear the search")
+            }
+        }
+        .padding(.horizontal, 12).frame(height: 42)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Hive.card))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(focused.wrappedValue ? Hive.hair2 : Hive.hair))
+        .contentShape(Rectangle())
+        .onTapGesture { focused.wrappedValue = true }
+        .help("Filter by name, project, task, branch or folder (⌘F)")
+    }
+}
+
 /// Frame of the overview: switcher fixed at the top, below it the selected view (favorites first).
 struct OverviewView: View {
     @EnvironmentObject private var store: StateStore
@@ -87,6 +124,9 @@ struct OverviewView: View {
     /// Offline sessions expanded (shared by all views, not remembered across restarts)
     @State private var showOffline = Self.offlineAtLaunch
     @State private var nav = SessionNavigator()
+    /// Search field: only matching sessions are shown (not remembered across restarts)
+    @State private var query = ""
+    @FocusState private var searching: Bool
     @EnvironmentObject private var dock: DockStore
     /// Sides at which the overview touches the window; there it keeps the full margin
     var edges: Edge.Set = [.leading, .top, .bottom]
@@ -116,6 +156,7 @@ struct OverviewView: View {
         .background(AnchorReader { nav.anchor = $0 })
         .onAppear { nav.start(store) }
         .onDisappear { nav.stop() }
+        .onReceive(NotificationCenter.default.publisher(for: .findSession)) { _ in searching = true }
         #if DEBUG
         // for screenshots of a test instance: HIVE_OPEN_MENU=<name> opens that session's menu at launch
         // HIVE_OPEN_SETTINGS=1 opens the settings window at launch
@@ -149,6 +190,7 @@ struct OverviewView: View {
         }
         let sorted = SessionOrder.sorted(store.displaySessions.map(item), session: { $0.session },
                                          status: { $0.status.core }, labels: labels, activity: store.sortActivity.times)
+            .filter { SessionSearch.matches(query, in: Self.searchFields($0)) }
         var parts = Favorites.split(sorted, favorites: store.favorites, name: \.name)
         // the list nests workers under their PM, so a favorite PM takes its workers along
         if mode == .list {
@@ -168,6 +210,12 @@ struct OverviewView: View {
                             .onEnded { dragged?($0.location, true) }
                     )
                     .contextMenu { if dragged != nil { Button("Reset Layout") { dock.reset() } } }
+                SessionSearchField(query: $query, focused: $searching) {
+                    guard let first = shown.first else { return }
+                    searching = false
+                    store.selectAndFocus(first.name)
+                }
+                .frame(minWidth: 120, maxWidth: 260)
                 Spacer(minLength: 0)
                 if let collapse {
                     Button(action: collapse) {
@@ -185,6 +233,11 @@ struct OverviewView: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
+                    if shown.isEmpty && !query.isEmpty {
+                        Text("No session matches “\(query)”")
+                            .font(.system(size: 13)).foregroundStyle(Hive.muted)
+                            .frame(maxWidth: .infinity).padding(.top, 40)
+                    }
                     content(favorites: parts.favorites, rest: parts.rest)
                         .coordinateSpace(.named(NavFrameKey.space))
                         .onPreferenceChange(NavFrameKey.self) { nav.frames = $0 }
@@ -200,11 +253,23 @@ struct OverviewView: View {
         }
     }
 
+    /// Offline sessions expanded; while searching their matches are always shown
+    private var offlineShown: Binding<Bool> {
+        Binding(get: { showOffline || !query.isEmpty }, set: { showOffline = $0 })
+    }
+
+    /// What the search field looks through: name, project, task and its detail line, branch and folder
+    private static func searchFields(_ it: OverviewItem) -> [String?] {
+        let s = it.session
+        return [s.name, it.project, s.task?.text, s.task?.detail, s.branch,
+                s.cwd.map { ($0 as NSString).lastPathComponent }]
+    }
+
     /// Sessions in the order the current view shows them (the list puts workers under their PM),
     /// offline only while expanded. Lets the arrow keys reach sessions a lazy stack hasn't drawn yet.
     private func shownOrder(favorites: [OverviewItem], rest: [OverviewItem]) -> [OverviewItem] {
         let active = rest.filter { $0.status.rank < 3 }
-        let offline = showOffline ? rest.filter { $0.status.rank == 3 } : []
+        let offline = offlineShown.wrappedValue ? rest.filter { $0.status.rank == 3 } : []
         guard mode == .list else { return favorites + active + offline }
         return [favorites, active, offline].flatMap { SessionTree.grouped($0, session: \.session).map(\.item) }
     }
@@ -212,9 +277,9 @@ struct OverviewView: View {
     @ViewBuilder
     private func content(favorites: [OverviewItem], rest: [OverviewItem]) -> some View {
         switch mode {
-        case .list: SessionListView(favorites: favorites, items: rest, showOffline: $showOffline)
-        case .tiles: SessionTileGrid(favorites: favorites, items: rest, showOffline: $showOffline)
-        case .cards: SessionCardsView(favorites: favorites, items: rest, showOffline: $showOffline)
+        case .list: SessionListView(favorites: favorites, items: rest, showOffline: offlineShown)
+        case .tiles: SessionTileGrid(favorites: favorites, items: rest, showOffline: offlineShown)
+        case .cards: SessionCardsView(favorites: favorites, items: rest, showOffline: offlineShown)
         }
     }
 }
