@@ -13,8 +13,9 @@
   - Middle ground: `/compact` when the session should keep working but the history gets too long. It does not survive a restart, the handover does.
 - Instead of `/clear`, a session may also be closed and started again; what matters is the same name.
 - PM ↔ worker flow:
-  1. The PM hands out a task with `~/.claude/bin/cc-spawn <name> <directory> "<task>"` (new tab, loads the handover for the name, refuses names that are running).
+  1. The PM hands out a task with `~/.claude/bin/cc-spawn [--model <model>] <name> <directory> "<task>"` (new tab, loads the handover for the name, refuses names that are running).
      Free names first: before a new name (e.g. `lu.05`), reuse an existing offline session of the project with a handover (`lu.01` …); `cc-spawn` loads its handover. New numbers only when all existing ones are running.
+     Model: the PM picks it to fit the task with `cc-spawn --model <model> …`. `sonnet` for clearly scoped routine work (small fixes, docs, adding tests), the default or `opus` for design, tricky debugging and large rebuilds. Without `--model` the default applies; Hive shows each session's model.
   2. The worker is done: write the handover, `cc-task … done` (or `waiting`), then tell its PM briefly via SendMessage what is done. The message wakes the PM; nobody has to poll.
   3. The PM decides: follow-up work on the same topic → SendMessage to the worker, it keeps running. A new, independent ticket or nothing left to do → `~/.claude/bin/cc-close <name>` (types `/exit`, closes the tab; refuses while the worker is working or has no handover) and, if needed, a new one via `cc-spawn`.
   4. In a new directory (fresh worktree) Claude Code asks once for trust; I confirm that myself. Real decisions stay `blocked`.

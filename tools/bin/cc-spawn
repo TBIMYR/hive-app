@@ -1,21 +1,30 @@
 #!/bin/sh
 # cc-spawn — start a new Claude Code session in an iTerm tab.
 #
-#   cc-spawn NAME DIR ["FIRST TASK"]
+#   cc-spawn [--model MODEL] NAME DIR ["FIRST TASK"]
 #
-# Starts `claude -n NAME ["TASK"]` in DIR, either
+# Starts `claude -n NAME [--model MODEL] ["TASK"]` in DIR, either
 #   - hive: as a session in the hive app's tmux server (`tmux -L hive`), visible in the app, or
 #   - iterm: in a new tab of the frontmost iTerm window.
 # Target: CC_SPAWN_TARGET=hive|iterm; if unset, hive when the caller itself runs in hive, otherwise iterm.
+# MODEL is an alias (opus, sonnet, haiku, fable) or a full model ID; without it the session uses the default.
 # The start hook loads the handover for NAME. Refuses if a session named NAME is already running.
 # Environment: CC_HOME (default ~/.claude), CC_SPAWN_DRYRUN=1 only prints the command.
 set -eu
 
 home="${CC_HOME:-$HOME/.claude}"
 
+usage() { echo "usage: cc-spawn [--model MODEL] NAME DIR [\"FIRST TASK\"]" >&2; exit 2; }
+model=""
+if [ "${1:-}" = "--model" ]; then
+  [ $# -ge 2 ] || usage
+  model="$2"; shift 2
+  case "$model" in
+    ""|*[!A-Za-z0-9._\[\]-]*) echo "cc-spawn: invalid model '$model'" >&2; exit 2 ;;
+  esac
+fi
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
-  echo "usage: cc-spawn NAME DIR [\"FIRST TASK\"]" >&2
-  exit 2
+  usage
 fi
 name="$1"; dir="$2"; prompt="${3:-}"
 
@@ -47,6 +56,7 @@ case "$target" in hive|iterm) ;; *) echo "cc-spawn: CC_SPAWN_TARGET must be hive
 
 if [ "${CC_SPAWN_DRYRUN:-}" = "1" ]; then
   printf '[%s] cd %s && claude -n %s' "$target" "$dir" "$name"
+  [ -z "$model" ] || printf ' --model %s' "$model"
   [ -z "$prompt" ] || printf ' %s' "$prompt"
   printf '\n'
   exit 0
@@ -72,22 +82,24 @@ if [ "$target" = "hive" ]; then
     ht set-environment -g -u "$k"
   done
   claude_bin=$(command -v claude || echo claude)
-  if [ -n "$prompt" ]; then
-    ht new-session -d -s "$name" -c "$dir" "$claude_bin" -n "$name" "$prompt"
-  else
-    ht new-session -d -s "$name" -c "$dir" "$claude_bin" -n "$name"
-  fi
+  # set -- builds the command line: name, then the model if given, then the task
+  set -- "$claude_bin" -n "$name"
+  [ -z "$model" ] || set -- "$@" --model "$model"
+  [ -z "$prompt" ] || set -- "$@" "$prompt"
+  ht new-session -d -s "$name" -c "$dir" "$@"
   echo "cc-spawn: $name started in $dir (hive)"
   exit 0
 fi
 
 # Arguments via argv instead of interpolation; quoted form guards against special characters in path or task
-osascript - "$dir" "$name" "$prompt" <<'EOF' >/dev/null
+osascript - "$dir" "$name" "$prompt" "$model" <<'EOF' >/dev/null
 on run argv
   set d to item 1 of argv
   set n to item 2 of argv
   set p to item 3 of argv
+  set m to item 4 of argv
   set cmd to "cd " & quoted form of d & " && claude -n " & quoted form of n
+  if m is not "" then set cmd to cmd & " --model " & quoted form of m
   if p is not "" then set cmd to cmd & " " & quoted form of p
   tell application "iTerm2"
     if (count of windows) = 0 then

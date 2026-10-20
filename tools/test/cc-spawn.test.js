@@ -54,3 +54,15 @@ test('invalid name, missing directory, wrong arguments → 2', () => {
   assert.equal(run(home, ['lu.01', '/does/not/exist']).status, 2);
   assert.equal(run(home, ['lu.01']).status, 2);
 });
+
+test('--model goes before the task; invalid or missing model → 2', () => {
+  const home = setup();
+  const dir = fs.realpathSync(os.tmpdir());
+  assert.equal(run(home, ['--model', 'sonnet', 'lu.01', dir, 'do X']).stdout,
+    `[iterm] cd ${dir} && claude -n lu.01 --model sonnet do X\n`);
+  assert.equal(run(home, ['--model', 'claude-opus-5-5[1m]', 'lu.01', dir]).stdout,
+    `[iterm] cd ${dir} && claude -n lu.01 --model claude-opus-5-5[1m]\n`);
+  assert.equal(run(home, ['--model', 'a b', 'lu.01', dir]).status, 2);
+  assert.equal(run(home, ['--model']).status, 2);
+  assert.equal(run(home, ['--model', 'sonnet', 'lu.01']).status, 2);
+});
