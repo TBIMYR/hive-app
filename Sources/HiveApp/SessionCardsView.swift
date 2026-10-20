@@ -190,6 +190,9 @@ struct Tile: View {
                     }
                 }
                 Spacer(minLength: 6)
+                if show.model, let m = session.model {
+                    Text(ModelName.short(m)).fixedSize().help(m)
+                }
                 if !session.errors.isEmpty {
                     Image(systemName: "exclamationmark.triangle")
                         .help("Read error: " + session.errors.joined(separator: "\n"))

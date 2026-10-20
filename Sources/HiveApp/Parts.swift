@@ -473,4 +473,5 @@ struct Show: DynamicProperty {
     @AppStorage("show.badges") var badges = true
     @AppStorage("show.project") var project = true
     @AppStorage("show.place") var place = true
+    @AppStorage("show.model") var model = true
 }

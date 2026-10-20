@@ -48,6 +48,8 @@ public struct Tail: Equatable, Sendable {
     public var lastAction: WorkAction? = nil
     /// last sentence of the last text response, without Markdown, truncated
     public var lastSentence: String? = nil
+    /// model of the last assistant message ("claude-opus-5-5"), without Claude Code's own "<synthetic>" messages
+    public var model: String? = nil
 }
 
 /// Reads the end of a conversation transcript (JSONL) like hive/lib/transcript.js.
@@ -127,6 +129,10 @@ public enum Transcript {
                     tail.lastAction = describe(use, at: at, pending: pending)
                 }
             }
+            if tail.model == nil, type == "assistant",
+               let m = (obj["message"] as? [String: Any])?["model"] as? String, !m.isEmpty, !m.hasPrefix("<") {
+                tail.model = m
+            }
             if tail.lastAssistant == nil && type == "assistant" {
                 let t = textOf(content)
                 if !t.isEmpty { tail.lastAssistant = Said(text: t, at: at) }
@@ -134,7 +140,8 @@ public enum Transcript {
                 let t = textOf(content)
                 if !t.isEmpty && !t.hasPrefix("<") { tail.lastUser = Said(text: t, at: at) }
             }
-            if tail.lastAssistant != nil && tail.lastUser != nil && tail.branch != nil && tail.lastAction != nil { break }
+            if tail.lastAssistant != nil && tail.lastUser != nil && tail.branch != nil && tail.lastAction != nil
+                && tail.model != nil { break }
         }
         tail.lastSentence = tail.lastAssistant.flatMap { lastSentence(of: $0.text) }
         return tail

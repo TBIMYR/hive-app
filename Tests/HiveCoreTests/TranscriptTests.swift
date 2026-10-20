@@ -55,3 +55,14 @@ private func full() throws -> String { try String(contentsOfFile: file, encoding
         .write(toFile: "\(dir)/old.jsonl", atomically: true, encoding: .utf8)
     #expect(Transcript.readTailFollowingContinuation(dir: dir, sessionId: "old").contains("old"))
 }
+
+@Test func modelOfTheLastRealAssistantMessage() {
+    let text = """
+    {"type":"assistant","message":{"model":"claude-sonnet-5-5","content":[{"type":"text","text":"a"}]}}
+    {"type":"assistant","message":{"model":"claude-opus-5-5","content":[{"type":"text","text":"b"}]}}
+    {"type":"assistant","message":{"model":"<synthetic>","content":[{"type":"text","text":"API error"}]}}
+    {"type":"user","message":{"content":"next"}}
+    """
+    #expect(Transcript.parseTail(text).model == "claude-opus-5-5")
+    #expect(Transcript.parseTail(#"{"type":"user","message":{"content":"hi"}}"#).model == nil)
+}

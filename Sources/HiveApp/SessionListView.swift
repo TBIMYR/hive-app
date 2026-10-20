@@ -163,6 +163,10 @@ struct SessionRow: View {
             }
             .help(item.project)
             .frame(maxWidth: .infinity, alignment: .leading)
+            if show.model {
+                Text(item.session.model.map(ModelName.short) ?? "").font(.system(size: 12)).foregroundStyle(Hive.muted)
+                    .frame(width: 72, alignment: .trailing)
+            }
             if show.since {
                 Text(item.since).font(.system(size: 12)).foregroundStyle(Hive.muted).monospacedDigit()
                     .frame(width: 56, alignment: .trailing)

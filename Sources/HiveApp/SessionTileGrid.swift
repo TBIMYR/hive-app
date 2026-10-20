@@ -88,11 +88,12 @@ struct SmallTile: View {
                 .foregroundStyle(text == nil ? Hive.muted : task == nil ? Hive.ink2 : Hive.ink)
                 .lineLimit(2, reservesSpace: true)
             .matchTallest(minBody)
-            let since = show.since ? item.since : ""
-            if show.project || !since.isEmpty {
+            let meta = [show.project ? item.project : nil, show.model ? item.session.model.map(ModelName.short) : nil,
+                        show.since ? item.since : nil].compactMap { $0 }.filter { !$0.isEmpty }
+            if !meta.isEmpty {
                 HStack(spacing: 6) {
                     if show.project { Circle().fill(item.color).frame(width: 6, height: 6) }
-                    Text(!show.project ? since : since.isEmpty ? item.project : "\(item.project) · \(since)")
+                    Text(meta.joined(separator: " · "))
                 }
                 .font(.system(size: 11.5)).foregroundStyle(Hive.muted).lineLimit(1)
                 .padding(.top, 2)

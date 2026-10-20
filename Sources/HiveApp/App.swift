@@ -200,6 +200,10 @@ struct SettingsView: View {
                 Text("Background tasks, notes and Remote Control.")
             }
             Toggle("Project and branch", isOn: show.$project)
+            Toggle(isOn: show.$model) {
+                Text("Model")
+                Text("The model of the last answer, e.g. Opus 5.5.")
+            }
             Toggle(isOn: show.$place) {
                 Text("Where the session runs")
                 Text("Terminal icon (in Hive) or \"iTerm\" at the bottom right of a card.")
