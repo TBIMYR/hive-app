@@ -77,10 +77,12 @@ final class StateStore: ObservableObject {
     @Published var removeRequest: Session?
     /// Notice shown as an alert (e.g. session not finished after 15 s)
     @Published var notice: String?
-    /// Keep the Mac awake while sessions work (title bar switch), stored under `keepAwake`
-    @Published var keepAwake: Bool = UserDefaults.standard.object(forKey: "keepAwake") as? Bool ?? true {
+    /// Keep the Mac awake: off, while sessions work or always (title bar switch), stored under `keepAwakeMode`;
+    /// the older switch `keepAwake` (on/off) still counts until the first change
+    @Published var keepAwake: KeepAwake.Mode = UserDefaults.standard.string(forKey: "keepAwakeMode").flatMap(KeepAwake.Mode.init)
+        ?? (UserDefaults.standard.object(forKey: "keepAwake") as? Bool == false ? .off : .whileWorking) {
         didSet {
-            UserDefaults.standard.set(keepAwake, forKey: "keepAwake")
+            UserDefaults.standard.set(keepAwake.rawValue, forKey: "keepAwakeMode")
             updateSleepGuard()
         }
     }
@@ -207,7 +209,8 @@ final class StateStore: ObservableObject {
 
     private func updateSleepGuard() {
         // armed, the Mac has to stay awake until the work is done, whatever the Keep Awake switch says
-        sleepGuard.hold(KeepAwake.reason(enabled: keepAwake || sleepWhenDone.armed, statuses: displaySessions.map { status($0).core }))
+        let mode: KeepAwake.Mode = sleepWhenDone.armed ? .whileWorking : keepAwake
+        sleepGuard.hold(KeepAwake.reason(mode: mode, statuses: displaySessions.map { status($0).core }))
         if sleepGuard.isHolding != holdingAwake { holdingAwake = sleepGuard.isHolding }
     }
 

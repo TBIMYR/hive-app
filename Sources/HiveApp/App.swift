@@ -138,9 +138,13 @@ struct SettingsView: View {
     @ViewBuilder
     private var general: some View {
         Section {
-            Toggle(isOn: $store.keepAwake) {
-                Text("Keep the Mac awake while sessions work")
-                Text("Like Amphetamine: no idle sleep as long as at least one session is working, also in the background. The display may still turn off.")
+            Picker(selection: $store.keepAwake) {
+                Text("Off").tag(KeepAwake.Mode.off)
+                Text("While sessions work").tag(KeepAwake.Mode.whileWorking)
+                Text("Always").tag(KeepAwake.Mode.always)
+            } label: {
+                Text("Keep the Mac awake")
+                Text("Like Amphetamine: no idle sleep while at least one session is working (also in the background), or always, without a limit. The display may still turn off.")
             }
         }
     }
@@ -253,15 +257,20 @@ struct ContentView: View {
         .help("New session in tmux (⌘N); the menu also has New Project (⇧⌘N)")
     }
 
-    /// Keep-awake switch: cup with steam while it holds the Mac awake, empty cup while on but nothing works.
+    /// Keep-awake switch, clicks through while working → always → off: cup with steam while it holds the Mac
+    /// awake for working sessions, empty cup while nothing works, sun while it stays awake without a limit.
     private var awakeButton: some View {
-        Button { store.keepAwake.toggle() } label: {
-            Label("Keep Awake", systemImage: store.holdingAwake ? "cup.and.heat.waves.fill" : store.keepAwake ? "cup.and.saucer" : "moon.zzz")
+        let mode = store.keepAwake
+        let armed = store.sleepWhenDone.armed
+        return Button { store.keepAwake = mode.next } label: {
+            Label("Keep Awake", systemImage: mode == .always && !armed ? "sun.max.fill"
+                  : store.holdingAwake ? "cup.and.heat.waves.fill" : mode == .whileWorking ? "cup.and.saucer" : "moon.zzz")
         }
-        .help(store.holdingAwake && !store.keepAwake ? "Awake until the sessions are done, then the Mac sleeps (Sleep When Done). Click to keep it awake whenever sessions work."
-              : !store.keepAwake ? "Mac may sleep while sessions work. Click to keep it awake."
-              : store.holdingAwake ? "Keeping the Mac awake while sessions work. Click to turn off."
-              : "Keeps the Mac awake as soon as a session works. Click to turn off.")
+        .help(armed && store.holdingAwake ? "Awake until the sessions are done, then the Mac sleeps (Sleep When Done). Click to change Keep Awake."
+              : mode == .always ? "Keeping the Mac awake, without a limit. Click to turn off."
+              : mode == .off ? "Mac may sleep while sessions work. Click to keep it awake while sessions work."
+              : store.holdingAwake ? "Keeping the Mac awake while sessions work. Click to keep it awake always."
+              : "Keeps the Mac awake as soon as a session works. Click to keep it awake always.")
     }
 
     /// Sleep When Done: armed once, off again after the Mac slept or the grace period was cancelled.

@@ -21,7 +21,7 @@
 - Handover view, project info and a notepad per session (`cc-note`, ⌘T).
 - Tiles that can be dragged, stacked as tabs, resized and collapsed into an icon bar.
 - CPU load per session, plan limits with an outlook, token usage by project and session.
-- Keep Awake while sessions work; Sleep When Done puts the Mac to sleep once all of them are finished.
+- Keep Awake while sessions work or always; Sleep When Done puts the Mac to sleep once all of them are finished.
 - New Project… (⇧⌘N).
 - Settings → Display: monochrome look and switches to hide details of the overview.
 - Session tools in the same repo (`tools/`), MIT license.
