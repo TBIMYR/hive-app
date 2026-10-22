@@ -32,7 +32,8 @@ struct NewProjectSheet: View {
         }
     }
     private var pmName: String { "\(prefix).pm" }
-    private var pmRunning: Bool { store.runningNames.contains(pmName) || Tmux.hasSession(pmName) }
+    /// From the store's last refresh only: calling tmux here would block inside the view update and crash.
+    private var pmRunning: Bool { store.runningNames.contains(pmName) }
 
     /// Sessions working in this folder (or below it).
     private func sessions(in f: String) -> [Session] {
@@ -177,7 +178,7 @@ struct NewProjectSheet: View {
             self.error = error.localizedDescription
             return
         }
-        if startPM && Tmux.path != nil && !pmRunning {
+        if startPM && Tmux.path != nil && !pmRunning && !Tmux.hasSession(pmName) {
             if let e = Tmux.newSession(name: pmName, dir: input.folder) {
                 store.notice = "Project \(input.slug) created, but \(pmName) did not start: \(e)"
             } else {
