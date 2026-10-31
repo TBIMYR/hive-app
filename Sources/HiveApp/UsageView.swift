@@ -88,7 +88,7 @@ private extension PlanLimits.Outlook {
     }
 }
 
-/// Title bar: "5h 19% (2h 14m) · Week 78% (1d 3h)"; click opens the details as a floating card.
+/// Title bar: "Week 78% (1d 3h)"; click opens the details as a floating card.
 struct UsageButton: View {
     @EnvironmentObject private var usage: UsageStore
     @EnvironmentObject private var store: StateStore
@@ -125,7 +125,6 @@ struct UsageButton: View {
 
     private func label(_ l: PlanLimits, now: Date) -> some View {
         var parts: [Text] = []
-        if let w = l.fiveHour { parts.append(part("5h", w, length: PlanLimits.fiveHourLength, now: now)) }
         if let w = l.sevenDay { parts.append(part("Week", w, length: PlanLimits.weekLength, now: now)) }
         if parts.isEmpty, let s = l.scoped.first { parts.append(part(s.name, s.window, length: PlanLimits.weekLength, now: now)) }
         let joined = parts.dropFirst().reduce(parts.first ?? Text("")) { a, b in
@@ -145,7 +144,7 @@ struct UsageButton: View {
     }
 }
 
-/// Details: both limits with bars and countdown, source, then tokens over 1/7/30 days and the top projects
+/// Details: the limits with bars and countdown, source, then tokens over 1/7/30 days and the top projects
 /// and sessions of the chosen period.
 struct UsagePopover: View {
     @EnvironmentObject private var usage: UsageStore
@@ -157,7 +156,6 @@ struct UsagePopover: View {
         VStack(alignment: .leading, spacing: 16) {
             if let l = usage.current(now: now) {
                 VStack(alignment: .leading, spacing: 14) {
-                    if let w = l.fiveHour { LimitRow(title: "Session (5 hours)", window: w, length: PlanLimits.fiveHourLength, now: now) }
                     if let w = l.sevenDay { LimitRow(title: "Week", window: w, length: PlanLimits.weekLength, now: now) }
                     ForEach(l.scoped, id: \.name) { s in
                         LimitRow(title: "Week · \(s.name)", window: s.window, length: PlanLimits.weekLength, now: now)

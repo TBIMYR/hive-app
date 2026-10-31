@@ -1,6 +1,6 @@
 import Foundation
 
-/// Plan limits (5-hour and weekly window) from the status line file or from Claude Code's cache.
+/// Plan limits (weekly window) from the status line file or from Claude Code's cache.
 public struct PlanLimits: Equatable, Sendable {
     public enum Source: String, Equatable, Sendable {
         /// `~/.claude/hive/usage.json`, written by the status line script
@@ -55,7 +55,6 @@ public struct PlanLimits: Equatable, Sendable {
     /// The UI colors a limit by this, not by how much is used.
     public enum Outlook: Equatable, Sendable { case lasts, tight, runsOut }
 
-    public static let fiveHourLength: TimeInterval = 5 * 3600
     public static let weekLength: TimeInterval = 7 * 86400
 
     /// Weekly limit for one model (from `limits[]` with `kind: weekly_scoped`)
@@ -69,35 +68,33 @@ public struct PlanLimits: Equatable, Sendable {
         }
     }
 
-    public var fiveHour: Window?
     public var sevenDay: Window?
     public var scoped: [Scoped]
     public let source: Source
     /// when the source wrote or fetched the values
     public let fetchedAt: Date
 
-    public init(fiveHour: Window?, sevenDay: Window?, scoped: [Scoped] = [], source: Source, fetchedAt: Date) {
-        self.fiveHour = fiveHour
+    public init(sevenDay: Window?, scoped: [Scoped] = [], source: Source, fetchedAt: Date) {
         self.sevenDay = sevenDay
         self.scoped = scoped
         self.source = source
         self.fetchedAt = fetchedAt
     }
 
-    public var isEmpty: Bool { fiveHour == nil && sevenDay == nil && scoped.isEmpty }
+    public var isEmpty: Bool { sevenDay == nil && scoped.isEmpty }
 
     /// Worth publishing after `old`: other values, or the time stamp moved on by a minute (the age is shown by
     /// the minute). The status line rewrites its file on every turn, mostly with the same numbers, and each
     /// publish redraws the whole window.
     public func isNews(after old: PlanLimits?) -> Bool {
         guard let old else { return true }
-        return fiveHour != old.fiveHour || sevenDay != old.sevenDay || scoped != old.scoped || source != old.source
+        return sevenDay != old.sevenDay || scoped != old.scoped || source != old.source
             || abs(fetchedAt.timeIntervalSince(old.fetchedAt)) >= 60
     }
 
     // MARK: Parsing
 
-    /// `{"rate_limits":{"five_hour":{"used_percentage":19,"resets_at":<epoch s>},…},"written_at":<epoch s>}`
+    /// `{"rate_limits":{"seven_day":{"used_percentage":19,"resets_at":<epoch s>},…},"written_at":<epoch s>}`
     public static func fromStatusLine(_ data: Data) -> PlanLimits? {
         guard let j = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let limits = j["rate_limits"] as? [String: Any],
@@ -106,7 +103,7 @@ public struct PlanLimits: Equatable, Sendable {
             guard let w = limits[key] as? [String: Any], let p = number(w["used_percentage"]) else { return nil }
             return Window(percent: p, resetsAt: number(w["resets_at"]).map { Date(timeIntervalSince1970: $0) })
         }
-        let result = PlanLimits(fiveHour: window("five_hour"), sevenDay: window("seven_day"),
+        let result = PlanLimits(sevenDay: window("seven_day"),
                                 source: .statusLine, fetchedAt: Date(timeIntervalSince1970: written))
         return result.isEmpty ? nil : result
     }
@@ -137,8 +134,7 @@ public struct PlanLimits: Equatable, Sendable {
             let model = ((l["scope"] as? [String: Any])?["model"] as? [String: Any])?["display_name"]
             return Scoped(name: string(model) ?? "Model", window: Window(percent: p, resetsAt: date(l["resets_at"])))
         }
-        let result = PlanLimits(fiveHour: fromUtil("five_hour") ?? fromLimits("session"),
-                                sevenDay: fromUtil("seven_day") ?? fromLimits("weekly_all"),
+        let result = PlanLimits(sevenDay: fromUtil("seven_day") ?? fromLimits("weekly_all"),
                                 scoped: scoped, source: .claudeCache,
                                 fetchedAt: Date(timeIntervalSince1970: fetchedMs / 1000))
         return result.isEmpty ? nil : result
@@ -154,7 +150,6 @@ public struct PlanLimits: Equatable, Sendable {
             return w
         }
         var copy = self
-        copy.fiveHour = live(fiveHour)
         copy.sevenDay = live(sevenDay)
         copy.scoped = scoped.filter { live($0.window) != nil }
         return copy.isEmpty ? nil : copy

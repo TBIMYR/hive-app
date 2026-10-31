@@ -57,7 +57,7 @@ See [Session tools](#session-tools).
   Mac has had no input for a while (Settings, ⌘,)
 - CPU load per session (its own process and everything it started) as a share of the whole Mac, shown from 5 %,
   orange from 25 %
-- Plan limits in the title bar (5 hours and week), colored by the outlook: green lasts until the reset, orange gets
+- Plan limit in the title bar (week), colored by the outlook: green lasts until the reset, orange gets
   tight, red runs out before it; a click shows tokens over 1/7/30 days by project and session
 - New Session (⌘N) and New Project… (⇧⌘N)
 - A notepad per session (Notes, ⌘T): Markdown with task checkboxes (`- [ ]`), stored in

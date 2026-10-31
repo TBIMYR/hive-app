@@ -23,11 +23,11 @@ private let claudeConfig = """
 """
 
 private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
+private let fiveHours: TimeInterval = 5 * 3600
 
 @Test func parsesStatusLineFile() throws {
     let l = try #require(PlanLimits.fromStatusLine(Data(statusLine.utf8)))
     #expect(l.source == .statusLine)
-    #expect(l.fiveHour == .init(percent: 19, resetsAt: at(1800003600)))
     #expect(l.sevenDay == .init(percent: 78.5, resetsAt: at(1800100000)))
     #expect(l.fetchedAt == at(1800000000.25))
     #expect(l.scoped.isEmpty)
@@ -35,7 +35,6 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
 
 @Test func statusLineWithOneWindowOrNone() {
     let one = PlanLimits.fromStatusLine(Data(#"{"rate_limits":{"seven_day":{"used_percentage":5,"resets_at":1}},"written_at":1}"#.utf8))
-    #expect(one?.fiveHour == nil)
     #expect(one?.sevenDay?.percent == 5)
     #expect(PlanLimits.fromStatusLine(Data(#"{"rate_limits":{},"written_at":1}"#.utf8)) == nil)
     #expect(PlanLimits.fromStatusLine(Data("not json".utf8)) == nil)
@@ -45,13 +44,12 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
     let l = try #require(PlanLimits.fromClaudeConfig(Data(claudeConfig.utf8)))
     #expect(l.source == .claudeCache)
     #expect(l.fetchedAt == at(1800000600))
-    #expect(l.fiveHour?.percent == 21)
-    // six decimal places as Claude Code writes them
-    let reset = try #require(l.fiveHour?.resetsAt)
-    #expect(abs(reset.timeIntervalSince(parseISO("2027-01-15T09:00:00Z")!)) < 1)
     #expect(l.sevenDay?.resetsAt == parseISO("2027-01-16T10:00:00Z"))
     #expect(l.scoped.map(\.name) == ["Lyra"])
     #expect(l.scoped.first?.window.percent == 11)
+    // six decimal places as Claude Code writes them
+    let reset = try #require(l.scoped.first?.window.resetsAt)
+    #expect(abs(reset.timeIntervalSince(parseISO("2027-01-16T10:00:00Z")!)) < 1)
 }
 
 @Test func cacheFallsBackToLimitsList() throws {
@@ -61,15 +59,21 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
      {"kind":"weekly_all","percent":60,"resets_at":"2027-01-16T10:00:00Z"}]}}
     """
     let l = try #require(PlanLimits.fromClaudeConfig(Data(json.utf8)))
-    #expect(l.fiveHour?.percent == 40)
     #expect(l.sevenDay?.percent == 60)
     #expect(PlanLimits.fromClaudeConfig(Data(#"{"other":1}"#.utf8)) == nil)
+}
+
+@Test func fiveHourWindowIsIgnored() throws {
+    // older Claude Code versions still report it; the limit no longer exists
+    let only = #"{"rate_limits":{"five_hour":{"used_percentage":5,"resets_at":1}},"written_at":1}"#
+    #expect(PlanLimits.fromStatusLine(Data(only.utf8)) == nil)
+    let cache = #"{"cachedUsageUtilization":{"fetchedAtMs":1000,"limits":[{"kind":"session","percent":40}]}}"#
+    #expect(PlanLimits.fromClaudeConfig(Data(cache.utf8)) == nil)
 }
 
 @Test func expiredWindowsAreDropped() throws {
     let l = try #require(PlanLimits.fromStatusLine(Data(statusLine.utf8)))
     let mid = try #require(l.droppingExpired(now: at(1800050000)))
-    #expect(mid.fiveHour == nil)
     #expect(mid.sevenDay != nil)
     #expect(l.droppingExpired(now: at(1800100000)) == nil)
 }
@@ -80,11 +84,11 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
     let now = at(1800001000)
     #expect(PlanLimits.choose(statusLine: line, cache: cache, now: now)?.source == .claudeCache)
 
-    let newerLine = PlanLimits(fiveHour: .init(percent: 30, resetsAt: at(1800003600)), sevenDay: nil,
+    let newerLine = PlanLimits(sevenDay: .init(percent: 30, resetsAt: at(1800003600)),
                                source: .statusLine, fetchedAt: at(1800000900))
     let chosen = try #require(PlanLimits.choose(statusLine: newerLine, cache: cache, now: now))
     #expect(chosen.source == .statusLine)
-    #expect(chosen.fiveHour?.percent == 30)
+    #expect(chosen.sevenDay?.percent == 30)
     // the model-scoped limit only exists in the cache and is carried over
     #expect(chosen.scoped.map(\.name) == ["Lyra"])
 
@@ -95,14 +99,14 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
 
 @Test func olderSourceWinsWhenNewerIsExpired() throws {
     let cache = try #require(PlanLimits.fromClaudeConfig(Data(claudeConfig.utf8)))
-    let expired = PlanLimits(fiveHour: .init(percent: 30, resetsAt: at(1800000950)), sevenDay: nil,
+    let expired = PlanLimits(sevenDay: .init(percent: 30, resetsAt: at(1800000950)),
                              source: .statusLine, fetchedAt: at(1800000900))
     #expect(PlanLimits.choose(statusLine: expired, cache: cache, now: at(1800001000))?.source == .claudeCache)
 }
 
 @Test func rewriteWithSameNumbersIsNoNews() {
     func line(_ percent: Double, written: TimeInterval) -> PlanLimits {
-        PlanLimits(fiveHour: .init(percent: percent, resetsAt: at(1800003600)), sevenDay: nil,
+        PlanLimits(sevenDay: .init(percent: percent, resetsAt: at(1800003600)),
                    source: .statusLine, fetchedAt: at(written))
     }
     let old = line(30, written: 1800000000)
@@ -142,7 +146,7 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
 @Test func paceProjectsLinearlyToTheReset() throws {
     // 5h window, 2h left → 3h elapsed; 30 % used → 50 % at the reset
     let w = PlanLimits.Window(percent: 30, resetsAt: at(1_800_007_200))
-    let p = try #require(w.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)))
+    let p = try #require(w.pace(length: fiveHours, now: at(1_800_000_000)))
     #expect(abs(p.projectedPercent - 50) < 0.001)
     #expect(p.lasts)
     #expect(p.runsOutIn == nil)
@@ -151,19 +155,19 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
 @Test func paceSaysWhenItRunsOut() throws {
     // 1h elapsed, 4h left, 40 % used → 200 % at the reset; 60 % left at 40 %/h → empty in 1.5h
     let w = PlanLimits.Window(percent: 40, resetsAt: at(1_800_014_400))
-    let p = try #require(w.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)))
+    let p = try #require(w.pace(length: fiveHours, now: at(1_800_000_000)))
     #expect(!p.lasts)
     #expect(abs(try #require(p.runsOutIn) - 5400) < 0.001)
 }
 
 @Test func paceNeedsTenPercentOfTheWindowAndAResetTime() {
     let early = PlanLimits.Window(percent: 5, resetsAt: at(1_800_000_000 + 18_000 - 1_000))
-    #expect(early.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)) == nil)
-    #expect(PlanLimits.Window(percent: 5, resetsAt: nil).pace(length: PlanLimits.fiveHourLength, now: at(0)) == nil)
+    #expect(early.pace(length: fiveHours, now: at(1_800_000_000)) == nil)
+    #expect(PlanLimits.Window(percent: 5, resetsAt: nil).pace(length: fiveHours, now: at(0)) == nil)
 }
 
 @Test func outlookFollowsThePaceNotTheUsage() {
-    let now = at(1_800_000_000), len = PlanLimits.fiveHourLength
+    let now = at(1_800_000_000), len = fiveHours
     // 4h elapsed, 1h left
     let reset = at(1_800_003_600)
     // 70 % used → 87.5 % at the reset: lasts, however full it already is
@@ -181,7 +185,7 @@ private func at(_ s: TimeInterval) -> Date { Date(timeIntervalSince1970: s) }
 
 @Test func paceAtTheLimitDoesNotLast() throws {
     let w = PlanLimits.Window(percent: 100, resetsAt: at(1_800_003_600))
-    let p = try #require(w.pace(length: PlanLimits.fiveHourLength, now: at(1_800_000_000)))
+    let p = try #require(w.pace(length: fiveHours, now: at(1_800_000_000)))
     #expect(!p.lasts)
     #expect(p.runsOutIn == 0)
 }
