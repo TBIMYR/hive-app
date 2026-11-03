@@ -12,7 +12,7 @@ struct Config {
     var output: Output = .eleven
     var model = "haiku"
     var locale = "de-DE"
-    var elevenVoice = "JBFqnCBsd6RMkjVDRZzb"        // a premade voice; any voice speaks German with the multilingual models
+    var elevenVoice = "EXAVITQu4vr4xnSDxMaL"        // premade "Sarah"; any voice speaks German with the multilingual models
     var elevenModel = "eleven_flash_v2_5"           // the low-latency model
     /// type instead of talking (stdin), for testing without a microphone
     var textMode = false
