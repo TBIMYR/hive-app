@@ -7,7 +7,10 @@
 # the default server, otherwise iTerm tab), waits for the process to end and closes
 # the tmux session or the tab. Without --force, refuses if the session is currently working,
 # still has background tasks running, or has no handover. The own session cannot be closed.
-# Environment: CC_HOME (default ~/.claude), CLAUDE_PID, CC_CLOSE_DRYRUN=1 only checks.
+# Background shells older than 6 hours count as forgotten (dev servers, hung tests): they are ended
+# together with the session instead of blocking it.
+# Environment: CC_HOME (default ~/.claude), CLAUDE_PID, CC_CLOSE_DRYRUN=1 only checks,
+# CC_CLOSE_STALE_AFTER (seconds, default 21600) for the age of a forgotten background shell.
 set -eu
 
 home="${CC_HOME:-$HOME/.claude}"
@@ -49,10 +52,33 @@ if [ "$force" -eq 0 ] && [ "$status" = "busy" ]; then
   echo "cc-close: '$name' is working right now; let it finish first or use --force" >&2
   exit 1
 fi
-# "shell": the main loop is idle, but background shell commands (e.g. a CI watch) are still running
-if [ "$force" -eq 0 ] && [ "$status" = "shell" ]; then
+# Seconds since a process started, from `ps -o etime=` ([[dd-]hh:]mm:ss)
+age() {
+  ps -o etime= -p "$1" 2>/dev/null | awk '{
+    n = split($1, a, /[-:]/); s = 0; m = (n == 4) ? 86400 : 0
+    if (n == 4) s = a[1] * 86400 + a[2] * 3600 + a[3] * 60 + a[4]
+    else if (n == 3) s = a[1] * 3600 + a[2] * 60 + a[3]
+    else s = a[1] * 60 + a[2]
+    print s }'
+}
+# Background shells of the Bash tool: children of the session whose command line sources a shell snapshot
+shells=""
+for c in $(pgrep -P "$pid" 2>/dev/null || true); do
+  ps -o command= -p "$c" 2>/dev/null | grep -q 'shell-snapshots/snapshot-' && shells="$shells $c"
+done
+stale_after="${CC_CLOSE_STALE_AFTER:-21600}"
+stale=""; fresh=""
+for c in $shells; do
+  if [ "$(age "$c")" -ge "$stale_after" ]; then stale="$stale $c"; else fresh="$fresh $c"; fi
+done
+# "shell": the main loop is idle, but background shell commands (e.g. a CI watch) are still running.
+# Only forgotten ones (all older than the limit) let the close go ahead.
+if [ "$force" -eq 0 ] && [ "$status" = "shell" ] && { [ -n "$fresh" ] || [ -z "$stale" ]; }; then
   echo "cc-close: '$name' still has background tasks running; let them finish first or use --force" >&2
   exit 1
+fi
+if [ "${CC_CLOSE_DRYRUN:-}" = "1" ] && [ -n "$stale" ]; then
+  echo "cc-close: would end forgotten background shells:$stale"
 fi
 if [ "$force" -eq 0 ] && [ ! -f "$home/handover/$name.md" ]; then
   echo "cc-close: '$name' has no handover; have it write /handover first or use --force" >&2
@@ -69,6 +95,16 @@ tty="/dev/${tty#/dev/}"
 if [ "${CC_CLOSE_DRYRUN:-}" = "1" ]; then
   echo "cc-close: would end '$name' (PID $pid, $tty)"
   exit 0
+fi
+
+# End forgotten background shells with everything they started (deepest first), so no dev server keeps its port
+killtree() {
+  for k in $(pgrep -P "$1" 2>/dev/null || true); do killtree "$k"; done
+  kill "$1" 2>/dev/null || true
+}
+if [ -n "$stale" ]; then
+  for c in $stale; do killtree "$c"; done
+  echo "cc-close: ended forgotten background shells (older than $((stale_after / 3600)) h):$stale"
 fi
 
 waitexit() {

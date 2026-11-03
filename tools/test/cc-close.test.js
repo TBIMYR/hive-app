@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const BIN = path.join(__dirname, '..', 'bin', 'cc-close');
 
@@ -38,6 +38,24 @@ test('working session or missing handover only with --force', () => {
   assert.doesNotMatch(run(shell, ['--force', 'lu.01']).stderr, /background tasks running/);
   const noHo = setup({ pid: process.pid, name: 'lu.01', status: 'idle' }, false);
   assert.match(run(noHo, ['lu.01']).stderr, /has no handover/);
+});
+
+test('forgotten background shells do not block the close, fresh ones do', async () => {
+  // a child of this process that looks like a Bash tool shell (sources a shell snapshot)
+  const child = spawn('sh', ['-c', 'sleep 30; : shell-snapshots/snapshot-zsh-1.sh']);
+  try {
+    await new Promise((r) => setTimeout(r, 200));
+    const home = setup({ pid: process.pid, name: 'lu.01', status: 'shell' });
+    const fresh = run(home, ['lu.01']);
+    assert.equal(fresh.status, 1);
+    assert.match(fresh.stderr, /background tasks running/);
+    const stale = run(home, ['lu.01'], { CC_CLOSE_STALE_AFTER: '0' });
+    // the dry run stops later at "no terminal" (the test has none); the shell check is passed
+    assert.doesNotMatch(stale.stderr, /background tasks running/);
+    assert.match(stale.stdout, new RegExp(`would end forgotten background shells: ${child.pid}`));
+  } finally {
+    child.kill();
+  }
 });
 
 test('two live entries with the same name → the one in tmux wins', () => {
