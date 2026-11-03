@@ -113,7 +113,7 @@ swift run HiveApp --select lu.04   # with a preselected session
 sh restart.sh                      # release build, install as /Applications/Hive.app and restart
                                     # (HIVE_INSTALL=~/Applications for another folder)
                                     # (quits only apps started from this folder, including the prototype)
-swift test                         # HiveCore tests
+swift test                         # HiveCore and VoiceKit tests
 ```
 
 Test instance alongside the main app (own bundle identifier, doesn't steal its notifications):
@@ -133,6 +133,14 @@ sh scripts/demo.sh stop   # quit it and remove the data
 
 App icon: `swift scripts/make-icon.swift Resources/AppIcon.iconset && iconutil -c icns Resources/AppIcon.iconset`.
 
+Talking to Hive (macOS 26): the waveform button in the title bar turns it on, Settings → Voice has the rest. Hold
+right ⌥ (or ⌃⌥Space), ask about the sessions in German, let go; Hive answers aloud, says by itself when a session
+needs you, and passes things on to a session only after your yes (a short answer to a waiting session goes out
+after a pause in which the key stops it). Speech recognition runs on the Mac (SpeechAnalyzer), the answers come
+from Claude through the `claude` CLI with your login, the voice is ElevenLabs (key in Settings, stored in the
+keychain) or the macOS voice. Right ⌥ needs Input Monitoring; `restart.sh` signs with an Apple Development
+certificate if there is one, so the permissions survive rebuilds.
+
 Attaching to a session from outside: `tmux -L hive attach -t '=<name>:'` (colon needed, otherwise tmux reads `.01` as a pane).
 
 ## Structure
@@ -141,6 +149,7 @@ Attaching to a session from outside: `tmux -L hive attach -t '=<name>:'` (colon 
   `~/.claude/projects`. Changes arrive via FSEvents.
 - `HiveApp`: SwiftUI window, terminal via SwiftTerm, handover view via MarkdownUI, and its own tmux
   server (`tmux -L hive`).
+- `VoiceKit`: the parts of talking to Hive that need no audio (sentences, markers, confirmation gate, spoken names).
 - `hive-state`: prints the state as JSON.
 
 ## Session tools

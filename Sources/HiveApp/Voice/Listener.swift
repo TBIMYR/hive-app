@@ -28,11 +28,11 @@ final class Listener {
         }
         let probe = SpeechTranscriber(locale: supported, preset: .progressiveTranscription)
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [probe]) {
-            log("downloading the speech model for \(supported.identifier) …")
+            voiceLog("downloading the speech model for \(supported.identifier) …")
             try await request.downloadAndInstall()
         }
         format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [probe])
-        log("speech recognition ready (\(supported.identifier))")
+        voiceLog("speech recognition ready (\(supported.identifier))")
     }
 
     func start() async throws {
@@ -71,7 +71,7 @@ final class Listener {
                         await MainActor.run { self?.onPartial?(shown) }
                     }
                 }
-            } catch { log("recognition: \(error.localizedDescription)") }
+            } catch { voiceLog("recognition: \(error.localizedDescription)") }
             return final
         }
         if !vocabulary.isEmpty {
@@ -111,10 +111,4 @@ final class Listener {
         }
         return error == nil && out.frameLength > 0 ? out : nil
     }
-}
-
-struct Failure: LocalizedError {
-    let message: String
-    init(_ message: String) { self.message = message }
-    var errorDescription: String? { message }
 }

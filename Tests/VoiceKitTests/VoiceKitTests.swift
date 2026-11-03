@@ -129,12 +129,12 @@ final class DialogReplyTests: XCTestCase {
     """)!
 
     func testNumberSpokenYesAlwaysAndNo() {
-        XCTAssertEqual(DialogReply.pick("1", in: approval)?.number, 1)
-        XCTAssertEqual(DialogReply.pick("Ja, erlaub das.", in: approval)?.number, 1)
-        XCTAssertEqual(DialogReply.pick("immer erlauben", in: approval)?.number, 2)
-        XCTAssertEqual(DialogReply.pick("Nein, nicht pushen", in: approval)?.number, 3)
-        XCTAssertNil(DialogReply.pick("Frag später nochmal", in: approval))
-        XCTAssertNil(DialogReply.pick("7", in: approval))
+        XCTAssertEqual(DialogReply.answer("1", in: approval), .option("Yes"))
+        XCTAssertEqual(DialogReply.answer("Ja, erlaub das.", in: approval), .permission(.allow))
+        XCTAssertEqual(DialogReply.answer("immer erlauben", in: approval), .permission(.alwaysAllow))
+        XCTAssertEqual(DialogReply.answer("Nein, nicht pushen", in: approval), .permission(.deny))
+        XCTAssertNil(DialogReply.answer("Frag später nochmal", in: approval))
+        XCTAssertNil(DialogReply.answer("7", in: approval))
     }
 
     func testDescribe() {

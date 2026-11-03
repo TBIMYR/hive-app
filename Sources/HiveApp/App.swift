@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let projects = ProjectInfoStore()
 
     let dock = DockStore()
+    /// Talking to Hive (macOS 26: SpeechAnalyzer); typed as AnyObject because stored properties can't be @available
+    private var voice: AnyObject?
+    private var voiceHUD: AnyObject?
 
     /// ⌘T: brings the selected session's notepad to the front with the cursor in it; once more goes back
     /// to what shares its tile (the terminal). In a collapsed tile it shows and hides the notepad on top.
@@ -38,6 +41,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        if #available(macOS 26, *) {
+            let v = VoiceController(store: store)
+            voice = v
+            voiceHUD = VoiceHUD(voice: v)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
@@ -124,6 +132,9 @@ struct SettingsView: View {
             page { general }.tabItem { Label("General", systemImage: "gearshape") }
             page { notifications }.tabItem { Label("Notifications", systemImage: "bell") }
             page { display }.tabItem { Label("Display", systemImage: "eye") }
+            if #available(macOS 26, *) {
+                page { VoiceSettingsView() }.tabItem { Label("Voice", systemImage: "waveform") }
+            }
         }
     }
 
@@ -273,6 +284,18 @@ struct ContentView: View {
               : "Keeps the Mac awake as soon as a session works. Click to keep it awake always.")
     }
 
+    @AppStorage(VoiceSettings.enabledKey) private var voiceOn = false
+
+    /// Talk to Hive on/off; while on, the push-to-talk key works everywhere.
+    private var voiceButton: some View {
+        Button { voiceOn.toggle() } label: {
+            Label("Voice", systemImage: voiceOn ? "waveform.circle.fill" : "waveform.circle")
+                .foregroundStyle(voiceOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+        }
+        .help(voiceOn ? "Talking to Hive is on: \(VoiceSettings.trigger.hint.lowercased()) and speak. Click to turn off; more in Settings → Voice."
+              : "Talk to Hive: hold a key, ask about your sessions, pass things on. Click to turn on.")
+    }
+
     /// Sleep When Done: armed once, off again after the Mac slept or the grace period was cancelled.
     private var sleepButton: some View {
         Button { store.setSleepWhenDone(!store.sleepWhenDone.armed) } label: {
@@ -295,6 +318,7 @@ struct ContentView: View {
                 ToolbarItem(placement: .automatic) { UsageButton() }
                 ToolbarSpacer(.fixed)
             }
+            ToolbarItem(placement: .automatic) { voiceButton }
             ToolbarItem(placement: .automatic) { awakeButton }
             ToolbarItem(placement: .automatic) { sleepButton }
             ToolbarItem(placement: .automatic) { newSessionButton }

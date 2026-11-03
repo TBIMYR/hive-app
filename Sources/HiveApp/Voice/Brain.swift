@@ -1,18 +1,21 @@
 import Foundation
+import HiveCore
 
 /// Claude as one long-running `claude -p` process in stream-json mode: it starts once,
 /// keeps the conversation and streams every answer token by token. Uses the normal Claude login, no API key.
+/// After `idleAfter` without a question it quits; the next question starts it again (and the conversation anew).
 @MainActor
 final class Brain {
-    private let model: String
+    static let idleAfter: TimeInterval = 10 * 60
     private var process: Process?
+    private var idleTimer: Timer?
     private var stdin: FileHandle?
     private var lineBuffer = Data()
     private var onDelta: ((String) -> Void)?
     private var onDone: ((String) -> Void)?
     private var answer = ""
 
-    init(model: String) { self.model = model }
+    init() {}
 
     static let systemPrompt = """
     You are the voice of Hive, a Mac app that watches the user's Claude Code sessions. The user talks to you \
@@ -56,21 +59,30 @@ final class Brain {
     [HIVE] lines.
     """
 
+    /// The login PATH often lacks it (npm puts it in a folder that only .zshrc adds), so also the usual places.
+    static let claudePath: String? = {
+        let usual = ["~/.npm-global/bin", "~/.local/bin", "~/.claude/local", "/opt/homebrew/bin", "/usr/local/bin"]
+            .map { NSString(string: $0).expandingTildeInPath }.joined(separator: ":")
+        return LoginShell.findExecutable("claude", path: [LoginShell.path ?? "", usual].joined(separator: ":"))
+    }()
+
     func start() {
         guard process == nil else { return }
+        let model = VoiceSettings.model
+        guard let claude = Self.claudePath else {
+            voiceLog("claude not found in the login PATH")
+            return
+        }
         let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        p.arguments = ["claude", "-p", "--model", model,
+        p.executableURL = URL(fileURLWithPath: claude)
+        p.arguments = ["-p", "--model", model,
                        "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                        "--include-partial-messages", "--no-session-persistence",
                        "--setting-sources", "", "--strict-mcp-config", "--tools", "",
                        "--system-prompt", Self.systemPrompt]
         // a neutral folder, so no project's CLAUDE.md is read
         p.currentDirectoryURL = FileManager.default.temporaryDirectory
-        var env = ProcessInfo.processInfo.environment
-        env["PATH"] = (env["PATH"] ?? "") + ":" + NSString(string: "~/.npm-global/bin:~/.local/bin").expandingTildeInPath
-            + ":/opt/homebrew/bin:/usr/local/bin"
-        p.environment = env
+        p.environment = Tmux.environment()
         let input = Pipe(), output = Pipe()
         p.standardInput = input
         p.standardOutput = output
@@ -81,20 +93,31 @@ final class Brain {
         }
         p.terminationHandler = { [weak self] proc in
             Task { @MainActor in
-                log("claude exited (\(proc.terminationStatus)), restarting with the next question")
+                voiceLog("claude exited (\(proc.terminationStatus))")
                 self?.process = nil
+                self?.stdin = nil
                 self?.finish()
             }
         }
-        do { try p.run() } catch { log("could not start claude: \(error.localizedDescription)"); return }
+        do { try p.run() } catch { voiceLog("could not start claude: \(error.localizedDescription)"); return }
         process = p
         stdin = input.fileHandleForWriting
-        log("claude started (\(model))")
+        voiceLog("claude started (\(model))")
+    }
+
+    /// Quits the process (voice turned off, model changed, or idle for a while).
+    func stop() {
+        idleTimer?.invalidate()
+        process?.terminate()
     }
 
     /// Sends one turn; `delta` gets the text as it streams, `done` the whole answer.
     func ask(_ text: String, delta: @escaping (String) -> Void, done: @escaping (String) -> Void) {
         start()
+        idleTimer?.invalidate()
+        idleTimer = Timer.scheduledTimer(withTimeInterval: Self.idleAfter, repeats: false) { [weak self] _ in
+            Task { @MainActor in if self?.isBusy == false { self?.stop() } }
+        }
         onDelta = delta
         onDone = done
         answer = ""

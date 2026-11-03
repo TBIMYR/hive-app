@@ -28,7 +28,7 @@ final class AppleSpeaker: NSObject, Speaker, AVSpeechSynthesizerDelegate {
         super.init()
         synth.delegate = self
         if voice?.quality != .premium {
-            log("tip: a Premium German voice sounds much better – System Settings → Accessibility → Spoken Content → System voice → Manage Voices → German")
+            voiceLog("tip: a Premium German voice sounds much better – System Settings → Accessibility → Spoken Content → System voice → Manage Voices → German")
         }
     }
 
@@ -57,9 +57,10 @@ final class AppleSpeaker: NSObject, Speaker, AVSpeechSynthesizerDelegate {
 /// is already loading while the first plays); the audio streams as raw PCM and is played in order.
 @MainActor
 final class ElevenSpeaker: Speaker {
-    private let voiceID: String
-    private let model: String
-    private let key: String?
+    /// read again for every sentence, so a change in Settings counts right away
+    var voiceID = VoiceSettings.elevenVoice
+    var model = VoiceSettings.elevenModel
+    private(set) var key: String?
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 24_000, channels: 1, interleaved: false)!
@@ -71,15 +72,15 @@ final class ElevenSpeaker: Speaker {
     let name: String
     var onError: ((String) -> Void)?
 
-    init(voiceID: String, model: String) {
-        self.voiceID = voiceID
-        self.model = model
-        key = Secrets.elevenLabsKey()
-        name = "ElevenLabs \(model)"
+    /// the key is read on `reloadKey()` (when voice turns on), so the keychain asks only then
+    init() {
+        name = "ElevenLabs"
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
-        if key == nil { log("no ElevenLabs key found (Keychain item \"\(Secrets.keychainService)\" or \(Secrets.keyFile))") }
     }
+
+    /// after the key was saved or removed in Settings
+    func reloadKey() { key = VoiceKeychain.read() }
 
     var hasKey: Bool { key != nil }
     var isSpeaking: Bool { scheduled > 0 || loading > 0 }
@@ -89,7 +90,7 @@ final class ElevenSpeaker: Speaker {
         if !engine.isRunning { try? engine.start() }
         let gen = generation
         let started = Date()
-        let audio = Self.stream(text: sentence, previous: previous, voice: voiceID, model: model, key: key)
+        let audio = Self.stream(text: sentence, previous: previous, voice: VoiceSettings.elevenVoice, model: model, key: key)
         previous = sentence
         let before = chain
         loading += 1
@@ -99,13 +100,14 @@ final class ElevenSpeaker: Speaker {
             do {
                 for try await chunk in audio {
                     guard let self, gen == self.generation else { return }
-                    if first { first = false; log(String(format: "ElevenLabs first audio after %.2fs", Date().timeIntervalSince(started))) }
+                    if first { first = false; voiceLog(String(format: "ElevenLabs first audio after %.2fs", Date().timeIntervalSince(started))) }
                     self.play(chunk, gen: gen)
                 }
             } catch is CancellationError {
             } catch {
-                log("ElevenLabs: \(error.localizedDescription)")
-                self?.onError?("ElevenLabs antwortet nicht.")
+                voiceLog("ElevenLabs: \(error.localizedDescription)")
+                self?.onError?((error as? Failure)?.message.contains("HTTP 401") == true
+                               ? "Der ElevenLabs-Schlüssel stimmt nicht." : "ElevenLabs antwortet nicht.")
             }
             if let self, gen == self.generation { self.loading -= 1 }
         }
@@ -138,8 +140,6 @@ final class ElevenSpeaker: Speaker {
     }
 
     /// Raw 16-bit PCM at 24 kHz in chunks of about 100 ms.
-    nonisolated(unsafe) static var stability = 0.3
-
     nonisolated static func stream(text: String, previous: String, voice: String, model: String, key: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { cont in
             let task = Task {
@@ -149,7 +149,7 @@ final class ElevenSpeaker: Speaker {
                 req.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 var body: [String: Any] = ["text": text, "model_id": model, "language_code": "de",
                                            // less stability = livelier, less like reading the news
-                                           "voice_settings": ["stability": Self.stability, "similarity_boost": 0.75,
+                                           "voice_settings": ["stability": VoiceSettings.stability, "similarity_boost": 0.75,
                                                               "style": 0.35, "use_speaker_boost": true, "speed": 1.05]]
                 if !previous.isEmpty { body["previous_text"] = previous }
                 req.httpBody = try? JSONSerialization.data(withJSONObject: body)

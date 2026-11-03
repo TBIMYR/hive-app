@@ -32,7 +32,7 @@ final class Hotkeys {
             var ref: EventHotKeyRef?
             let status = RegisterEventHotKey(UInt32(k.code), UInt32(k.modifiers), EventHotKeyID(signature: 0x48565643, id: k.id),
                                              GetApplicationEventTarget(), 0, &ref)
-            if status != noErr { log("hotkey \(k.id) could not be registered (\(status)), taken by another app?") }
+            if status != noErr { voiceLog("hotkey \(k.id) could not be registered (\(status)), taken by another app?") }
             if let ref { refs.append(ref) }
         }
     }

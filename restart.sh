@@ -3,7 +3,7 @@
 #   sh restart.sh          build + restart
 #   sh restart.sh --build  only build and package
 # The main app is a release build installed as /Applications/Hive.app (start it via Spotlight or the Dock).
-# Notifications need a bundle identifier, hence a local, ad-hoc-signed bundle.
+# Notifications need a bundle identifier, hence a local bundle (signed with a development certificate if there is one).
 # Test instance alongside the main app (own identifier, doesn't steal its notifications):
 #   HIVE_APP=HiveApp-dev HIVE_BUNDLE_ID=io.github.tbimyr.hive-app.dev sh restart.sh
 set -eu
@@ -54,10 +54,15 @@ cat > "$new/Contents/Info.plist" <<EOF
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSMicrophoneUsageDescription</key><string>Talk to Hive: Hive listens while you hold the push-to-talk key.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>Talk to Hive: your speech is transcribed on this Mac.</string>
 </dict>
 </plist>
 EOF
-codesign --force -s - "$new"
+# A development certificate keeps the bundle's identity across rebuilds, so macOS keeps the microphone and
+# Input Monitoring permissions; ad hoc (-) every build counts as a new app. HIVE_SIGN names another identity.
+sign="${HIVE_SIGN:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/"Apple Development/ { print $2; exit }')}"
+codesign --force -s "${sign:--}" "$new"
 # an mv onto an existing bundle would nest the new one inside it, so remove it first
 rm -rf "$app"
 mv "$new" "$app"
