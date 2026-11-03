@@ -12,6 +12,7 @@ enum VoiceSettings {
     static let stabilityKey = "voiceStability"
     static let followUpKey = "voiceFollowUp"
     static let announceDoneKey = "voiceAnnounceDone"
+    static let userNameKey = "voiceUserName"
 
     /// premade "Sarah"; with a paid ElevenLabs plan any library voice works too
     static let defaultVoice = "EXAVITQu4vr4xnSDxMaL"
@@ -33,6 +34,11 @@ enum VoiceSettings {
     /// after an answer the microphone stays open briefly, so the user can just answer
     static var followUp: Bool { d.object(forKey: followUpKey) as? Bool ?? true }
     static var stability: Double { d.object(forKey: stabilityKey) as? Double ?? 0.3 }
+    /// how Hive calls the user; lives only in this Mac's settings, never in the prompt source
+    static var userName: String? {
+        let n = d.string(forKey: userNameKey)?.trimmingCharacters(in: .whitespaces) ?? ""
+        return n.isEmpty ? nil : n
+    }
 
     enum Trigger: String, CaseIterable {
         case rightOption, controlOptionSpace

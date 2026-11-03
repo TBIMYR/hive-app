@@ -232,6 +232,9 @@ final class VoiceController: ObservableObject {
                 guard let s = session(name), let dialog = await store.dialog(s) else { continue }
                 prompt += "[HIVE] \(name) shows a choice dialog: \(DialogReply.describe(dialog))\n"
             }
+            if let me = VoiceSettings.userName {
+                prompt += "[HIVE] the user is \(me); call them by name now and then, not in every answer\n"
+            }
             if let p = handoff.pending { prompt += "[HIVE] proposal waiting for a yes: to \(p.to): \(p.text)\n" }
             if let focus { prompt += "[HIVE] focus: \(focus) (you announced it last; a reply without a name means this session)\n" }
             if let open = store.selected, open != focus { prompt += "[HIVE] open in the Hive window: \(open)\n" }

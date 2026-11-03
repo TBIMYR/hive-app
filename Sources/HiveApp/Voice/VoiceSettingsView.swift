@@ -17,6 +17,7 @@ struct VoiceSettingsView: View {
     @AppStorage(VoiceSettings.elevenVoiceKey) private var voiceID = ""
     @AppStorage(VoiceSettings.stabilityKey) private var stability = 0.3
     @AppStorage(VoiceSettings.modelKey) private var model = "haiku"
+    @AppStorage(VoiceSettings.userNameKey) private var userName = ""
     @State private var newKey = ""
     @State private var hasKey = VoiceKeychain.read() != nil
 
@@ -25,6 +26,10 @@ struct VoiceSettingsView: View {
             Toggle(isOn: $enabled) {
                 Text("Talk to Hive")
                 Text("Hold the key, speak, let go. Hive answers aloud and knows every session; it passes things on only after your yes. Speech is recognised on this Mac, the answers come from Claude with your normal login.")
+            }
+            TextField(text: $userName, prompt: Text("Optional")) {
+                Text("Your name")
+                Text("Hive calls you by it now and then. Stays in this Mac's settings.")
             }
             Picker(selection: $trigger) {
                 ForEach(VoiceSettings.Trigger.allCases, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
