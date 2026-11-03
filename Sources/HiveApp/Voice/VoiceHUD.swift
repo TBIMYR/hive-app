@@ -34,7 +34,7 @@ final class VoiceHUD {
 
     private func show() {
         if panel == nil {
-            let size = NSSize(width: VoicePill.width + 2 * VoicePill.margin, height: 240)
+            let size = NSSize(width: VoicePill.width + 2 * VoicePill.margin, height: VoicePill.panelHeight)
             let p = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             p.isOpaque = false
@@ -62,6 +62,9 @@ struct VoicePill: View {
     static let width: CGFloat = 460
     /// room around the card for its shadow (like FloatingCard)
     static let margin: CGFloat = 24
+    static let maxLines = 10
+    /// tall enough for maxLines plus title and sub line; the panel is transparent and lets clicks through
+    static let panelHeight: CGFloat = 420
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 16)
@@ -73,11 +76,13 @@ struct VoicePill: View {
                 Text(VoiceSettings.trigger.hint).font(.system(size: 11)).foregroundStyle(Hive.idle)
             }
             if !line.isEmpty {
-                Text(line).font(.system(size: 14)).foregroundStyle(Hive.ink).lineLimit(4)
+                // while listening the newest words matter, so a long transcript loses its start, not its end
+                Text(line).font(.system(size: 14)).foregroundStyle(Hive.ink).lineLimit(Self.maxLines)
+                    .truncationMode(voice.phase == .listening ? .head : .tail)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let sub {
-                Text(sub).font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(2)
+                Text(sub).font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
