@@ -25,9 +25,20 @@ final class VoiceController: ObservableObject {
     @Published private(set) var problem: String?
     @Published private(set) var needsInputMonitoring = false
     @Published private(set) var hasElevenKey = false
+    /// listening without the key (conversation mode): ends by itself on a pause
+    @Published private(set) var handsFree = false
+    private var listenStarted = Date()
+    private var heardChanged = Date()
+    /// since when the voice has been silent, so the microphone doesn't catch the end of its own sentence
+    private var quietSince: Date?
+    static let echoGap: TimeInterval = 0.4
 
     /// pause after a quick reply has been read out, in which pressing the key still stops it
     static let stopWindow: Duration = .seconds(2.5)
+    /// conversation mode: how long the microphone stays open after an answer if nobody speaks,
+    /// and how long a pause ends what was said
+    static let followUpWait: TimeInterval = 6
+    static let endOfSpeech: TimeInterval = 1.2
 
     private unowned let store: StateStore
     private let listener = Listener(locale: VoiceSettings.locale)
@@ -57,7 +68,11 @@ final class VoiceController: ObservableObject {
 
     init(store: StateStore) {
         self.store = store
-        listener.onPartial = { [weak self] in self?.heard = $0 }
+        listener.onPartial = { [weak self] text in
+            guard let self, text != self.heard else { return }
+            self.heard = text
+            self.heardChanged = Date()
+        }
         eleven.onError = { [weak self] msg in self?.apple.say(msg) }
         key.onPress = { [weak self] in self?.talkPressed() }
         key.onRelease = { [weak self] in self?.talkReleased() }
@@ -142,8 +157,17 @@ final class VoiceController: ObservableObject {
             apple.say(problem ?? "Die Spracherkennung lädt noch.")
             return
         }
+        // already listening hands-free: the key takes over, its release ends it
+        if phase == .listening { handsFree = false; return }
+        startListening(handsFree: false)
+    }
+
+    private func startListening(handsFree: Bool) {
         heard = ""
         answer = ""
+        self.handsFree = handsFree
+        listenStarted = Date()
+        heardChanged = Date()
         phase = .listening
         Task {
             do { try await listener.start() } catch {
@@ -155,6 +179,7 @@ final class VoiceController: ObservableObject {
 
     private func talkReleased() {
         guard phase == .listening else { return }
+        handsFree = false
         Task {
             let text = await listener.stop()
             heard = text
@@ -166,6 +191,7 @@ final class VoiceController: ObservableObject {
     /// Right ⌥ was part of a key combination (e.g. ⌥L for @): throw the recording away.
     private func talkCancelled() {
         guard phase == .listening else { return }
+        handsFree = false
         Task {
             _ = await listener.stop()
             heard = ""
@@ -352,7 +378,19 @@ final class VoiceController: ObservableObject {
         switch phase {
         case .thinking where speaker.isSpeaking: phase = .speaking
         case .thinking where !inTurn: phase = .idle
-        case .speaking where !speaker.isSpeaking && !inTurn: phase = .idle
+        case .speaking where speaker.isSpeaking || inTurn:
+            quietSince = nil
+        case .speaking:
+            let quiet = quietSince ?? Date()
+            quietSince = quiet
+            guard Date().timeIntervalSince(quiet) >= Self.echoGap else { break }
+            quietSince = nil
+            // conversation mode: the user can just answer, no key needed
+            if VoiceSettings.followUp, listenerReady, sending == nil { startListening(handsFree: true) } else { phase = .idle }
+        case .listening where handsFree:
+            let now = Date()
+            if heard.isEmpty, now.timeIntervalSince(listenStarted) > Self.followUpWait { talkCancelled() }
+            else if !heard.isEmpty, now.timeIntervalSince(heardChanged) > Self.endOfSpeech { talkReleased() }
         case .idle: announceNext()
         default: break
         }

@@ -93,7 +93,7 @@ struct VoicePill: View {
     private var title: String {
         if let m = voice.sending { return "To \(m.to) in a moment" }
         switch voice.phase {
-        case .listening: return "Listening"
+        case .listening: return voice.handsFree ? "Listening – just answer" : "Listening"
         case .thinking: return "Thinking"
         case .countdown: return "Sending"
         default: return voice.focus.map { "Hive · \($0)" } ?? "Hive"

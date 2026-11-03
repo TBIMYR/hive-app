@@ -11,6 +11,7 @@ struct VoiceSettingsView: View {
     @AppStorage(VoiceSettings.enabledKey) private var enabled = false
     @AppStorage(VoiceSettings.triggerKey) private var trigger = VoiceSettings.Trigger.rightOption.rawValue
     @AppStorage(VoiceSettings.announceKey) private var announce = true
+    @AppStorage(VoiceSettings.followUpKey) private var followUp = true
     @AppStorage(VoiceSettings.outputKey) private var output = VoiceSettings.Output.eleven.rawValue
     @AppStorage(VoiceSettings.elevenVoiceKey) private var voiceID = ""
     @AppStorage(VoiceSettings.stabilityKey) private var stability = 0.3
@@ -34,6 +35,10 @@ struct VoiceSettingsView: View {
                 Button("Open Input Monitoring Settings") {
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
                 }
+            }
+            Toggle(isOn: $followUp) {
+                Text("Just answer, without the key")
+                Text("After Hive spoke, the microphone stays open for a few seconds; a pause ends what you said. Starting a conversation still takes the key.")
             }
             Toggle(isOn: $announce) {
                 Text("Speak up when a session needs me")

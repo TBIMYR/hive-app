@@ -10,6 +10,7 @@ enum VoiceSettings {
     static let elevenVoiceKey = "voiceElevenVoice"
     static let modelKey = "voiceModel"
     static let stabilityKey = "voiceStability"
+    static let followUpKey = "voiceFollowUp"
 
     /// premade "Sarah"; with a paid ElevenLabs plan any library voice works too
     static let defaultVoice = "EXAVITQu4vr4xnSDxMaL"
@@ -27,6 +28,8 @@ enum VoiceSettings {
         return v.isEmpty ? defaultVoice : v
     }
     static var model: String { d.string(forKey: modelKey) ?? "haiku" }
+    /// after an answer the microphone stays open briefly, so the user can just answer
+    static var followUp: Bool { d.object(forKey: followUpKey) as? Bool ?? true }
     static var stability: Double { d.object(forKey: stabilityKey) as? Double ?? 0.3 }
 
     enum Trigger: String, CaseIterable {
