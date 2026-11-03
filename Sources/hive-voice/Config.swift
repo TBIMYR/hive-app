@@ -18,7 +18,7 @@ struct Config {
     var textMode = false
 
     static let usage = """
-    hive-voice [--output apple|eleven] [--model haiku|sonnet|…] [--voice-id ID] [--eleven-model ID] [--text]
+    hive-voice [--output apple|eleven] [--model haiku|sonnet|…] [--voice-id ID] [--eleven-model ID] [--text] [--names]
       hold ⌃⌥Space to talk, ⌃⌥V switches the output, ⌃⌥Q quits
     """
 

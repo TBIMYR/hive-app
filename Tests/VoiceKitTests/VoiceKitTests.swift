@@ -142,7 +142,51 @@ final class DialogReplyTests: XCTestCase {
     }
 }
 
+final class SpokenNamesTests: XCTestCase {
+    let sessions = [
+        Session(name: "lu.01", project: "lumen", group: "lumen"),
+        Session(name: "lu.pm", project: "lumen", group: "lumen", isPm: true),
+        Session(name: "or.12", project: "orbit", group: "orbit"),
+        Session(name: "helper.02", project: "fjord", group: "fjord"),
+        Session(name: "kiosk", project: "kiosk", group: "kiosk"),
+    ]
+
+    func testProjectNameAndNumberAsWords() {
+        let n = SpokenNames(sessions)
+        XCTAssertEqual(n.spoken["lu.01"], "Lumen eins")
+        XCTAssertEqual(n.spoken["lu.pm"], "Lumen PM")
+        XCTAssertEqual(n.spoken["or.12"], "Orbit zwölf")
+        XCTAssertEqual(n.spoken["helper.02"], "Helper zwei")
+        XCTAssertEqual(n.spoken["kiosk"], "kiosk")
+        XCTAssertEqual(SpokenNames([Session(name: "ki.web-sync", group: "kiosk")]).spoken["ki.web-sync"], "ki web sync")
+    }
+
+    func testOwnNamesForPrefixOrWholeName() {
+        let n = SpokenNames(sessions, overrides: ["lu": "Luna", "or.12": "die Zwölf"])
+        XCTAssertEqual(n.spoken["lu.01"], "Luna eins")
+        XCTAssertEqual(n.spoken["or.12"], "die Zwölf")
+    }
+
+    func testSoundalikesKeepTheirRealNames() {
+        let n = SpokenNames([Session(name: "lu.01", project: "lumen", group: "lumen"),
+                             Session(name: "lumen.01", project: "lumen", group: "lumen")])
+        XCTAssertEqual(n.spoken["lu.01"], "lu.01")
+        XCTAssertEqual(n.spoken["lumen.01"], "lumen.01")
+    }
+
+    func testReplacesNamesInASentence() {
+        let n = SpokenNames(sessions)
+        XCTAssertEqual(n.speakable("Lu.01 wartet, lu.pm auch. An or.12: Ja."), "Lumen eins wartet, Lumen PM auch. An Orbit zwölf: Ja.")
+        XCTAssertEqual(n.speakable("Datei lu.01.txt bleibt"), "Datei lu.01.txt bleibt")
+    }
+}
+
 final class StateSummaryTests: XCTestCase {
+    func testAddsTheSpokenName() {
+        let s = Session(name: "lu.01", project: "lumen", group: "lumen", alive: true, status: "idle")
+        XCTAssertEqual(StateSummary.lines([s], names: SpokenNames([s])), "- lu.01 [project lumen] spoken \"Lumen eins\"; status: idle")
+    }
+
     func testListsRunningSessionsAndOfflineNames() {
         let busy = Session(name: "lu.01", project: "lumen", group: "lumen", alive: true, status: "busy",
                            task: .init(text: "Login page", state: "working", updatedAt: nil, stale: false))

@@ -33,7 +33,9 @@ final class Conversation: ObservableObject {
     private let eleven: ElevenSpeaker
     private var handoff = Handoff()
     private var notes: [String] = []         // app events for the next turn ("[HIVE] sent to …")
-    private var sessions: [Session] = []
+    private var sessions: [Session] = [] { didSet { names = SpokenNames(sessions, overrides: overrides); listener.vocabulary = Array(names.spoken.values) } }
+    private var names = SpokenNames([])
+    private let overrides = SpokenNames.loadOverrides()
     private var discard = false              // barge-in during an answer: drop the rest of it
     private var queued: String?
     private var inTurn = false
@@ -145,7 +147,7 @@ final class Conversation: ObservableObject {
                 return (all, d)
             }.value
             sessions = state
-            var prompt = "[HIVE STATE \(Date().formatted(date: .omitted, time: .shortened))]\n\(StateSummary.lines(state))\n"
+            var prompt = "[HIVE STATE \(Date().formatted(date: .omitted, time: .shortened))]\n\(StateSummary.lines(state, names: names))\n"
             for (name, options) in dialogs.sorted(by: { $0.key < $1.key }) {
                 prompt += "[HIVE] \(name) shows a choice dialog: \(options)\n"
             }
@@ -195,19 +197,22 @@ final class Conversation: ObservableObject {
                 firstSentence = false
                 log(String(format: "first sentence after %.2fs", Date().timeIntervalSince(asked)))
             }
-            speaker.say(s)
+            voice(s)
         }
     }
+
+    /// Everything the voice says goes through here, so session names are spoken as words.
+    private func voice(_ text: String) { speaker.say(names.speakable(text)) }
 
     private func deliver(_ msg: Handoff.Message) {
         if let why = Delivery.send(msg.text, to: msg.to, sessions: sessions) {
             log("not sent to \(msg.to): \(why)")
             notes.append("sending to \(msg.to) FAILED: \(why)")
-            speaker.say(why)
+            voice(why)
         } else {
             log("sent to \(msg.to): \(msg.text)")
             notes.append("message delivered to \(msg.to): \(msg.text)")
-            speaker.say("Ist an \(msg.to) raus.")
+            voice("Ist an \(msg.to) raus.")
         }
     }
 

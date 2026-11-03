@@ -4,6 +4,8 @@
 #   sh tools/voice/hive-voice.sh                     ElevenLabs (falls back to the macOS voice without a key)
 #   sh tools/voice/hive-voice.sh --output apple      macOS voice
 #   sh tools/voice/hive-voice.sh --text              type instead of talking (no microphone)
+#   sh tools/voice/hive-voice.sh --names             how the voice says each session; own names in
+#                                                    ~/.config/hive-voice/names.json, e.g. {"lu": "Luna", "or.pm": "Chefin"}
 # More options: --model sonnet, --voice-id <ElevenLabs voice>, --eleven-model <model>.
 set -eu
 cd "$(dirname "$0")/../.."
@@ -30,7 +32,7 @@ EOF
 codesign --force --sign - "$app" >/dev/null 2>&1
 
 case " $* " in
-  *" --text "*) exec "$app/Contents/MacOS/hive-voice" "$@" ;;   # stdin must stay with this terminal
+  *" --text "*|*" --names "*) exec "$app/Contents/MacOS/hive-voice" "$@" ;;   # stdin must stay with this terminal
 esac
 tty=$(tty)
 trap 'pkill -f "$app/Contents/MacOS/hive-voice" || true' INT TERM

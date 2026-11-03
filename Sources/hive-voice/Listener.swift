@@ -14,6 +14,8 @@ final class Listener {
     private var collector: Task<String, Never>?
     private var format: AVAudioFormat?
     var onPartial: ((String) -> Void)?
+    /// words the recogniser should expect (the spoken session names)
+    var vocabulary: [String] = []
 
     init(locale: String) { self.locale = Locale(identifier: locale) }
 
@@ -71,6 +73,11 @@ final class Listener {
                 }
             } catch { log("recognition: \(error.localizedDescription)") }
             return final
+        }
+        if !vocabulary.isEmpty {
+            let context = AnalysisContext()
+            context.contextualStrings[.general] = vocabulary
+            try? await analyzer.setContext(context)
         }
         try await analyzer.start(inputSequence: stream)
     }

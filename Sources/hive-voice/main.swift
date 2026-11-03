@@ -1,6 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
+import HiveCore
 import SwiftUI
+import VoiceKit
 
 // Voice prototype for Hive: a small floating window next to the app, not part of it yet.
 // Start with `sh tools/voice/hive-voice.sh` (builds, wraps it in an app bundle for the permissions and starts it).
@@ -110,4 +112,10 @@ func runApp() {
     }
 }
 
+// --names: how the voice says each session, then quit
+if CommandLine.arguments.contains("--names") {
+    let names = SpokenNames(StateBuilder.build().sessions, overrides: SpokenNames.loadOverrides())
+    for (name, spoken) in names.spoken.sorted(by: { $0.key < $1.key }) { print("\(name)\t→ \(spoken)") }
+    exit(0)
+}
 if #available(macOS 26, *) { runApp() } else { print("hive-voice needs macOS 26 (SpeechAnalyzer)") }
