@@ -1,8 +1,8 @@
 #!/bin/sh
 # hive-voice.sh — voice prototype for Hive: build, wrap in a small app bundle (so macOS asks for the microphone
 # and speech recognition for this app) and start it. The log goes to this terminal; Ctrl-C or ⌃⌥Q quits.
-#   sh tools/voice/hive-voice.sh                     macOS voice
-#   sh tools/voice/hive-voice.sh --output eleven     ElevenLabs
+#   sh tools/voice/hive-voice.sh                     ElevenLabs (falls back to the macOS voice without a key)
+#   sh tools/voice/hive-voice.sh --output apple      macOS voice
 #   sh tools/voice/hive-voice.sh --text              type instead of talking (no microphone)
 # More options: --model sonnet, --voice-id <ElevenLabs voice>, --eleven-model <model>.
 set -eu

@@ -9,7 +9,7 @@ enum Output: String, CaseIterable {
 
 /// Settings from the command line, e.g. `hive-voice --output eleven --model haiku`.
 struct Config {
-    var output: Output = .apple
+    var output: Output = .eleven
     var model = "haiku"
     var locale = "de-DE"
     var elevenVoice = "JBFqnCBsd6RMkjVDRZzb"        // a premade voice; any voice speaks German with the multilingual models

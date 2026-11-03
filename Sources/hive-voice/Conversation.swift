@@ -37,6 +37,10 @@ final class Conversation: ObservableObject {
         brain = Brain(model: config.model)
         apple = AppleSpeaker(locale: config.locale)
         eleven = ElevenSpeaker(voiceID: config.elevenVoice, model: config.elevenModel)
+        if output == .eleven, !eleven.hasKey {
+            output = .apple
+            problem = "No ElevenLabs key – using the macOS voice"
+        }
         listener.onPartial = { [weak self] in self?.heard = $0 }
         eleven.onError = { [weak self] msg in self?.apple.say(msg) }
         Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
