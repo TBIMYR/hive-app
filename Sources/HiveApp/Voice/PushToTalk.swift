@@ -53,21 +53,24 @@ final class PushToTalk {
         needsPermission = false
     }
 
+    /// Trying to create the tap is what puts Hive into the Input Monitoring list; without the permission it fails,
+    /// so ask once and try again every few seconds: granted in System Settings, it works without a restart.
     private func installTap() {
-        if !CGPreflightListenEventAccess() {
-            needsPermission = true
-            CGRequestListenEventAccess()
-            // granted in System Settings: try again until it works, no restart needed
-            retry = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-                Task { @MainActor in
-                    guard let self, CGPreflightListenEventAccess() else { return }
-                    self.retry?.invalidate()
-                    self.retry = nil
-                    self.installTap()
-                }
+        guard !createTap() else { return }
+        needsPermission = true
+        voiceLog("no Input Monitoring permission yet")
+        CGRequestListenEventAccess()
+        retry = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.trigger == .rightOption, self.createTap() else { return }
+                self.retry?.invalidate()
+                self.retry = nil
+                voiceLog("Input Monitoring granted, right ⌥ works")
             }
-            return
         }
+    }
+
+    private func createTap() -> Bool {
         let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
         let me = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly,
@@ -79,17 +82,14 @@ final class PushToTalk {
                 Unmanaged<PushToTalk>.fromOpaque(user).takeUnretainedValue().handle(type, code: code, flags: flags)
             }
             return Unmanaged.passUnretained(event)
-        }, userInfo: me) else {
-            needsPermission = true
-            voiceLog("event tap not possible (Input Monitoring?)")
-            return
-        }
+        }, userInfo: me) else { return false }
         let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         self.tap = tap
         self.source = source
         needsPermission = false
+        return true
     }
 
     private func handle(_ type: CGEventType, code: Int64, flags: UInt64) {

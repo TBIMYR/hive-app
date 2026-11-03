@@ -81,7 +81,12 @@ final class VoiceController: ObservableObject {
             return
         }
         key.start(VoiceSettings.trigger)
-        if phase == .off { turnOn() }
+        if phase == .off {
+            turnOn()
+            if needsInputMonitoring {
+                apple.say("Für die rechte Wahltaste braucht Hive die Eingabeüberwachung. Schalt Hive dort in den Systemeinstellungen ein.")
+            }
+        }
         // the next question starts Claude with the new model (and a new conversation)
         if VoiceSettings.model != model { model = VoiceSettings.model; brain.stop() }
     }
