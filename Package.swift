@@ -23,6 +23,10 @@ let package = Package(
         ),
         // Prints the state like GET /api/state, for comparison with the Node server
         .executableTarget(name: "hive-state", dependencies: ["HiveCore"]),
+        // Voice prototype next to the app (tools/voice/hive-voice.sh): logic without audio, then the app itself
+        .target(name: "VoiceKit", dependencies: ["HiveCore"]),
+        .executableTarget(name: "hive-voice", dependencies: ["HiveCore", "VoiceKit"]),
         .testTarget(name: "HiveCoreTests", dependencies: ["HiveCore"], resources: [.copy("Fixtures")]),
+        .testTarget(name: "VoiceKitTests", dependencies: ["VoiceKit", "HiveCore"]),
     ]
 )
