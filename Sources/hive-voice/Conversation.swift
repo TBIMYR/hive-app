@@ -3,17 +3,28 @@ import HiveCore
 import VoiceKit
 
 /// Push to talk → recognition → Claude → voice, plus the confirmation gate for passing tasks on.
+/// Hive also speaks up by itself when a session starts waiting for the user; that session is then in focus,
+/// so a plain "ja" answers it.
 @available(macOS 26, *)
 @MainActor
 final class Conversation: ObservableObject {
-    enum Phase: String { case starting = "Starting …", idle = "Ready", listening = "Listening …", thinking = "Thinking …", speaking = "Speaking" }
+    enum Phase: String {
+        case starting = "Starting …", idle = "Ready", listening = "Listening …", thinking = "Thinking …", speaking = "Speaking"
+        case countdown = "Sending – press to stop"
+    }
 
-    @Published var phase = Phase.starting
+    /// pause after a quick reply has been read out, in which pressing the hotkey still stops it
+    static let stopWindow: Duration = .seconds(2.5)
+    static let pollEvery: TimeInterval = 4
+
+    @Published var phase = Phase.starting { didSet { if phase != oldValue { log("· \(phase.rawValue)") } } }
     @Published var heard = ""
     @Published var answer = ""
     @Published var output: Output
     @Published var pending: Handoff.Message?
     @Published var problem: String?
+    @Published var focus: String?
+    @Published var sending: Handoff.Message?
 
     let config: Config
     private let listener: Listener
@@ -25,6 +36,11 @@ final class Conversation: ObservableObject {
     private var sessions: [Session] = []
     private var discard = false              // barge-in during an answer: drop the rest of it
     private var queued: String?
+    private var inTurn = false
+    private var tracker = AttentionTracker()
+    private var polled = false
+    private var announce: [String: String] = [:]   // session → why it needs the user, not yet told
+    private var countdown: Task<Void, Never>?
     private var filter = SpokenFilter()
     private var splitter = SentenceSplitter()
     private var asked = Date()
@@ -45,6 +61,9 @@ final class Conversation: ObservableObject {
         eleven.onError = { [weak self] msg in self?.apple.say(msg) }
         Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
+        }
+        Timer.scheduledTimer(withTimeInterval: Self.pollEvery, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.poll() }
         }
     }
 
@@ -67,6 +86,7 @@ final class Conversation: ObservableObject {
 
     func talkPressed() {
         stopSpeaking()
+        stopCountdown()
         guard phase != .starting else { return }
         heard = ""
         phase = .listening
@@ -105,8 +125,11 @@ final class Conversation: ObservableObject {
 
     // MARK: one turn
 
-    func say(_ text: String) {
-        guard !brain.isBusy else { queued = text; return }
+    func say(_ text: String) { turn(user: text) }
+
+    private func turn(user text: String?, event: String? = nil) {
+        guard !inTurn else { if let text { queued = text }; return }
+        inTurn = true
         phase = .thinking
         answer = ""
         discard = false
@@ -114,15 +137,26 @@ final class Conversation: ObservableObject {
         splitter = SentenceSplitter()
         firstSentence = true
         Task {
-            let state = await Task.detached { StateBuilder.build().sessions }.value
+            let (state, dialogs) = await Task.detached { () -> ([Session], [String: String]) in
+                let all = StateBuilder.build().sessions
+                // the choices a waiting session shows, so "ja" can become the right option
+                var d: [String: String] = [:]
+                for name in Attention.needs(all).keys { d[name] = Delivery.dialog(name).map(DialogReply.describe) }
+                return (all, d)
+            }.value
             sessions = state
             var prompt = "[HIVE STATE \(Date().formatted(date: .omitted, time: .shortened))]\n\(StateSummary.lines(state))\n"
+            for (name, options) in dialogs.sorted(by: { $0.key < $1.key }) {
+                prompt += "[HIVE] \(name) shows a choice dialog: \(options)\n"
+            }
             if let p = handoff.pending { prompt += "[HIVE] proposal waiting for a yes: to \(p.to): \(p.text)\n" }
+            if let focus { prompt += "[HIVE] focus: \(focus) (you announced it last; a reply without a name means this session)\n" }
             prompt += notes.map { "[HIVE] \($0)\n" }.joined()
             notes = []
-            prompt += "\n[USER] \(text)"
+            if let event { prompt += "\n[HIVE EVENT] \(event)" }
+            if let text { prompt += "\n[USER] \(text)" }
             asked = Date()
-            log("you: \(text)")
+            log(text.map { "you: \($0)" } ?? "event: \(event ?? "")")
             brain.ask(prompt, delta: { self.streamed($0) }, done: { self.answered($0) })
         }
     }
@@ -140,13 +174,18 @@ final class Conversation: ObservableObject {
             let (spoken, directives) = Directives.parse(full)
             answer = spoken
             log("claude: \(full.replacingOccurrences(of: "\n", with: " ⏎ "))")
-            if let msg = handoff.apply(directives) { deliver(msg) }
+            switch handoff.apply(directives, waiting: Set(Attention.needs(sessions).keys)) {
+            case let .send(msg): deliver(msg)
+            case let .countdown(msg): startCountdown(msg)
+            case nil: break
+            }
         } else {
             // the user interrupted: the answer was not heard, so any proposal in it does not count
             notes.append("the user interrupted your last answer; they did not hear it to the end")
         }
         pending = handoff.pending
         discard = false
+        inTurn = false
         if let next = queued { queued = nil; say(next) }
     }
 
@@ -172,10 +211,66 @@ final class Conversation: ObservableObject {
         }
     }
 
+    // MARK: quick reply with a pause for "stop"
+
+    private func startCountdown(_ msg: Handoff.Message) {
+        sending = msg
+        countdown = Task {
+            while speaker.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+            phase = .countdown
+            try? await Task.sleep(for: Self.stopWindow)
+            guard !Task.isCancelled, sending == msg else { return }
+            sending = nil
+            countdown = nil
+            phase = .idle
+            deliver(msg)
+        }
+    }
+
+    private func stopCountdown() {
+        guard let msg = sending else { return }
+        countdown?.cancel()
+        countdown = nil
+        sending = nil
+        log("stopped the reply to \(msg.to)")
+        notes.append("the user STOPPED your reply to \(msg.to) before it went out; nothing was sent")
+    }
+
+    // MARK: Hive speaks up
+
+    /// Watches the state; a session that starts waiting for the user gets announced once the voice is free.
+    private func poll() async {
+        let state = await Task.detached { StateBuilder.build().sessions }.value
+        if !inTurn { sessions = state }
+        let needs = Attention.needs(state)
+        let (added, removed) = tracker.update(needs, now: Date())
+        // the tracker stays quiet on its first call; the voice says once who is already waiting
+        if !polled { polled = true; for (name, need) in needs { announce[name] = need.reason } }
+        for name in removed { announce[name] = nil }
+        for (name, why) in added { announce[name] = why }
+        announceNext()
+    }
+
+    private func announceNext() {
+        guard phase == .idle, !inTurn, sending == nil, !announce.isEmpty else { return }
+        let names = announce.keys.sorted()
+        let lines = names.map { name in
+            let said = sessions.first { $0.name == name }?.lastSentence.map { " – its last words: \"\($0)\"" } ?? ""
+            return "\(name) needs the user: \(announce[name] ?? "")\(said)"
+        }
+        announce = [:]
+        // with several at once, the first one named is in focus
+        focus = names.first
+        turn(user: nil, event: lines.joined(separator: "\n") + "\nTell the user in one or two short sentences who needs them "
+            + "and what for, so they can answer by voice\(names.count > 1 ? "; name \(names[0]) first" : ""). No markers.")
+    }
+
     private func tick() {
         switch phase {
         case .thinking where speaker.isSpeaking: phase = .speaking
-        case .speaking where !speaker.isSpeaking && !brain.isBusy: phase = .idle
+        case .thinking where !inTurn: phase = .idle
+        case .speaking where !speaker.isSpeaking && !inTurn: phase = .idle
+        case .idle: announceNext()
         default: break
         }
     }

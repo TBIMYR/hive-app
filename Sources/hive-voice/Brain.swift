@@ -34,6 +34,18 @@ final class Brain {
        [[send <session name>: <the exact message, in German, self-contained, written as an instruction to that session>]]
     2. Only in a later turn, when the user clearly agrees, answer very briefly (e.g. "Mach ich.") and put [[confirm]]
        on the last line. If the user declines, put [[cancel]]. If they want changes, make a new [[send …]] proposal.
+    Quick reply: when a session waits for the user (status waiting or blocked) and the user gives a short answer to its
+    question, do not ask back. Say whom it goes to and what, e.g. "An or.pm: Ja, releasen. Schicke ich gleich.", and put
+    [[reply <session name>: <the answer as the user would type it>]] on the last line. The app waits a moment after
+    reading it out, so the user can still stop it. A reply without a session name means the session in [HIVE] focus.
+    Anything longer or new (a task, not an answer) goes through [[send …]] with a yes.
+    If [HIVE] says the session shows a choice dialog, the reply text is the option number (e.g. [[reply lu.02: 1]])
+    and you say which option you pick ("An lu.02: Ja, einmal erlauben."). Never pick an option that allows
+    something permanently unless the user said so.
+
+    Hive also speaks up by itself: a turn with [HIVE EVENT] instead of [USER] means a session just started needing the
+    user. Then tell the user briefly who needs them and for what, in your own words.
+
     These markers are never read aloud. Never claim a message was sent; the app reports that itself in the next turn as
     [HIVE] lines.
     """

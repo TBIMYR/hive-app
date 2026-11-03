@@ -61,7 +61,7 @@ final class HandoffTests: XCTestCase {
         var h = Handoff()
         XCTAssertNil(h.apply([.propose(to: "lu.01", text: "pushen")]))
         XCTAssertEqual(h.pending?.to, "lu.01")
-        XCTAssertEqual(h.apply([.confirm]), .init(to: "lu.01", text: "pushen"))
+        XCTAssertEqual(h.apply([.confirm]), .send(.init(to: "lu.01", text: "pushen")))
         XCTAssertNil(h.pending)
     }
 
@@ -82,6 +82,63 @@ final class HandoffTests: XCTestCase {
         XCTAssertNil(h.apply([.propose(to: "lu.01", text: "b")]))
         XCTAssertNil(h.apply([.cancel, .confirm]))
         XCTAssertNil(h.pending)
+    }
+}
+
+final class QuickReplyTests: XCTestCase {
+    func testParsesReply() {
+        XCTAssertEqual(Directives.parse("An or.pm: Ja. Schicke ich gleich.\n[[reply or.pm: Ja, releasen.]]").directives,
+                       [.reply(to: "or.pm", text: "Ja, releasen.")])
+    }
+
+    func testShortReplyToAWaitingSessionGoesOutAfterTheCountdown() {
+        var h = Handoff()
+        XCTAssertEqual(h.apply([.reply(to: "or.pm", text: "Ja.")], waiting: ["or.pm"]), .countdown(.init(to: "or.pm", text: "Ja.")))
+        XCTAssertNil(h.pending)
+    }
+
+    func testReplyToASessionThatDoesNotWaitNeedsAYes() {
+        var h = Handoff()
+        XCTAssertNil(h.apply([.reply(to: "lu.01", text: "Ja.")], waiting: ["or.pm"]))
+        XCTAssertEqual(h.pending, .init(to: "lu.01", text: "Ja."))
+    }
+
+    func testLongReplyNeedsAYes() {
+        var h = Handoff()
+        let long = String(repeating: "a", count: Handoff.quickReplyLimit + 1)
+        XCTAssertNil(h.apply([.reply(to: "or.pm", text: long)], waiting: ["or.pm"]))
+        XCTAssertNotNil(h.pending)
+    }
+}
+
+final class AttentionTests: XCTestCase {
+    func testOnlyRunningSessionsThatNeedTheUser() {
+        let waiting = Session(name: "or.pm", group: "orbit", alive: true, status: "waiting", waitingFor: "Release?")
+        let busy = Session(name: "lu.01", group: "lumen", alive: true, status: "busy")
+        let gone = Session(name: "fj.01", group: "fjord", alive: false, status: "waiting")
+        XCTAssertEqual(Attention.needs([waiting, busy, gone]).mapValues(\.reason), ["or.pm": "Release?"])
+    }
+}
+
+final class DialogReplyTests: XCTestCase {
+    let approval = ScreenDialog.parse("""
+    Bash command: git push
+    ❯ 1. Yes
+      2. Yes, and don't ask again for git push commands
+      3. No, and tell Claude what to do differently (esc)
+    """)!
+
+    func testNumberSpokenYesAlwaysAndNo() {
+        XCTAssertEqual(DialogReply.pick("1", in: approval)?.number, 1)
+        XCTAssertEqual(DialogReply.pick("Ja, erlaub das.", in: approval)?.number, 1)
+        XCTAssertEqual(DialogReply.pick("immer erlauben", in: approval)?.number, 2)
+        XCTAssertEqual(DialogReply.pick("Nein, nicht pushen", in: approval)?.number, 3)
+        XCTAssertNil(DialogReply.pick("Frag später nochmal", in: approval))
+        XCTAssertNil(DialogReply.pick("7", in: approval))
+    }
+
+    func testDescribe() {
+        XCTAssertTrue(DialogReply.describe(approval).hasPrefix("1. Yes / 2. Yes, and don't ask again"))
     }
 }
 

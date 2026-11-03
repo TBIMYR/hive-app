@@ -15,16 +15,22 @@ struct PanelView: View {
                 Circle().fill(color).frame(width: 10, height: 10)
                 Text(talk.phase.rawValue).font(.headline)
                 Spacer()
-                Picker("", selection: Binding(get: { talk.output }, set: { if $0 != talk.output { talk.switchOutput() } })) {
-                    ForEach(Output.allCases, id: \.self) { Text($0.label).tag($0) }
+                // two buttons instead of a segmented picker: the picker set its value by itself on start
+                ForEach(Output.allCases, id: \.self) { o in
+                    Button(o.label) { if talk.output != o { talk.switchOutput() } }
+                        .controlSize(.small).disabled(talk.output == o)
                 }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 190)
             }
             Text(talk.voiceName).font(.caption).foregroundStyle(.secondary)
             if !talk.heard.isEmpty { Text("You: \(talk.heard)").font(.callout).lineLimit(3) }
             if !talk.answer.isEmpty { Text(talk.answer).font(.callout).foregroundStyle(.secondary).lineLimit(5) }
             if let p = talk.pending {
                 Text("Waiting for your yes – to \(p.to): \(p.text)").font(.caption).foregroundStyle(.orange).lineLimit(3)
+            }
+            if let m = talk.sending {
+                Text("Sending to \(m.to) in a moment: \(m.text) – press ⌃⌥Space to stop").font(.caption).foregroundStyle(.orange).lineLimit(3)
+            } else if let f = talk.focus {
+                Text("Focus: \(f)").font(.caption).foregroundStyle(.secondary)
             }
             if let problem = talk.problem { Text(problem).font(.caption).foregroundStyle(.red).lineLimit(3) }
             HStack {
@@ -40,7 +46,7 @@ struct PanelView: View {
     var color: Color {
         switch talk.phase {
         case .listening: .red
-        case .thinking: .orange
+        case .thinking, .countdown: .orange
         case .speaking: .green
         case .starting: .gray
         case .idle: .blue

@@ -1,9 +1,11 @@
 import Foundation
 
 /// What the model asks the app to do, written as a marker line at the end of its answer:
-/// `[[send lu.01: text]]` proposes a message, `[[confirm]]` sends the proposal, `[[cancel]]` drops it.
+/// `[[send lu.01: text]]` proposes a message, `[[confirm]]` sends the proposal, `[[cancel]]` drops it,
+/// `[[reply lu.01: text]]` answers a session that waits for the user (sent after a short pause for "stop").
 public enum Directive: Equatable, Sendable {
     case propose(to: String, text: String)
+    case reply(to: String, text: String)
     case confirm
     case cancel
 }
@@ -31,11 +33,12 @@ public enum Directives {
         case "cancel": return .cancel
         default: break
         }
-        guard b.lowercased().hasPrefix("send "), let colon = b.firstIndex(of: ":") else { return nil }
-        let to = b[b.index(b.startIndex, offsetBy: 5)..<colon].trimmingCharacters(in: .whitespaces)
+        let verb = b.prefix(while: { $0 != " " }).lowercased()
+        guard verb == "send" || verb == "reply", let colon = b.firstIndex(of: ":") else { return nil }
+        let to = b[b.index(b.startIndex, offsetBy: verb.count)..<colon].trimmingCharacters(in: .whitespaces)
         let text = b[b.index(after: colon)...].trimmingCharacters(in: .whitespaces)
         guard !to.isEmpty, !text.isEmpty else { return nil }
-        return .propose(to: to, text: text)
+        return verb == "send" ? .propose(to: to, text: text) : .reply(to: to, text: text)
     }
 }
 
@@ -72,28 +75,41 @@ public struct SpokenFilter {
 }
 
 /// The confirmation gate: a message only goes out if it was proposed in an earlier answer
-/// (and was therefore read out to the user) and a later answer confirms it.
+/// (and was therefore read out to the user) and a later answer confirms it. The exception is a short reply
+/// to a session that waits for the user: it goes out after a pause in which the user can still stop it.
 public struct Handoff: Equatable, Sendable {
     public struct Message: Equatable, Sendable {
         public let to: String
         public let text: String
     }
 
+    public enum Action: Equatable, Sendable {
+        case send(Message)
+        /// send after the countdown unless the user stops it
+        case countdown(Message)
+    }
+
+    /// longer replies are real tasks: those need a proper yes
+    public static let quickReplyLimit = 160
+
     public private(set) var pending: Message?
 
     public init() {}
 
-    /// Applies the markers of one answer; returns the message to send now, if any.
-    public mutating func apply(_ directives: [Directive]) -> Message? {
+    /// Applies the markers of one answer; `waiting` are the sessions that wait for the user right now.
+    public mutating func apply(_ directives: [Directive], waiting: Set<String> = []) -> Action? {
         let before = pending
-        var send: Message?
+        var send: Action?
         for d in directives {
             switch d {
+            case let .reply(to, text):
+                let m = Message(to: to, text: text)
+                if waiting.contains(to), text.count <= Self.quickReplyLimit { send = .countdown(m); pending = nil } else { pending = m }
             case let .propose(to, text): pending = Message(to: to, text: text)
             case .cancel: pending = nil
             case .confirm:
                 // a confirm in the same answer as its proposal does not count: the user never heard it
-                if let p = before, pending == p { send = p; pending = nil }
+                if let p = before, pending == p { send = .send(p); pending = nil }
             }
         }
         return send
