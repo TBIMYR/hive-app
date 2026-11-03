@@ -83,7 +83,17 @@ final class ElevenSpeaker: Speaker {
     func reloadKey() { key = VoiceKeychain.read() }
 
     var hasKey: Bool { key != nil }
-    var isSpeaking: Bool { scheduled > 0 || loading > 0 }
+    /// last chunk received or buffer played; the player can stall (e.g. when the audio device changes) and
+    /// never report its buffers done, so after `stallAfter` without progress it counts as silent
+    private var progress = Date()
+    static let stallAfter: TimeInterval = 8
+    var isSpeaking: Bool {
+        guard scheduled > 0 || loading > 0 else { return false }
+        if Date().timeIntervalSince(progress) < Self.stallAfter { return true }
+        voiceLog("ElevenLabs stalled, stopping")
+        stop()
+        return false
+    }
 
     func say(_ sentence: String) {
         guard let key else { onError?("ElevenLabs-Schlüssel fehlt."); return }
@@ -93,6 +103,7 @@ final class ElevenSpeaker: Speaker {
         let audio = Self.stream(text: sentence, previous: previous, voice: VoiceSettings.elevenVoice, model: model, key: key)
         previous = sentence
         let before = chain
+        if !isSpeaking { progress = Date() }
         loading += 1
         chain = Task { [weak self] in
             await before?.value                      // keep the order of the sentences
@@ -133,8 +144,13 @@ final class ElevenSpeaker: Speaker {
             for i in 0..<frames { out[i] = Float(Int16(littleEndian: s[i])) / 32768 }
         }
         scheduled += 1
+        progress = Date()
         player.scheduleBuffer(buf) { [weak self] in
-            Task { @MainActor in if let self, gen == self.generation { self.scheduled = max(0, self.scheduled - 1) } }
+            Task { @MainActor in
+                guard let self, gen == self.generation else { return }
+                self.scheduled = max(0, self.scheduled - 1)
+                self.progress = Date()
+            }
         }
         if !player.isPlaying { player.play() }
     }

@@ -211,6 +211,24 @@ final class VoiceController: ObservableObject {
         if brain.isBusy { discard = true }
     }
 
+    /// The pill's close button: stop whatever runs (speaking, listening, a reply about to go out) and go quiet.
+    /// An answer still on its way is dropped.
+    func dismiss() {
+        guard phase != .off else { return }
+        stopSpeaking()
+        stopCountdown()
+        if phase == .listening { Task { _ = await listener.stop() } }
+        handsFree = false
+        heard = ""
+        answer = ""
+        quietSince = nil
+        phase = .idle
+        dismissed = Date()
+    }
+
+    /// set by `dismiss()`, so the pill hides at once instead of lingering
+    @Published private(set) var dismissed = Date.distantPast
+
     // MARK: one turn
 
     private func turn(user text: String?, event: String? = nil) {

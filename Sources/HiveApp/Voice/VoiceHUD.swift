@@ -16,9 +16,11 @@ final class VoiceHUD {
 
     init(voice: VoiceController) {
         self.voice = voice
-        watch = voice.$phase.combineLatest(voice.$sending).receive(on: RunLoop.main).sink { [weak self] phase, sending in
-            self?.update(active: (phase != .idle && phase != .off) || sending != nil, off: phase == .off)
-        }
+        watch = voice.$phase.combineLatest(voice.$sending, voice.$dismissed).receive(on: RunLoop.main)
+            .sink { [weak self] phase, sending, dismissed in
+                let justClosed = Date().timeIntervalSince(dismissed) < 1
+                self?.update(active: (phase != .idle && phase != .off) || sending != nil, off: phase == .off || justClosed)
+            }
     }
 
     private func update(active: Bool, off: Bool) {
@@ -42,7 +44,9 @@ final class VoiceHUD {
             p.hasShadow = false
             p.level = .statusBar
             p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-            p.ignoresMouseEvents = true
+            // the panel is transparent around the card, so clicks there still reach the windows below
+            p.ignoresMouseEvents = false
+            p.becomesKeyOnlyIfNeeded = true
             p.contentView = NSHostingView(rootView: VoicePill(voice: voice))
             panel = p
         }
@@ -74,6 +78,12 @@ struct VoicePill: View {
                 Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(Hive.muted)
                 Spacer(minLength: 0)
                 Text(VoiceSettings.trigger.hint).font(.system(size: 11)).foregroundStyle(Hive.idle)
+                Button { voice.dismiss() } label: {
+                    Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Hive.muted)
+                        .frame(width: 18, height: 18).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Stop and close")
             }
             if !line.isEmpty {
                 // while listening the newest words matter, so a long transcript loses its start, not its end

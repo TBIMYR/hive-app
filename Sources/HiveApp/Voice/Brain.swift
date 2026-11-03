@@ -7,10 +7,13 @@ import HiveCore
 @MainActor
 final class Brain {
     static let idleAfter: TimeInterval = 10 * 60
+    /// longest wait for one answer before claude is restarted
+    static let turnTimeout: TimeInterval = 45
     /// process IDs of the running brain(s); Claude Code lists them in ~/.claude/sessions, Hive leaves them out
     static var ownPIDs: Set<Int> = []
     private var process: Process?
     private var idleTimer: Timer?
+    private var turnTimer: Timer?
     private var stdin: FileHandle?
     private var lineBuffer = Data()
     private var onDelta: ((String) -> Void)?
@@ -132,8 +135,18 @@ final class Brain {
         onDone = done
         answer = ""
         let msg: [String: Any] = ["type": "user", "message": ["role": "user", "content": text]]
-        guard let data = try? JSONSerialization.data(withJSONObject: msg) else { return }
-        stdin?.write(data + Data("\n".utf8))
+        // claude did not start: end the turn at once instead of leaving the voice in "Thinking"
+        guard let stdin, let data = try? JSONSerialization.data(withJSONObject: msg) else { finish(); return }
+        stdin.write(data + Data("\n".utf8))
+        // a hung claude ends the turn too (its termination calls finish)
+        turnTimer?.invalidate()
+        turnTimer = Timer.scheduledTimer(withTimeInterval: Self.turnTimeout, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.isBusy else { return }
+                voiceLog("claude took longer than \(Int(Self.turnTimeout))s, restarting it")
+                self.process?.terminate()
+            }
+        }
     }
 
     var isBusy: Bool { onDone != nil }
@@ -163,6 +176,7 @@ final class Brain {
     }
 
     private func finish() {
+        turnTimer?.invalidate()
         let done = onDone
         onDone = nil
         onDelta = nil
