@@ -91,22 +91,22 @@ final class QuickReplyTests: XCTestCase {
                        [.reply(to: "or.pm", text: "Ja, releasen.")])
     }
 
-    func testShortReplyToAWaitingSessionGoesOutAfterTheCountdown() {
+    func testShortMessageToAReachableSessionGoesOutAfterTheCountdown() {
         var h = Handoff()
-        XCTAssertEqual(h.apply([.reply(to: "or.pm", text: "Ja.")], waiting: ["or.pm"]), .countdown(.init(to: "or.pm", text: "Ja.")))
+        XCTAssertEqual(h.apply([.reply(to: "or.pm", text: "Ja.")], reachable: ["or.pm"]), .countdown(.init(to: "or.pm", text: "Ja.")))
         XCTAssertNil(h.pending)
     }
 
-    func testReplyToASessionThatDoesNotWaitNeedsAYes() {
+    func testMessageToASessionThatCannotBeReachedNeedsAYes() {
         var h = Handoff()
-        XCTAssertNil(h.apply([.reply(to: "lu.01", text: "Ja.")], waiting: ["or.pm"]))
+        XCTAssertNil(h.apply([.reply(to: "lu.01", text: "Ja.")], reachable: ["or.pm"]))
         XCTAssertEqual(h.pending, .init(to: "lu.01", text: "Ja."))
     }
 
     func testLongReplyNeedsAYes() {
         var h = Handoff()
         let long = String(repeating: "a", count: Handoff.quickReplyLimit + 1)
-        XCTAssertNil(h.apply([.reply(to: "or.pm", text: long)], waiting: ["or.pm"]))
+        XCTAssertNil(h.apply([.reply(to: "or.pm", text: long)], reachable: ["or.pm"]))
         XCTAssertNotNil(h.pending)
     }
 }

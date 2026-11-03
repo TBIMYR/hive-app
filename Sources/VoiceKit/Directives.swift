@@ -2,7 +2,7 @@ import Foundation
 
 /// What the model asks the app to do, written as a marker line at the end of its answer:
 /// `[[send lu.01: text]]` proposes a message, `[[confirm]]` sends the proposal, `[[cancel]]` drops it,
-/// `[[reply lu.01: text]]` answers a session that waits for the user (sent after a short pause for "stop").
+/// `[[reply lu.01: text]]` sends a short, clear message right away (after a short pause for "stop").
 public enum Directive: Equatable, Sendable {
     case propose(to: String, text: String)
     case reply(to: String, text: String)
@@ -75,8 +75,8 @@ public struct SpokenFilter {
 }
 
 /// The confirmation gate: a message only goes out if it was proposed in an earlier answer
-/// (and was therefore read out to the user) and a later answer confirms it. The exception is a short reply
-/// to a session that waits for the user: it goes out after a pause in which the user can still stop it.
+/// (and was therefore read out to the user) and a later answer confirms it. The exception is a short, clear message
+/// to a reachable session: it goes out after a pause in which the user can still stop it.
 public struct Handoff: Equatable, Sendable {
     public struct Message: Equatable, Sendable {
         public let to: String
@@ -96,15 +96,15 @@ public struct Handoff: Equatable, Sendable {
 
     public init() {}
 
-    /// Applies the markers of one answer; `waiting` are the sessions that wait for the user right now.
-    public mutating func apply(_ directives: [Directive], waiting: Set<String> = []) -> Action? {
+    /// Applies the markers of one answer; `reachable` are the sessions a message can be typed into right now.
+    public mutating func apply(_ directives: [Directive], reachable: Set<String> = []) -> Action? {
         let before = pending
         var send: Action?
         for d in directives {
             switch d {
             case let .reply(to, text):
                 let m = Message(to: to, text: text)
-                if waiting.contains(to), text.count <= Self.quickReplyLimit { send = .countdown(m); pending = nil } else { pending = m }
+                if reachable.contains(to), text.count <= Self.quickReplyLimit { send = .countdown(m); pending = nil } else { pending = m }
             case let .propose(to, text): pending = Message(to: to, text: text)
             case .cancel: pending = nil
             case .confirm:

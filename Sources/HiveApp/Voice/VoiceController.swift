@@ -253,7 +253,8 @@ final class VoiceController: ObservableObject {
             let (spoken, directives) = Directives.parse(full)
             answer = spoken
             voiceLog("claude: \(full.replacingOccurrences(of: "\n", with: " ⏎ "))")
-            switch handoff.apply(directives, waiting: Set(store.needs.keys)) {
+            let reachable = Set(store.displaySessions.filter { store.tmux($0) != nil }.map(\.name))
+            switch handoff.apply(directives, reachable: reachable) {
             case let .send(msg): Task { await deliver(msg) }
             case let .countdown(msg): startCountdown(msg)
             case nil: break
@@ -311,9 +312,9 @@ final class VoiceController: ObservableObject {
             notes.append("sending to \(msg.to) FAILED: \(why)")
             voice(why)
         } else {
+            // no "sent" from the voice: the answer already said where it goes, the pill shows it
             voiceLog("sent to \(msg.to): \(msg.text)")
             notes.append("message delivered to \(msg.to): \(msg.text)")
-            voice("Ist an \(msg.to) raus.")
         }
     }
 
