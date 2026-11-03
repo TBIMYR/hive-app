@@ -7,6 +7,8 @@ import HiveCore
 @MainActor
 final class Brain {
     static let idleAfter: TimeInterval = 10 * 60
+    /// process IDs of the running brain(s); Claude Code lists them in ~/.claude/sessions, Hive leaves them out
+    static var ownPIDs: Set<Int> = []
     private var process: Process?
     private var idleTimer: Timer?
     private var stdin: FileHandle?
@@ -94,6 +96,7 @@ final class Brain {
         p.terminationHandler = { [weak self] proc in
             Task { @MainActor in
                 voiceLog("claude exited (\(proc.terminationStatus))")
+                Self.ownPIDs.remove(Int(proc.processIdentifier))
                 self?.process = nil
                 self?.stdin = nil
                 self?.finish()
@@ -101,6 +104,8 @@ final class Brain {
         }
         do { try p.run() } catch { voiceLog("could not start claude: \(error.localizedDescription)"); return }
         process = p
+        let pid = Int(p.processIdentifier)
+        Self.ownPIDs.insert(pid)
         stdin = input.fileHandleForWriting
         voiceLog("claude started (\(model))")
     }
