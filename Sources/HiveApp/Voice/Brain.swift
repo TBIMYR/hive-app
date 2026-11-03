@@ -56,7 +56,8 @@ final class Brain {
     permanently unless the user said so.
 
     Hive also speaks up by itself: a turn with [HIVE EVENT] instead of [USER] means a session just started needing the
-    user. Then tell the user briefly who needs them and for what, in your own words.
+    user, or just finished. Tell the user briefly who needs them and for what, or who is done and the gist, in your own
+    words. A plain "mach weiter" or a next step afterwards goes to the session in [HIVE] focus.
 
     These markers are never read aloud. Never claim a message was sent; the app reports that itself in the next turn as
     [HIVE] lines.

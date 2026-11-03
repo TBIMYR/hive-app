@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 import HiveCore
@@ -60,6 +61,8 @@ final class VoiceController: ObservableObject {
     private var tracker = AttentionTracker()
     private var polled = false
     private var announce: [String: String] = [:]   // session → why it needs the user, not yet told
+    private var doneTracker = DoneTracker()
+    private var finished: [String: String] = [:]   // session → its task line, finished and not yet told
     private var countdown: Task<Void, Never>?
     private var ticker: Timer?
     private var settings: AnyCancellable?
@@ -138,8 +141,10 @@ final class VoiceController: ObservableObject {
         answer = ""
         focus = nil
         announce = [:]
+        finished = [:]
         polled = false
         tracker = AttentionTracker()
+        doneTracker = DoneTracker()
     }
 
     private func reloadKey() {
@@ -356,20 +361,34 @@ final class VoiceController: ObservableObject {
         for name in removed { announce[name] = nil }
         for (name, why) in added { announce[name] = why }
         if !VoiceSettings.announce { announce = [:] }
+
+        // the session open in front of the user needs no announcement
+        let inFront = NSApp.isActive ? store.selected : nil
+        for (name, task) in doneTracker.update(store.displaySessions, now: Date()) where name != inFront && announce[name] == nil {
+            finished[name] = task
+        }
+        if !VoiceSettings.announceDone { finished = [:] }
     }
 
     private func announceNext() {
-        guard phase == .idle, !inTurn, sending == nil, !announce.isEmpty else { return }
+        guard phase == .idle, !inTurn, sending == nil, !announce.isEmpty || !finished.isEmpty else { return }
+        func said(_ name: String) -> String { session(name)?.lastSentence.map { " – its last words: \"\($0)\"" } ?? "" }
         let names = announce.keys.sorted()
-        let lines = names.map { name in
-            let said = session(name)?.lastSentence.map { " – its last words: \"\($0)\"" } ?? ""
-            return "\(name) needs the user: \(announce[name] ?? "")\(said)"
+        let done = finished.keys.sorted()
+        var lines = names.map { "\($0) needs the user: \(announce[$0] ?? "")\(said($0))" }
+        lines += done.map { name in
+            let task = finished[name].map { $0.isEmpty ? "" : " task \"\($0)\"" } ?? ""
+            return "\(name) is done\(task)\(said(name))"
         }
         announce = [:]
-        // with several at once, the first one named is in focus
-        focus = names.first
-        turn(user: nil, event: lines.joined(separator: "\n") + "\nTell the user in one or two short sentences who needs them "
-            + "and what for, so they can answer by voice\(names.count > 1 ? "; name \(names[0]) first" : ""). No markers.")
+        finished = [:]
+        // whoever needs the user comes first and is in focus; otherwise the finished one (to give it the next step)
+        focus = names.first ?? done.first
+        let ask = names.isEmpty
+            ? "Tell the user in one short sentence who finished and the gist of the result, no details."
+            : "Tell the user in one or two short sentences who needs them and what for, so they can answer by voice"
+              + (names.count > 1 ? "; name \(names[0]) first" : "") + (done.isEmpty ? "" : "; mention the finished ones briefly at the end") + "."
+        turn(user: nil, event: lines.joined(separator: "\n") + "\n" + ask + " No markers.")
     }
 
     private var lastWatch = Date.distantPast

@@ -11,6 +11,7 @@ enum VoiceSettings {
     static let modelKey = "voiceModel"
     static let stabilityKey = "voiceStability"
     static let followUpKey = "voiceFollowUp"
+    static let announceDoneKey = "voiceAnnounceDone"
 
     /// premade "Sarah"; with a paid ElevenLabs plan any library voice works too
     static let defaultVoice = "EXAVITQu4vr4xnSDxMaL"
@@ -22,6 +23,7 @@ enum VoiceSettings {
     static var enabled: Bool { d.bool(forKey: enabledKey) }
     static var trigger: Trigger { d.string(forKey: triggerKey).flatMap(Trigger.init) ?? .rightOption }
     static var announce: Bool { d.object(forKey: announceKey) as? Bool ?? true }
+    static var announceDone: Bool { d.object(forKey: announceDoneKey) as? Bool ?? true }
     static var output: Output { d.string(forKey: outputKey).flatMap(Output.init) ?? .eleven }
     static var elevenVoice: String {
         let v = d.string(forKey: elevenVoiceKey)?.trimmingCharacters(in: .whitespaces) ?? ""

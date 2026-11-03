@@ -12,6 +12,7 @@ struct VoiceSettingsView: View {
     @AppStorage(VoiceSettings.triggerKey) private var trigger = VoiceSettings.Trigger.rightOption.rawValue
     @AppStorage(VoiceSettings.announceKey) private var announce = true
     @AppStorage(VoiceSettings.followUpKey) private var followUp = true
+    @AppStorage(VoiceSettings.announceDoneKey) private var announceDone = true
     @AppStorage(VoiceSettings.outputKey) private var output = VoiceSettings.Output.eleven.rawValue
     @AppStorage(VoiceSettings.elevenVoiceKey) private var voiceID = ""
     @AppStorage(VoiceSettings.stabilityKey) private var stability = 0.3
@@ -43,6 +44,10 @@ struct VoiceSettingsView: View {
             Toggle(isOn: $announce) {
                 Text("Speak up when a session needs me")
                 Text("Hive says who waits and for what. A short answer then goes to that session after a pause in which the key stops it.")
+            }
+            Toggle(isOn: $announceDone) {
+                Text("Say when a session is done")
+                Text("When its task line turns done, or after at least two minutes of work. Not for the session open in front of you.")
             }
         }
         Section("Voice") {

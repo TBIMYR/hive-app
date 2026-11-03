@@ -181,6 +181,44 @@ final class SpokenNamesTests: XCTestCase {
     }
 }
 
+final class DoneTrackerTests: XCTestCase {
+    func s(_ status: String, task: String? = nil, waitingFor: String? = nil) -> Session {
+        Session(name: "lu.01", project: "lumen", group: "lumen", alive: true, status: status, waitingFor: waitingFor,
+                task: task.map { .init(text: "Login page", state: $0, updatedAt: nil, stale: false) })
+    }
+
+    func testTaskTurningDone() {
+        var t = DoneTracker()
+        let t0 = Date()
+        XCTAssertEqual(t.update([s("busy", task: "working")], now: t0), [:])
+        XCTAssertEqual(t.update([s("idle", task: "done")], now: t0 + 5), ["lu.01": "Login page"])
+        XCTAssertEqual(t.update([s("idle", task: "done")], now: t0 + 10), [:])
+    }
+
+    func testAlreadyDoneAtStartIsNotAnnounced() {
+        var t = DoneTracker()
+        XCTAssertEqual(t.update([s("idle", task: "done")], now: Date()), [:])
+    }
+
+    func testLongWorkThatEnds() {
+        var t = DoneTracker()
+        let t0 = Date()
+        _ = t.update([s("idle")], now: t0)
+        _ = t.update([s("busy")], now: t0 + 1)
+        XCTAssertEqual(t.update([s("idle")], now: t0 + 1 + DoneTracker.minWork), ["lu.01": ""])
+    }
+
+    func testShortTurnsAndWaitingDoNotCount() {
+        var t = DoneTracker()
+        let t0 = Date()
+        _ = t.update([s("idle")], now: t0)
+        _ = t.update([s("busy")], now: t0 + 1)
+        XCTAssertEqual(t.update([s("idle")], now: t0 + 30), [:])
+        _ = t.update([s("busy")], now: t0 + 40)
+        XCTAssertEqual(t.update([s("waiting", waitingFor: "Allow?")], now: t0 + 400), [:])
+    }
+}
+
 final class StateSummaryTests: XCTestCase {
     func testAddsTheSpokenName() {
         let s = Session(name: "lu.01", project: "lumen", group: "lumen", alive: true, status: "idle")
