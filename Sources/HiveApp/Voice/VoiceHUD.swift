@@ -34,7 +34,8 @@ final class VoiceHUD {
 
     private func show() {
         if panel == nil {
-            let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 520, height: 120),
+            let size = NSSize(width: VoicePill.width + 2 * VoicePill.margin, height: 240)
+            let p = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             p.isOpaque = false
             p.backgroundColor = .clear
@@ -46,7 +47,7 @@ final class VoiceHUD {
             panel = p
         }
         guard let p = panel, let screen = NSScreen.main?.visibleFrame else { return }
-        p.setFrameOrigin(NSPoint(x: screen.midX - p.frame.width / 2, y: screen.minY + 24))
+        p.setFrameOrigin(NSPoint(x: (screen.midX - p.frame.width / 2).rounded(), y: screen.minY + 8))
         p.orderFrontRegardless()
     }
 
@@ -58,63 +59,83 @@ final class VoiceHUD {
 @available(macOS 26, *)
 struct VoicePill: View {
     @ObservedObject var voice: VoiceController
+    static let width: CGFloat = 460
+    /// room around the card for its shadow (like FloatingCard)
+    static let margin: CGFloat = 24
 
     var body: some View {
-        VStack {
-            Spacer(minLength: 0)
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(color)
-                    .symbolEffect(.pulse, isActive: voice.phase == .listening || voice.phase == .thinking)
-                    .frame(width: 18)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(line).font(.system(size: 13)).foregroundStyle(Hive.ink).lineLimit(3)
-                    if let sub { Text(sub).font(.system(size: 11)).foregroundStyle(Hive.ink2).lineLimit(2) }
-                }
+        let shape = RoundedRectangle(cornerRadius: 16)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                PulseDot(color: color, pulsing: voice.phase == .listening || voice.phase == .thinking)
+                Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(Hive.muted)
+                Spacer(minLength: 0)
+                Text(VoiceSettings.trigger.hint).font(.system(size: 11)).foregroundStyle(Hive.idle)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .frame(maxWidth: 480, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+            if !line.isEmpty {
+                Text(line).font(.system(size: 14)).foregroundStyle(Hive.ink).lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let sub {
+                Text(sub).font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        .frame(width: 520, height: 120, alignment: .bottom)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(width: Self.width, alignment: .leading)
+        .background { CardSurface(shape: shape, glow: voice.phase == .listening) }
+        .padding(Self.margin)
+        .frame(maxHeight: .infinity, alignment: .bottom)
+        .animation(.easeOut(duration: 0.15), value: voice.phase)
     }
 
-    private var icon: String {
+    private var title: String {
+        if let m = voice.sending { return "To \(m.to) in a moment" }
         switch voice.phase {
-        case .listening: "mic.fill"
-        case .thinking: "ellipsis"
-        case .speaking: "waveform"
-        case .countdown: "paperplane"
-        case .idle, .off: "checkmark"
+        case .listening: return "Listening"
+        case .thinking: return "Thinking"
+        case .countdown: return "Sending"
+        default: return voice.focus.map { "Hive · \($0)" } ?? "Hive"
         }
     }
 
     private var color: Color {
         switch voice.phase {
         case .listening: Hive.need
+        case .thinking: Hive.idle
+        case .speaking: Hive.busy
         case .countdown: Hive.wait
-        default: Hive.ink2
+        case .idle, .off: Hive.idle
         }
     }
 
     private var line: String {
-        if let m = voice.sending { return "To \(m.to): \(m.text)" }
+        if let m = voice.sending { return m.text }
         switch voice.phase {
-        case .listening: return voice.heard.isEmpty ? "Listening …" : voice.heard
-        case .thinking: return voice.heard.isEmpty ? "Thinking …" : voice.heard
+        case .listening, .thinking: return voice.heard
         default: return voice.answer.isEmpty ? voice.heard : voice.answer
         }
     }
 
     private var sub: String? {
-        if voice.sending != nil { return "Sending in a moment – press \(VoiceSettings.trigger.hint.replacingOccurrences(of: "Hold ", with: "")) to stop" }
+        if voice.sending != nil { return "Press \(VoiceSettings.trigger.hint.replacingOccurrences(of: "Hold ", with: "")) to stop" }
         if let p = voice.pending { return "Waiting for your yes – to \(p.to): \(p.text)" }
-        if let problem = voice.problem { return problem }
-        if let f = voice.focus, voice.phase == .speaking { return "About \(f)" }
-        return nil
+        return voice.problem
+    }
+}
+
+/// Status dot like on the cards; breathes while Hive listens or thinks.
+struct PulseDot: View {
+    let color: Color
+    let pulsing: Bool
+    @State private var on = false
+
+    var body: some View {
+        Circle().fill(color).frame(width: 8, height: 8)
+            .opacity(pulsing && on ? 0.35 : 1)
+            .animation(pulsing ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true) : .default, value: on)
+            .onAppear { on = true }
+            .onChange(of: pulsing) { _, p in on = p }
     }
 }
