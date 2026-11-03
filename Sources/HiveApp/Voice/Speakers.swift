@@ -37,7 +37,7 @@ final class AppleSpeaker: NSObject, Speaker, AVSpeechSynthesizerDelegate {
     func say(_ sentence: String) {
         let u = AVSpeechUtterance(string: sentence)
         u.voice = voice
-        u.rate = 0.52
+        u.rate = Float(0.5 * VoiceSettings.speed)
         u.postUtteranceDelay = 0.05
         queued += 1
         synth.speak(u)
@@ -150,7 +150,7 @@ final class ElevenSpeaker: Speaker {
                 var body: [String: Any] = ["text": text, "model_id": model, "language_code": "de",
                                            // less stability = livelier, less like reading the news
                                            "voice_settings": ["stability": VoiceSettings.stability, "similarity_boost": 0.75,
-                                                              "style": 0.35, "use_speaker_boost": true, "speed": 1.05]]
+                                                              "style": 0.35, "use_speaker_boost": true, "speed": VoiceSettings.speed]]
                 if !previous.isEmpty { body["previous_text"] = previous }
                 req.httpBody = try? JSONSerialization.data(withJSONObject: body)
                 do {

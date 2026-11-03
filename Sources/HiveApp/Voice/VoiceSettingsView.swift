@@ -18,6 +18,7 @@ struct VoiceSettingsView: View {
     @AppStorage(VoiceSettings.stabilityKey) private var stability = 0.3
     @AppStorage(VoiceSettings.modelKey) private var model = "haiku"
     @AppStorage(VoiceSettings.userNameKey) private var userName = ""
+    @AppStorage(VoiceSettings.speedKey) private var speed = 0.92
     @State private var newKey = ""
     @State private var hasKey = VoiceKeychain.read() != nil
 
@@ -80,6 +81,9 @@ struct VoiceSettingsView: View {
             }
             Slider(value: $stability, in: 0.1...0.8) {
                 Text("Livelier ↔ steadier")
+            }
+            Slider(value: $speed, in: 0.75...1.15) {
+                Text("Slower ↔ faster")
             }
         }
         Section {

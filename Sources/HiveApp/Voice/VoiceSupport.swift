@@ -13,6 +13,7 @@ enum VoiceSettings {
     static let followUpKey = "voiceFollowUp"
     static let announceDoneKey = "voiceAnnounceDone"
     static let userNameKey = "voiceUserName"
+    static let speedKey = "voiceSpeed"
 
     /// premade "Sarah"; with a paid ElevenLabs plan any library voice works too
     static let defaultVoice = "EXAVITQu4vr4xnSDxMaL"
@@ -34,6 +35,8 @@ enum VoiceSettings {
     /// after an answer the microphone stays open briefly, so the user can just answer
     static var followUp: Bool { d.object(forKey: followUpKey) as? Bool ?? true }
     static var stability: Double { d.object(forKey: stabilityKey) as? Double ?? 0.3 }
+    /// 1 = the voice's normal pace; ElevenLabs takes 0.7 to 1.2
+    static var speed: Double { d.object(forKey: speedKey) as? Double ?? 0.92 }
     /// how Hive calls the user; lives only in this Mac's settings, never in the prompt source
     static var userName: String? {
         let n = d.string(forKey: userNameKey)?.trimmingCharacters(in: .whitespaces) ?? ""
