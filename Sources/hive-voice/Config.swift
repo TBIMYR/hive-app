@@ -14,11 +14,12 @@ struct Config {
     var locale = "de-DE"
     var elevenVoice = "EXAVITQu4vr4xnSDxMaL"        // premade "Sarah"; any voice speaks German with the multilingual models
     var elevenModel = "eleven_flash_v2_5"           // the low-latency model
+    var stability = 0.3                             // ElevenLabs: lower = livelier, higher = steadier
     /// type instead of talking (stdin), for testing without a microphone
     var textMode = false
 
     static let usage = """
-    hive-voice [--output apple|eleven] [--model haiku|sonnet|…] [--voice-id ID] [--eleven-model ID] [--text] [--names]
+    hive-voice [--output apple|eleven] [--model haiku|sonnet|…] [--voice-id ID] [--eleven-model ID] [--stability 0…1] [--text] [--names]
       hold ⌃⌥Space to talk, ⌃⌥V switches the output, ⌃⌥Q quits
     """
 
@@ -31,6 +32,7 @@ struct Config {
             case "--model": if let v = it.next() { c.model = v }
             case "--voice-id": if let v = it.next() { c.elevenVoice = v }
             case "--eleven-model": if let v = it.next() { c.elevenModel = v }
+            case "--stability": if let v = it.next().flatMap(Double.init) { c.stability = v }
             case "--locale": if let v = it.next() { c.locale = v }
             case "--text": c.textMode = true
             case "-h", "--help": print(usage); exit(0)

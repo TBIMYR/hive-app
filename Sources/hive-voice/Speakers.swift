@@ -138,6 +138,8 @@ final class ElevenSpeaker: Speaker {
     }
 
     /// Raw 16-bit PCM at 24 kHz in chunks of about 100 ms.
+    nonisolated(unsafe) static var stability = 0.3
+
     nonisolated static func stream(text: String, previous: String, voice: String, model: String, key: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { cont in
             let task = Task {
@@ -145,7 +147,10 @@ final class ElevenSpeaker: Speaker {
                 req.httpMethod = "POST"
                 req.setValue(key, forHTTPHeaderField: "xi-api-key")
                 req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                var body: [String: Any] = ["text": text, "model_id": model, "language_code": "de"]
+                var body: [String: Any] = ["text": text, "model_id": model, "language_code": "de",
+                                           // less stability = livelier, less like reading the news
+                                           "voice_settings": ["stability": Self.stability, "similarity_boost": 0.75,
+                                                              "style": 0.35, "use_speaker_boost": true, "speed": 1.05]]
                 if !previous.isEmpty { body["previous_text"] = previous }
                 req.httpBody = try? JSONSerialization.data(withJSONObject: body)
                 do {

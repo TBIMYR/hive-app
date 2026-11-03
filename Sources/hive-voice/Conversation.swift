@@ -55,6 +55,7 @@ final class Conversation: ObservableObject {
         brain = Brain(model: config.model)
         apple = AppleSpeaker(locale: config.locale)
         eleven = ElevenSpeaker(voiceID: config.elevenVoice, model: config.elevenModel)
+        ElevenSpeaker.stability = config.stability
         if output == .eleven, !eleven.hasKey {
             output = .apple
             problem = "No ElevenLabs key – using the macOS voice"
