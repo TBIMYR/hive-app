@@ -3,6 +3,7 @@ import Foundation
 /// What the model asks the app to do, written as a marker line at the end of its answer:
 /// `[[send lu.01: text]]` proposes a message, `[[confirm]]` sends the proposal, `[[cancel]]` drops it,
 /// `[[reply lu.01: text]]` sends a short, clear message right away (after a short pause for "stop").
+/// `[[quiet]]` alone means "nothing to say": it is no directive, the spoken part is simply empty.
 public enum Directive: Equatable, Sendable {
     case propose(to: String, text: String)
     case reply(to: String, text: String)

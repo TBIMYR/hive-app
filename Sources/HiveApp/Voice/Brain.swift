@@ -40,6 +40,9 @@ final class Brain {
     - Write session names as they are ("lu.01"); the app reads them aloud in their spoken form. The state lists that
       form (spoken "Lumen eins"); the user says it, and "Lumen eins" means lu.01. In markers always use the real name.
     - If something is unclear, ask one short question back.
+    - You do not need the last word. When the user closes a topic ("schau ich mir selbst an", "kümmer mich drum",
+      "passt", "danke", "später"), do not confirm it, repeat it or add advice: answer with only [[quiet]] (the app
+      then says nothing and stops listening), or at most "Okay." If a proposal was waiting for a yes, add [[cancel]].
 
     Every user turn starts with a block [HIVE STATE] listing the running sessions: name, project, status
     (busy = working, idle, waiting = waits for the user), the task line with its state (working, blocked, waiting, done)

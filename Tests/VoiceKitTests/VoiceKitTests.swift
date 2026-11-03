@@ -91,6 +91,14 @@ final class QuickReplyTests: XCTestCase {
                        [.reply(to: "or.pm", text: "Ja, releasen.")])
     }
 
+    func testQuietSaysNothing() {
+        let (spoken, directives) = Directives.parse("[[quiet]]")
+        XCTAssertEqual(spoken, "")
+        XCTAssertEqual(directives, [])
+        var f = SpokenFilter()
+        XCTAssertEqual(f.feed("[[qu") + f.feed("iet]]") + f.finish(), "")
+    }
+
     func testShortMessageToAReachableSessionGoesOutAfterTheCountdown() {
         var h = Handoff()
         XCTAssertEqual(h.apply([.reply(to: "or.pm", text: "Ja.")], reachable: ["or.pm"]), .countdown(.init(to: "or.pm", text: "Ja.")))
