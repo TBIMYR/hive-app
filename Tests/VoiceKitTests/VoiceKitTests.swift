@@ -21,6 +21,12 @@ final class SentenceSplitterTests: XCTestCase {
         XCTAssertEqual(s.feed("Das ist z. B. bei lu.01 so, seit dem 3. Mai. Weiter "), ["Das ist z. B. bei lu.01 so, seit dem 3. Mai."])
     }
 
+    func testColonIsNoSentenceEnd() {
+        var s = SentenceSplitter()
+        XCTAssertEqual(s.feed("Bei Lumen sieht es so aus: drei sind gerade dran. Und "),
+                       ["Bei Lumen sieht es so aus: drei sind gerade dran."])
+    }
+
     func testStripsMarkdown() {
         XCTAssertEqual(SentenceSplitter.speakable("- **lu.01** wartet"), "lu.01 wartet")
         XCTAssertNil(SentenceSplitter.speakable(" ** "))

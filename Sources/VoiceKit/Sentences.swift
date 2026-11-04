@@ -27,7 +27,8 @@ public struct SentenceSplitter {
         return Self.speakable(buffer).map { [$0] } ?? []
     }
 
-    /// Index after a sentence end (". ", "! ", "? ", "… ", ": " or a line break), not before `from` characters.
+    /// Index after a sentence end (". ", "! ", "? ", "… " or a line break), not before `from` characters. A colon is
+    /// none: "So sieht es aus:" as a request of its own sounds cut off.
     static func sentenceEnd(in s: String, from minLength: Int) -> String.Index? {
         var i = s.startIndex
         var count = 0
@@ -36,7 +37,7 @@ public struct SentenceSplitter {
             let next = s.index(after: i)
             count += 1
             if c == "\n", count >= 2 { return next }
-            if ".!?…:".contains(c), next < s.endIndex, s[next].isWhitespace, count >= minLength {
+            if ".!?…".contains(c), next < s.endIndex, s[next].isWhitespace, count >= minLength {
                 // "z. B." and "1. " are not sentence ends
                 let before = s[s.startIndex..<i].split(separator: " ").last.map(String.init) ?? ""
                 if c == ".", before.count <= 1 || Int(before) != nil || Self.abbreviations.contains(before.lowercased()) {
