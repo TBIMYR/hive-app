@@ -133,8 +133,10 @@ final class StateStore: ObservableObject {
             again = false
             let cache = transcripts
             let (state, panes) = await Task.detached { (StateBuilder.build(cache: cache), Tmux.panes()) }.value
-            // the voice's own `claude -p` registers like a session; it isn't one
-            let shown = state.sessions.filter { $0.pid.map { !Brain.ownPIDs.contains($0) } ?? true }
+            // Hive's own `claude -p` processes (keeper.voice, keeper.broadcast) register like sessions; they aren't
+            let shown = state.sessions.filter { s in
+                !Brain.names.contains(s.name) && (s.pid.map { !Brain.ownPIDs.contains($0) } ?? true)
+            }
             if shown != sessions { sessions = shown }
             // @Published reports every assignment, so only assign real changes (each one redraws the whole UI)
             let err = state.sessions.isEmpty && !state.errors.isEmpty ? state.errors.joined(separator: "\n") : nil

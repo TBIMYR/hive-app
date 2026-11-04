@@ -20,9 +20,20 @@ final class Brain {
     private var onDone: ((String) -> Void)?
     private var answer = ""
 
-    init() {}
+    /// the session name it registers under (`claude -n`); Hive leaves these out of its lists
+    let name: String
+    private let systemPrompt: String
 
-    static let systemPrompt = """
+    init(name: String, systemPrompt: String) {
+        self.name = name
+        self.systemPrompt = systemPrompt
+    }
+
+    static let voiceName = "keeper.voice"
+    static let broadcastName = "keeper.broadcast"
+    static let names: Set<String> = [voiceName, broadcastName]
+
+    static let voicePrompt = """
     You are the voice of Hive, a Mac app that watches the user's Claude Code sessions. The user talks to you \
     by voice, in German, and hears your answer read aloud.
 
@@ -66,7 +77,9 @@ final class Brain {
 
     Hive also speaks up by itself: a turn with [HIVE EVENT] instead of [USER] means a session just started needing the
     user, or just finished. Tell the user briefly who needs them and for what, or who is done and the gist, in your own
-    words. A plain "mach weiter" or a next step afterwards goes to the session in [HIVE] focus.
+    words, the way a colleague would say it: what the session wants ("Orbit zwei will 'n Testlauf starten, darf's?",
+    "Lumen eins fragt, ob's weitermachen soll"), never technical labels like "Berechtigungs-Dialog", "Auswahl-Dialog"
+    or "Permission". A plain "mach weiter" or a next step afterwards goes to the session in [HIVE] focus.
 
     These markers are never read aloud. Never claim a message was sent; the app reports that itself in the next turn as
     [HIVE] lines.
@@ -88,11 +101,11 @@ final class Brain {
         }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: claude)
-        p.arguments = ["-p", "--model", model,
+        p.arguments = ["-p", "-n", name, "--model", model,
                        "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                        "--include-partial-messages", "--no-session-persistence",
                        "--setting-sources", "", "--strict-mcp-config", "--tools", "",
-                       "--system-prompt", Self.systemPrompt]
+                       "--system-prompt", systemPrompt]
         // a neutral folder, so no project's CLAUDE.md is read
         p.currentDirectoryURL = FileManager.default.temporaryDirectory
         p.environment = Tmux.environment()
@@ -106,7 +119,7 @@ final class Brain {
         }
         p.terminationHandler = { [weak self] proc in
             Task { @MainActor in
-                voiceLog("claude exited (\(proc.terminationStatus))")
+                voiceLog("claude \(self?.name ?? "") exited (\(proc.terminationStatus))")
                 Self.ownPIDs.remove(Int(proc.processIdentifier))
                 self?.process = nil
                 self?.stdin = nil
@@ -118,7 +131,7 @@ final class Brain {
         let pid = Int(p.processIdentifier)
         Self.ownPIDs.insert(pid)
         stdin = input.fileHandleForWriting
-        voiceLog("claude started (\(model))")
+        voiceLog("claude started as \(name) (\(model))")
     }
 
     /// Quits the process (voice turned off, model changed, or idle for a while).

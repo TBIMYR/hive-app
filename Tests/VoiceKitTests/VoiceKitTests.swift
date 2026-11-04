@@ -247,3 +247,28 @@ final class StateSummaryTests: XCTestCase {
         """)
     }
 }
+
+final class BroadcastTests: XCTestCase {
+    func testShortRepliesToReachableSessionsGoOutAtOnce() {
+        let d = Directives.parse("[[reply lu.pm: Bitte checkt eure Tickets.]]\n[[reply or.pm: Bitte checkt eure Tickets.]]").directives
+        let plan = Broadcast.plan(d, reachable: ["lu.pm", "or.pm"])
+        XCTAssertEqual(plan.now.map(\.to), ["lu.pm", "or.pm"])
+        XCTAssertEqual(plan.ask, [])
+    }
+
+    func testProposalsUnreachableAndLongMessagesAskFirst() {
+        let long = String(repeating: "x", count: Handoff.quickReplyLimit + 1)
+        let d: [Directive] = [.propose(to: "lu.01", text: "Lösch den Branch."), .reply(to: "or.01", text: "Weiter."),
+                              .reply(to: "fj.01", text: long), .reply(to: "ki.pm", text: "Weiter.")]
+        let plan = Broadcast.plan(d, reachable: ["lu.01", "fj.01", "ki.pm"])
+        XCTAssertEqual(plan.now.map(\.to), ["ki.pm"])
+        XCTAssertEqual(plan.ask.map(\.to), ["lu.01", "or.01", "fj.01"])
+    }
+
+    func testOneMessagePerSessionTheLastWins() {
+        let d: [Directive] = [.reply(to: "lu.pm", text: "A"), .propose(to: "lu.pm", text: "B"), .confirm]
+        let plan = Broadcast.plan(d, reachable: ["lu.pm"])
+        XCTAssertEqual(plan.now, [])
+        XCTAssertEqual(plan.ask, [Handoff.Message(to: "lu.pm", text: "B")])
+    }
+}

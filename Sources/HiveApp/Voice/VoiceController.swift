@@ -43,7 +43,7 @@ final class VoiceController: ObservableObject {
 
     private unowned let store: StateStore
     private let listener = Listener(locale: VoiceSettings.locale)
-    private let brain = Brain()
+    private let brain = Brain(name: Brain.voiceName, systemPrompt: Brain.voicePrompt)
     private let apple = AppleSpeaker(locale: VoiceSettings.locale)
     private let eleven = ElevenSpeaker()
     private let key = PushToTalk()
@@ -54,6 +54,10 @@ final class VoiceController: ObservableObject {
     private var discard = false              // barge-in during an answer: drop the rest of it
     private var queued: String?
     private var inTurn = false
+    /// the microphone opens by itself after an answer only if a reply is expected: Hive asked something,
+    /// a message waits for a yes, or it announced a session that waits for the user
+    private var expectsReply = false
+    private var announcedNeed = false
     private var filter = SpokenFilter()
     private var splitter = SentenceSplitter()
     private var asked = Date()
@@ -290,6 +294,9 @@ final class VoiceController: ObservableObject {
             notes.append("the user interrupted your last answer; they did not hear it to the end")
         }
         pending = handoff.pending
+        let said = Directives.parse(full).spoken
+        expectsReply = !discard && (said.hasSuffix("?") || pending != nil || announcedNeed)
+        announcedNeed = false
         discard = false
         inTurn = false
         if let next = queued { queued = nil; turn(user: next) }
@@ -308,30 +315,16 @@ final class VoiceController: ObservableObject {
     /// Everything the voice says goes through here, so session names are spoken as words.
     private func voice(_ text: String) { speaker.say(names.speakable(text)) }
 
-    private func session(_ name: String) -> Session? {
-        store.displaySessions.first { $0.name == name && ($0.alive || store.tmux($0) != nil) }
-            ?? store.displaySessions.first { $0.name == name }
-    }
+    private func session(_ name: String) -> Session? { store.session(named: name) }
 
-    /// Like a card: a visible choice dialog gets the option (answer buttons), otherwise the text is typed (reply field).
     private func deliver(_ msg: Handoff.Message) async {
-        var why: String?
-        if let s = session(msg.to) {
-            if store.tmux(s) == nil {
-                why = "\(msg.to) läuft nicht in Hive, dort kann ich nichts eintippen."
-            } else if let dialog = await store.dialog(s) {
-                if let a = DialogReply.answer(msg.text, in: dialog) {
-                    why = await store.answer(a, known: dialog.options.map(\.label), to: s).map { _ in
-                        "Bei \(msg.to) hat sich der Dialog geändert, schau bitte selbst."
-                    }
-                } else {
-                    why = "\(msg.to) zeigt eine Auswahl, da passt \"\(msg.text)\" nicht. Sag mir die Nummer."
-                }
-            } else {
-                why = await store.reply(msg.text, to: s).map { _ in "Das Eintippen bei \(msg.to) hat nicht geklappt." }
-            }
-        } else {
-            why = "Eine Session \(msg.to) kenne ich nicht."
+        let why: String? = switch await store.deliver(msg.text, to: msg.to) {
+        case nil: nil
+        case .unknownSession: "Eine Session \(msg.to) kenne ich nicht."
+        case .notInHive: "\(msg.to) läuft nicht in Hive, dort kann ich nichts eintippen."
+        case .dialogChanged: "Bei \(msg.to) hat sich der Dialog geändert, schau bitte selbst."
+        case .noMatchingOption: "\(msg.to) zeigt eine Auswahl, da passt \"\(msg.text)\" nicht. Sag mir die Nummer."
+        case .typingFailed: "Das Eintippen bei \(msg.to) hat nicht geklappt."
         }
         if let why {
             voiceLog("not sent to \(msg.to): \(why)")
@@ -407,8 +400,11 @@ final class VoiceController: ObservableObject {
         focus = names.first ?? done.first
         let ask = names.isEmpty
             ? "Tell the user in one short sentence who finished and the gist of the result, no details."
-            : "Tell the user in one or two short sentences who needs them and what for, so they can answer by voice"
+            : "Tell the user in one or two short sentences who needs them and what for, so they can answer by voice;"
+              + " say in plain words what the session wants to do (\"will 'n Befehl ausführen\", \"will die Datei ändern\"),"
+              + " never a label like \"Berechtigungs-Dialog\" or \"Auswahl\""
               + (names.count > 1 ? "; name \(names[0]) first" : "") + (done.isEmpty ? "" : "; mention the finished ones briefly at the end") + "."
+        announcedNeed = !names.isEmpty
         turn(user: nil, event: lines.joined(separator: "\n") + "\n" + ask + " No markers.")
     }
 
@@ -427,7 +423,7 @@ final class VoiceController: ObservableObject {
             guard Date().timeIntervalSince(quiet) >= Self.echoGap else { break }
             quietSince = nil
             // conversation mode: the user can just answer, no key needed
-            if VoiceSettings.followUp, listenerReady, sending == nil { startListening(handsFree: true) } else { phase = .idle }
+            if VoiceSettings.followUp, expectsReply, listenerReady, sending == nil { startListening(handsFree: true) } else { phase = .idle }
         case .listening where handsFree:
             let now = Date()
             if heard.isEmpty, now.timeIntervalSince(listenStarted) > Self.followUpWait { talkCancelled() }

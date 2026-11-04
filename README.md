@@ -141,6 +141,12 @@ from Claude through the `claude` CLI with your login, the voice is ElevenLabs (k
 keychain) or the macOS voice. Right ⌥ needs Input Monitoring; `restart.sh` signs with an Apple Development
 certificate if there is one, so the permissions survive rebuilds.
 
+Broadcast (⌘B, the megaphone in the title bar): type one message for one or more sessions ("lu.pm and or.pm should
+check their tickets", "all PMs: write a handover"). Claude works out who gets what, clear and short messages go out
+at once, unclear, long or hard-to-undo ones wait for Send; a line per session shows who got what. The voice and
+the broadcast field each run their own `claude -p`, registered as `keeper.voice` and `keeper.broadcast`; Hive
+leaves both out of its lists.
+
 Attaching to a session from outside: `tmux -L hive attach -t '=<name>:'` (colon needed, otherwise tmux reads `.01` as a pane).
 
 ## Structure
@@ -149,7 +155,7 @@ Attaching to a session from outside: `tmux -L hive attach -t '=<name>:'` (colon 
   `~/.claude/projects`. Changes arrive via FSEvents.
 - `HiveApp`: SwiftUI window, terminal via SwiftTerm, handover view via MarkdownUI, and its own tmux
   server (`tmux -L hive`).
-- `VoiceKit`: the parts of talking to Hive that need no audio (sentences, markers, confirmation gate, spoken names).
+- `VoiceKit`: the parts of talking to Hive and of Broadcast that need no audio (sentences, markers, confirmation gate, spoken names, who gets a broadcast).
 - `hive-state`: prints the state as JSON.
 
 ## Session tools

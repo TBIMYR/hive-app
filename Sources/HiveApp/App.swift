@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let projects = ProjectInfoStore()
 
     let dock = DockStore()
+    lazy var broadcast = BroadcastController(store: store)
     /// Talking to Hive (macOS 26: SpeechAnalyzer); typed as AnyObject because stored properties can't be @available
     private var voice: AnyObject?
     private var voiceHUD: AnyObject?
@@ -63,6 +64,7 @@ struct HiveApp: App {
                 .environmentObject(delegate.dock)
                 .environmentObject(delegate.usage)
                 .environmentObject(delegate.projects)
+                .environmentObject(delegate.broadcast)
                 .frame(minWidth: 900, minHeight: 560)
         }
         .defaultSize(width: 1440, height: 860)
@@ -84,6 +86,8 @@ struct HiveApp: App {
                     .keyboardShortcut("f")
                 Button("Notes") { delegate.toggleNotes() }
                     .keyboardShortcut("t")
+                Button("Broadcast") { delegate.broadcast.open.toggle() }
+                    .keyboardShortcut("b")
                 Button("Reset Window Layout") { delegate.dock.reset() }
             }
         }
@@ -229,6 +233,7 @@ struct SettingsView: View {
 
 struct ContentView: View {
     @EnvironmentObject private var store: StateStore
+    @EnvironmentObject private var broadcast: BroadcastController
     @EnvironmentObject private var usage: UsageStore
     /// Settings → Monochrome; the whole window content is rebuilt so every color is read again
     @AppStorage(Hive.monoKey) private var mono = false
@@ -286,6 +291,15 @@ struct ContentView: View {
 
     @AppStorage(VoiceSettings.enabledKey) private var voiceOn = false
 
+    /// One typed message for one or more sessions; Hive works out who gets what.
+    private var broadcastButton: some View {
+        Button { broadcast.open.toggle() } label: {
+            Label("Broadcast", systemImage: "megaphone")
+        }
+        .help("Broadcast (⌘B): type a message for one or more sessions, e.g. \"all PMs: write a handover\"")
+        .popover(isPresented: $broadcast.open, arrowEdge: .bottom) { BroadcastPanel(broadcast: broadcast) }
+    }
+
     /// Talk to Hive on/off; while on, the push-to-talk key works everywhere.
     private var voiceButton: some View {
         Button { voiceOn.toggle() } label: {
@@ -318,12 +332,14 @@ struct ContentView: View {
                 ToolbarItem(placement: .automatic) { UsageButton() }
                 ToolbarSpacer(.fixed)
             }
+            ToolbarItem(placement: .automatic) { broadcastButton }
             ToolbarItem(placement: .automatic) { voiceButton }
             ToolbarItem(placement: .automatic) { awakeButton }
             ToolbarItem(placement: .automatic) { sleepButton }
             ToolbarItem(placement: .automatic) { newSessionButton }
         } else {
             if hasUsage { ToolbarItem(placement: .primaryAction) { UsageButton() } }
+            ToolbarItem(placement: .primaryAction) { broadcastButton }
             ToolbarItem(placement: .primaryAction) { awakeButton }
             ToolbarItem(placement: .primaryAction) { sleepButton }
             ToolbarItem(placement: .primaryAction) { newSessionButton }
