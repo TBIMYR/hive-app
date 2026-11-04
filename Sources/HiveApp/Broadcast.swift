@@ -128,8 +128,13 @@ struct BroadcastPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Broadcast").font(.headline)
             TextField("e.g. lu.pm and or.pm should check their tickets", text: $text, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...6)
+                .textFieldStyle(.plain)
+                .font(.system(size: 16))
+                .lineLimit(3...8)
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Hive.card))
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(focused ? Hive.ink.opacity(0.35) : Hive.hair))
                 .focused($focused)
                 .disabled(broadcast.thinking)
                 .onSubmit { broadcast.submit(text); text = "" }
@@ -151,7 +156,7 @@ struct BroadcastPanel: View {
                         .foregroundStyle(line.failure == nil ? Hive.ink : Hive.need)
                         .lineLimit(2)
                 }
-                .font(.callout)
+                .font(.body)
             }
             if !broadcast.asking.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -160,7 +165,7 @@ struct BroadcastPanel: View {
                             Text(m.to).bold()
                             Text(m.text).fixedSize(horizontal: false, vertical: true)
                         }
-                        .font(.callout)
+                        .font(.body)
                     }
                     HStack {
                         Spacer()
@@ -170,8 +175,8 @@ struct BroadcastPanel: View {
                 }
             }
         }
-        .padding(16)
-        .frame(width: 440)
+        .padding(18)
+        .frame(width: 520)
         .onAppear {
             focused = true
             broadcast.warmUp()
