@@ -172,7 +172,7 @@ final class ElevenSpeaker: Speaker {
                 var body: [String: Any] = ["text": text, "model_id": model, "language_code": "de",
                                            // low stability sounds livelier but drops and slurs words; 0.5 is the steadier middle
                                            "voice_settings": ["stability": VoiceSettings.stability, "similarity_boost": 0.75,
-                                                              "style": 0.35, "use_speaker_boost": true, "speed": VoiceSettings.speed]]
+                                                              "style": 0, "use_speaker_boost": true, "speed": VoiceSettings.speed]]
                 if !previous.isEmpty { body["previous_text"] = previous }
                 req.httpBody = try? JSONSerialization.data(withJSONObject: body)
                 do {

@@ -17,8 +17,8 @@ enum VoiceSettings {
 
     /// premade "Sarah"; with a paid ElevenLabs plan any library voice works too
     static let defaultVoice = "EXAVITQu4vr4xnSDxMaL"
-    /// the low-latency model, speaks German
-    static let elevenModel = "eleven_flash_v2_5"
+    /// clearer German than the faster flash model, which swallowed words; twice the credits per character
+    static let elevenModel = "eleven_multilingual_v2"
     static let locale = "de-DE"
 
     private static var d: UserDefaults { .standard }
