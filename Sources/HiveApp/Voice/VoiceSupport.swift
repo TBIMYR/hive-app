@@ -34,9 +34,9 @@ enum VoiceSettings {
     static var model: String { d.string(forKey: modelKey) ?? "haiku" }
     /// after an answer the microphone stays open briefly, so the user can just answer
     static var followUp: Bool { d.object(forKey: followUpKey) as? Bool ?? true }
-    static var stability: Double { d.object(forKey: stabilityKey) as? Double ?? 0.3 }
+    static var stability: Double { d.object(forKey: stabilityKey) as? Double ?? 0.5 }
     /// 1 = the voice's normal pace; ElevenLabs takes 0.7 to 1.2
-    static var speed: Double { d.object(forKey: speedKey) as? Double ?? 0.92 }
+    static var speed: Double { d.object(forKey: speedKey) as? Double ?? 0.85 }
     /// how Hive calls the user; lives only in this Mac's settings, never in the prompt source
     static var userName: String? {
         let n = d.string(forKey: userNameKey)?.trimmingCharacters(in: .whitespaces) ?? ""

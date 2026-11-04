@@ -143,6 +143,12 @@ final class ElevenSpeaker: Speaker {
             let s = raw.bindMemory(to: Int16.self)
             for i in 0..<frames { out[i] = Float(Int16(littleEndian: s[i])) / 32768 }
         }
+        // a waking audio device (Bluetooth above all) cuts off the first syllable; a little silence goes first
+        if !player.isPlaying, let lead = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 3600) {
+            lead.frameLength = 3600
+            memset(lead.floatChannelData![0], 0, 3600 * MemoryLayout<Float>.size)
+            player.scheduleBuffer(lead)
+        }
         scheduled += 1
         progress = Date()
         player.scheduleBuffer(buf) { [weak self] in
@@ -159,12 +165,12 @@ final class ElevenSpeaker: Speaker {
     nonisolated static func stream(text: String, previous: String, voice: String, model: String, key: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { cont in
             let task = Task {
-                var req = URLRequest(url: URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(voice)/stream?output_format=pcm_24000&optimize_streaming_latency=2")!)
+                var req = URLRequest(url: URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(voice)/stream?output_format=pcm_24000")!)
                 req.httpMethod = "POST"
                 req.setValue(key, forHTTPHeaderField: "xi-api-key")
                 req.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 var body: [String: Any] = ["text": text, "model_id": model, "language_code": "de",
-                                           // less stability = livelier, less like reading the news
+                                           // low stability sounds livelier but drops and slurs words; 0.5 is the steadier middle
                                            "voice_settings": ["stability": VoiceSettings.stability, "similarity_boost": 0.75,
                                                               "style": 0.35, "use_speaker_boost": true, "speed": VoiceSettings.speed]]
                 if !previous.isEmpty { body["previous_text"] = previous }
