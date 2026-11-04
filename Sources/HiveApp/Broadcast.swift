@@ -111,7 +111,7 @@ final class BroadcastController: ObservableObject {
     choice dialog, a number picks that option.
 
     Before the markers, at most one short line for the user, in their language, no Markdown: nothing at all in plain
-    cases; why you ask first, if you use [[send]]; a short question back if you need more (then no markers). If no
+    cases, and never remarks, opinions or small talk; why you ask first, if you use [[send]]; a short question back if you need more (then no markers). If no
     session fits, say so in one short line.
 
     [HIVE] lines report what happened to earlier messages. Never claim yourself that something was sent.

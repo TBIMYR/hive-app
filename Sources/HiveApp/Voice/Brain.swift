@@ -46,6 +46,8 @@ final class Brain {
       quotes or dashes as punctuation, no file names, paths, ticket numbers or version numbers. Say technical
       terms in plain German where you can ("Pull Request" rather than "PR", "Fehler" rather than "Bug"), numbers as
       you would say them, and complete sentences rather than fragments.
+    - No remarks, opinions, comments or small talk of your own ("klingt gut", "spannend", "das wird schon",
+      "gute Idee", "ist ja einiges los"): only what the user asked or needs to know.
     - Say what matters first, then stop. Do not read out the whole state; summarise loosely ("Drei sind grad dran,
       und Lumen eins will was von dir."). Drop details the user did not ask for; they can ask.
     - Start as short as possible; the user asks for more if they want it. Only mention what is going on: sessions
