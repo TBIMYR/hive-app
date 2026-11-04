@@ -18,7 +18,7 @@ struct VoiceSettingsView: View {
     @AppStorage(VoiceSettings.stabilityKey) private var stability = 0.5
     @AppStorage(VoiceSettings.modelKey) private var model = "haiku"
     @AppStorage(VoiceSettings.userNameKey) private var userName = ""
-    @AppStorage(VoiceSettings.speedKey) private var speed = 0.85
+    @AppStorage(VoiceSettings.speedKey) private var speed = 0.92
     @State private var newKey = ""
     @State private var hasKey = VoiceKeychain.read() != nil
 
