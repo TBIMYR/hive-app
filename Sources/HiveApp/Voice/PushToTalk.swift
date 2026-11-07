@@ -78,7 +78,10 @@ final class PushToTalk {
             guard let user else { return Unmanaged.passUnretained(event) }
             let code = event.getIntegerValueField(.keyboardEventKeycode)
             let flags = event.flags.rawValue
-            MainActor.assumeIsolated {
+            // Not MainActor.assumeIsolated: its executor check crashed in here (null object in
+            // swift_task_isMainExecutor) when the tap fired inside a nested run loop. The tap runs on the main
+            // run loop anyway; one hop to the main queue costs nothing noticeable.
+            DispatchQueue.main.async {
                 Unmanaged<PushToTalk>.fromOpaque(user).takeUnretainedValue().handle(type, code: code, flags: flags)
             }
             return Unmanaged.passUnretained(event)
