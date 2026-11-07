@@ -27,7 +27,11 @@ public enum SessionControl {
     }
 
     /// Start line for a session in tmux.
-    public static func claudeCommand(_ name: String) -> String { "claude -n \(shellQuote(name))" }
+    /// With `task`, the session starts on it as its first prompt (like `cc-spawn NAME DIR "TASK"`).
+    public static func claudeCommand(_ name: String, task: String? = nil) -> String {
+        guard let task, !task.isEmpty else { return "claude -n \(shellQuote(name))" }
+        return "claude -n \(shellQuote(name)) \(shellQuote(task))"
+    }
 
     static func shellQuote(_ s: String) -> String {
         let safe = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-+/:@%"))

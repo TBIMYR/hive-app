@@ -102,3 +102,15 @@ private let loose = ProjectInfo(slug: "orbit")   // file without folder
     #expect(ProjectInfo.linkified("`*.lumen.app` `<t>.lumen.app` `deploy.yml` `mail@lumen.app` `10.0.0.1` `next dev`")
             == "`*.lumen.app` `<t>.lumen.app` `deploy.yml` `mail@lumen.app` `10.0.0.1` `next dev`")
 }
+
+@Test func wakeFolderByPrefixThenHandoverProject() {
+    let projects = [ProjectInfo(slug: "lumen", folder: "/dev/lumen", prefix: "lu"),
+                    ProjectInfo(slug: "orbit", folder: "/dev/orbit-app", prefix: "or"),
+                    ProjectInfo(slug: "fjord", prefix: "fj")]
+    #expect(ProjectInfo.folder(forSession: "lu.pm", project: nil, in: projects) == "/dev/lumen")
+    #expect(ProjectInfo.folder(forSession: "x.01", project: "orbit", in: projects) == "/dev/orbit-app")
+    #expect(ProjectInfo.folder(forSession: "orbit", project: "orbit-app", in: projects) == "/dev/orbit-app")
+    // a project file without a folder does not count
+    #expect(ProjectInfo.folder(forSession: "fj.pm", project: "fjord", in: projects) == nil)
+    #expect(ProjectInfo.folder(forSession: "kiosk", project: nil, in: projects) == nil)
+}

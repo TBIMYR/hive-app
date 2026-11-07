@@ -31,6 +31,11 @@ import Testing
     #expect(SessionControl.claudeCommand("it's") == "claude -n 'it'\\''s'")
 }
 
+@Test func claudeCommandWithFirstTask() {
+    #expect(SessionControl.claudeCommand("lu.pm", task: "Check your tickets.") == "claude -n lu.pm 'Check your tickets.'")
+    #expect(SessionControl.claudeCommand("lu.pm", task: "") == "claude -n lu.pm")
+}
+
 @Test func hasExitedWhenShellInFrontOrTmuxGone() {
     #expect(SessionControl.hasExited(wasAlive: true, aliveNow: true, paneCommand: "zsh"))
     #expect(SessionControl.hasExited(wasAlive: true, aliveNow: true, paneCommand: nil))

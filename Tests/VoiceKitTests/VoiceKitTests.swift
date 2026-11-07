@@ -271,6 +271,23 @@ final class BroadcastTests: XCTestCase {
         XCTAssertEqual(plan.ask.map(\.to), ["lu.01", "or.01", "fj.01"])
     }
 
+    func testWakeParsesAndSkipsReachableSessions() {
+        XCTAssertEqual(Directives.parse("[[wake lu.pm]]\n[[wake or.pm]]").directives, [.wake("lu.pm"), .wake("or.pm")])
+        XCTAssertEqual(Directives.parse("[[wake ]] [[wake a b]]").directives, [])
+        let plan = Broadcast.plan([.wake("lu.pm"), .wake("or.pm"), .wake("lu.pm")], reachable: ["or.pm"])
+        XCTAssertEqual(plan.wake, [Broadcast.Wake(name: "lu.pm")])
+    }
+
+    func testShortReplyToAWokenSessionIsItsFirstPrompt() {
+        let long = String(repeating: "x", count: Handoff.quickReplyLimit + 1)
+        let d: [Directive] = [.wake("lu.pm"), .reply(to: "lu.pm", text: "Check deine Tickets."),
+                              .wake("or.pm"), .reply(to: "or.pm", text: long)]
+        let plan = Broadcast.plan(d, reachable: [])
+        XCTAssertEqual(plan.wake, [Broadcast.Wake(name: "lu.pm", task: "Check deine Tickets."), Broadcast.Wake(name: "or.pm")])
+        XCTAssertEqual(plan.now, [])
+        XCTAssertEqual(plan.ask.map(\.to), ["or.pm"])
+    }
+
     func testOneMessagePerSessionTheLastWins() {
         let d: [Directive] = [.reply(to: "lu.pm", text: "A"), .propose(to: "lu.pm", text: "B"), .confirm]
         let plan = Broadcast.plan(d, reachable: ["lu.pm"])

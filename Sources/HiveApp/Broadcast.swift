@@ -6,6 +6,7 @@ import VoiceKit
 /// The broadcast field: the user types one message ("lu.pm and or.pm should check their tickets", "all PMs: …"),
 /// a `claude -p` of its own (keeper.broadcast) finds the recipients and the message for each, and Hive types it
 /// into those sessions. Same rule as the voice: clear, short ones go out at once, the rest waits for a click.
+/// "weck lu.pm auf" starts offline sessions again with their handover.
 @MainActor
 final class BroadcastController: ObservableObject {
     struct Line: Identifiable, Equatable {
@@ -58,8 +59,19 @@ final class BroadcastController: ObservableObject {
         reply = full.isEmpty ? "No answer from Claude. Try again." : spoken
         asking = plan.ask
         Task {
+            await wake(plan.wake)
             await deliver(plan.now)
             thinking = false
+        }
+    }
+
+    private func wake(_ wakes: [Broadcast.Wake]) async {
+        for w in wakes {
+            var line = Line(to: w.name, text: w.task.map { "woken up: \($0)" } ?? "woken up")
+            line.failure = store.sessions.contains { $0.name == w.name } || store.tmuxPanes.commands[w.name] != nil
+                ? await store.wake(w.name, task: w.task) : "no such session"
+            notes.append(line.failure.map { "waking \(w.name) FAILED: \($0)" } ?? "woke \(w.name)" + (w.task.map { " with: \($0)" } ?? ""))
+            sent.append(line)
         }
     }
 
@@ -98,7 +110,12 @@ final class BroadcastController: ObservableObject {
     Every turn starts with [HIVE STATE]: the running sessions with name, project (PM marks a project's PM session),
     status, task line and what each said last. Recipients are named exactly as listed there. "alle PMs" means every
     session marked PM, "alle von Lumen" every session of that project, "alle" every running session. Only listed
-    sessions can receive.
+    sessions can receive. The last line of [HIVE STATE] lists sessions that are offline but have a handover.
+
+    To wake offline sessions ("weck lu.pm und or.pm auf", "starte lu.pm wieder"), write [[wake <name>]] per session,
+    only for names from the offline list. It goes out at once: Hive starts the session again and it reads its
+    handover. Never wake a running session. If the user also has a message for it, add a [[reply]] or [[send]] for
+    it as below; a short one becomes its first prompt.
 
     One marker line per recipient, at the end:
     - [[reply <name>: <message>]] when it is clear who is meant and what to say, and the message is short and harmless

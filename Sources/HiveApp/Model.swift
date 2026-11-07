@@ -433,32 +433,41 @@ final class StateStore: ObservableObject {
     /// "Wake Up" menu item for offline sessions: start `claude -n <name>` in Hive (tmux), in its
     /// last folder; the start hook loads its handover. Reuses a tmux session of that name with a shell in front.
     func wakeUp(_ s: Session) {
-        let name = s.name
         Task {
-            if let cmd = tmuxPanes.commands[name] {
-                guard SessionStatus.isShell(cmd) else {
-                    notice = "\(name) already has a terminal in Hive running \(cmd)."
-                    return
-                }
-                if let e = await Task.detached(operation: { Tmux.type(SessionControl.claudeCommand(name), into: name) }).value {
-                    notice = "Could not wake up \(name): \(e)"
-                    return
-                }
-            } else {
-                let known = s.cwd.flatMap { $0.isEmpty ? nil : $0 }
-                guard let dir = await Task.detached(operation: { known ?? SessionFolder.find(name) }).value else {
-                    notice = "No folder known for \(name): no transcript of it in the last 90 days."
-                    return
-                }
-                if let e = await Task.detached(operation: { Tmux.newSession(name: name, dir: dir, submit: true) }).value {
-                    notice = "Could not wake up \(name): \(e)"
-                    return
-                }
-                terminalEpoch += 1
+            if let e = await wake(s.name) {
+                notice = "Could not wake up \(s.name): \(e)"
+                return
             }
-            selected = name
-            await refresh()
+            selected = s.name
         }
+    }
+
+    /// Starts an offline session again (menu item and broadcast field). Folder: its last one, else the one of its
+    /// newest transcript, else its project's from ~/.claude/project-info. With `task`, that is its first prompt.
+    /// Returns why it did not start, or nil.
+    func wake(_ name: String, task: String? = nil) async -> String? {
+        if let cmd = tmuxPanes.commands[name] {
+            guard SessionStatus.isShell(cmd) else { return "already has a terminal in Hive running \(cmd)" }
+            let line = SessionControl.claudeCommand(name, task: task)
+            if let e = await Task.detached(operation: { Tmux.type(line, into: name) }).value { return e }
+        } else {
+            let s = sessions.first { $0.name == name }
+            if s?.alive == true { return "already running" }
+            let known = s?.cwd.flatMap { $0.isEmpty || !FileManager.default.fileExists(atPath: $0) ? nil : $0 }
+            let project = s?.project
+            guard let dir = await Task.detached(operation: {
+                known ?? SessionFolder.find(name)
+                    ?? ProjectInfo.folder(forSession: name, project: project, in: ProjectInfo.loadAll())
+            }).value else {
+                return "no folder known: no transcript in the last 90 days and no project file"
+            }
+            if let e = await Task.detached(operation: { Tmux.newSession(name: name, dir: dir, submit: true, task: task) }).value {
+                return e
+            }
+            terminalEpoch += 1
+        }
+        await refresh()
+        return nil
     }
 
     /// "Remove from List…" on an offline session: archive its handover, which is all that keeps it listed.

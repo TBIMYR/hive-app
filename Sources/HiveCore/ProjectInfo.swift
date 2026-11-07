@@ -110,6 +110,18 @@ extension ProjectInfo {
 
     private static func trimSlash(_ s: String) -> String { s.count > 1 && s.hasSuffix("/") ? String(s.dropLast()) : s }
 
+    /// Project folder for waking a session with no known folder: the project whose `prefix` is the name's
+    /// ("lu" for lu.pm), otherwise the one whose slug or folder name is the handover's `project:`.
+    public static func folder(forSession name: String, project: String?, in projects: [ProjectInfo]) -> String? {
+        let withFolder = projects.filter { !($0.folder ?? "").isEmpty }
+        if let dot = name.lastIndex(of: "."), dot > name.startIndex,
+           let p = withFolder.first(where: { $0.prefix == String(name[..<dot]) }) {
+            return p.folder
+        }
+        guard let project, !project.isEmpty else { return nil }
+        return withFolder.first { $0.slug == project || URL(fileURLWithPath: $0.folder!).lastPathComponent == project }?.folder
+    }
+
     /// Project slug for a session folder, with its file if there is one. Fallback: the folder name
     /// (first folder under devRoot) as slug. nil without a cwd or without a usable name.
     public static func resolve(cwd: String, in projects: [ProjectInfo], devRoot: String = Project.defaultDevRoot)

@@ -70,13 +70,13 @@ enum Tmux {
     /// without Enter: you start it yourself and can change the line beforehand (e.g. `codex`, `--resume`).
     /// With `submit` (Restart), Enter follows, so Claude starts right away.
     /// `HIVE_SESSION` carries the name, no matter which agent runs later. Returns an error message or nil.
-    static func newSession(name: String, dir: String, submit: Bool = false) -> String? {
+    static func newSession(name: String, dir: String, submit: Bool = false, task: String? = nil) -> String? {
         scrubServer()
         let r = run(["new-session", "-d", "-s", name, "-c", dir, "-e", "HIVE_SESSION=\(name)"])
         guard r.status == 0 else { return r.output.isEmpty ? "tmux error \(r.status)" : r.output }
         // only type once the shell has read its startup files
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.8) {
-            let cmds = SessionControl.typeArgs(SessionControl.claudeCommand(name), into: name)
+            let cmds = SessionControl.typeArgs(SessionControl.claudeCommand(name, task: task), into: name)
             _ = run(cmds[0])
             if submit { _ = run(cmds[1]) }
         }
