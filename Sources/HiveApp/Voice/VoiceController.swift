@@ -265,7 +265,7 @@ final class VoiceController: ObservableObject {
             if let event { prompt += "\n[HIVE EVENT] \(event)" }
             if let text { prompt += "\n[USER] \(text)" }
             asked = Date()
-            voiceLog(text.map { "you: \($0)" } ?? "event")
+            voiceLog(text.map { "you: \($0)" } ?? "event: \((event ?? "").replacingOccurrences(of: "\n", with: " ⏎ "))")
             brain.ask(prompt, delta: { self.streamed($0) }, done: { self.answered($0) })
         }
     }

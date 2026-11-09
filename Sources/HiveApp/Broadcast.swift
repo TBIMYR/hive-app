@@ -48,6 +48,7 @@ final class BroadcastController: ObservableObject {
         prompt += notes.map { "[HIVE] \($0)\n" }.joined()
         notes = []
         prompt += "\n[USER] \(text)"
+        voiceLog("broadcast you: \(text)")
         brain.ask(prompt, delta: { _ in }, done: { [weak self] in self?.answered($0) })
     }
 
@@ -71,6 +72,7 @@ final class BroadcastController: ObservableObject {
             line.failure = store.sessions.contains { $0.name == w.name } || store.tmuxPanes.commands[w.name] != nil
                 ? await store.wake(w.name, task: w.task) : "no such session"
             notes.append(line.failure.map { "waking \(w.name) FAILED: \($0)" } ?? "woke \(w.name)" + (w.task.map { " with: \($0)" } ?? ""))
+            voiceLog("broadcast \(notes.last ?? "")")
             sent.append(line)
         }
     }
@@ -98,6 +100,7 @@ final class BroadcastController: ObservableObject {
             case .typingFailed: "typing failed"
             }
             notes.append(line.failure.map { "sending to \(m.to) FAILED: \($0)" } ?? "delivered to \(m.to): \(m.text)")
+            voiceLog("broadcast \(notes.last ?? "")")
             sent.append(line)
         }
     }

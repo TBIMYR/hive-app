@@ -94,6 +94,42 @@ enum VoiceKeychain {
 
 func voiceLog(_ s: String) {
     FileHandle.standardError.write(Data("hive voice: \(s)\n".utf8))
+    VoiceLogFile.append(s)
+}
+
+/// What the voice and the broadcast field heard, said and did, in ~/Library/Logs/Hive/voice.log, so a wrong
+/// answer can be looked up afterwards (stderr goes nowhere in the installed app). Over `limit` the file moves to
+/// voice.log.1 and a new one starts, so at most twice that stays on disk.
+enum VoiceLogFile {
+    static let limit = 2_000_000
+    static let path = NSString(string: "~/Library/Logs/Hive/voice.log").expandingTildeInPath
+    private static let queue = DispatchQueue(label: "hive.voicelog")
+    nonisolated(unsafe) private static let stamp: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        return f
+    }()
+
+    static func append(_ s: String) {
+        let now = Date()
+        queue.async {
+            let fm = FileManager.default
+            try? fm.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            if let size = (try? fm.attributesOfItem(atPath: path))?[.size] as? Int, size > limit {
+                try? fm.removeItem(atPath: path + ".1")
+                try? fm.moveItem(atPath: path, toPath: path + ".1")
+            }
+            let line = Data("\(stamp.string(from: now)) \(s)\n".utf8)
+            if let h = FileHandle(forWritingAtPath: path) {
+                defer { try? h.close() }
+                _ = try? h.seekToEnd()
+                try? h.write(contentsOf: line)
+            } else {
+                fm.createFile(atPath: path, contents: line)
+            }
+        }
+    }
 }
 
 struct Failure: LocalizedError {
