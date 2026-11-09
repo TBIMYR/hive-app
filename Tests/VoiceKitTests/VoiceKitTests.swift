@@ -222,6 +222,23 @@ final class DoneTrackerTests: XCTestCase {
         XCTAssertEqual(t.update([s("idle")], now: t0 + 1 + DoneTracker.minWork), ["lu.01": ""])
     }
 
+    func testTaskDoneAndEndOfLongWorkAreOneReport() {
+        var t = DoneTracker()
+        let t0 = Date()
+        _ = t.update([s("idle", task: "working")], now: t0)
+        _ = t.update([s("busy", task: "working")], now: t0 + 1)
+        // cc-task done comes while the last turn still runs, the session goes quiet a little later
+        XCTAssertEqual(t.update([s("busy", task: "done")], now: t0 + 300), ["lu.01": "Login page"])
+        XCTAssertEqual(t.update([s("idle", task: "done")], now: t0 + 310), [:])
+        // the other order: quiet first, the task line follows
+        _ = t.update([s("busy", task: "working")], now: t0 + 400)
+        XCTAssertEqual(t.update([s("idle", task: "working")], now: t0 + 700), ["lu.01": "Login page"])
+        XCTAssertEqual(t.update([s("idle", task: "done")], now: t0 + 705), [:])
+        // new work afterwards is reported again
+        _ = t.update([s("busy", task: "working")], now: t0 + 800)
+        XCTAssertEqual(t.update([s("idle", task: "done")], now: t0 + 805), ["lu.01": "Login page"])
+    }
+
     func testShortTurnsAndWaitingDoNotCount() {
         var t = DoneTracker()
         let t0 = Date()

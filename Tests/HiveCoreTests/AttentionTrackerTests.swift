@@ -69,3 +69,16 @@ private func at(_ s: TimeInterval) -> Date { t0.addingTimeInterval(s) }
     _ = t.update(["al.02": Need(reason: "Start", confirmAfter: 3)], now: at(2))
     #expect(t.update(["al.02": Need(reason: "Freigabe")], now: at(3)).added == ["al.02": "Freigabe"])
 }
+
+@Test func flickerWithTheSameReasonIsNotReportedAgain() {
+    var t = AttentionTracker()
+    _ = t.update([:], now: t0)
+    #expect(t.update(["al.01": Need(reason: "Freigabe")], now: at(2)).added == ["al.01": "Freigabe"])
+    #expect(t.update([:], now: at(4)).removed == ["al.01"])
+    #expect(t.update(["al.01": Need(reason: "Freigabe")], now: at(6)).added.isEmpty)
+    // a different question, or the same one after a while, is new
+    _ = t.update([:], now: at(8))
+    #expect(t.update(["al.01": Need(reason: "Weitermachen?")], now: at(10)).added == ["al.01": "Weitermachen?"])
+    _ = t.update([:], now: at(12))
+    #expect(t.update(["al.01": Need(reason: "Weitermachen?")], now: at(12 + AttentionTracker.flicker)).added == ["al.01": "Weitermachen?"])
+}
