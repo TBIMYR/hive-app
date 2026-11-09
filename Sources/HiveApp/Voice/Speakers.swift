@@ -62,8 +62,8 @@ final class ElevenSpeaker: Speaker {
     var voiceID = VoiceSettings.elevenVoice
     var model = VoiceSettings.elevenModel
     private(set) var key: String?
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
+    private var engine = AVAudioEngine()
+    private var player = AVAudioPlayerNode()
     private let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 24_000, channels: 1, interleaved: false)!
     private var chain: Task<Void, Never>?
     private var generation = 0
@@ -76,6 +76,19 @@ final class ElevenSpeaker: Speaker {
     /// the key is read on `reloadKey()` (when voice turns on), so the keychain asks only then
     init() {
         name = "ElevenLabs"
+        engine.attach(player)
+        engine.connect(player, to: engine.mainMixerNode, format: format)
+    }
+
+    /// A new engine for every answer: one kept from before can stay bound to an output route that is gone
+    /// (AirPods switching between their music and call modes) and then plays into nothing without an error.
+    private func freshEngine() {
+        _ = HiveTry {
+            player.stop()
+            engine.stop()
+        }
+        engine = AVAudioEngine()
+        player = AVAudioPlayerNode()
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
     }
@@ -98,7 +111,8 @@ final class ElevenSpeaker: Speaker {
 
     func say(_ sentence: String) {
         guard let key else { onError?("ElevenLabs-Schlüssel fehlt."); return }
-        if !engine.isRunning { try? engine.start() }
+        if !isSpeaking { freshEngine() }
+        if !engine.isRunning { _ = HiveTry { try? engine.start() } }
         let gen = generation
         let started = Date()
         let audio = Self.stream(text: sentence, previous: previous, voice: VoiceSettings.elevenVoice, model: model, key: key)
