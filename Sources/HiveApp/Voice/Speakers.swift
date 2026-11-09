@@ -1,4 +1,5 @@
 import AVFoundation
+import ObjCTry
 
 /// Gets an answer sentence by sentence while it streams in; `stop()` is the barge-in.
 @MainActor
@@ -147,18 +148,25 @@ final class ElevenSpeaker: Speaker {
         if !player.isPlaying, let lead = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 3600) {
             lead.frameLength = 3600
             memset(lead.floatChannelData![0], 0, 3600 * MemoryLayout<Float>.size)
-            player.scheduleBuffer(lead)
+            _ = HiveTry { player.scheduleBuffer(lead) }
         }
         scheduled += 1
         progress = Date()
-        player.scheduleBuffer(buf) { [weak self] in
-            Task { @MainActor in
-                guard let self, gen == self.generation else { return }
-                self.scheduled = max(0, self.scheduled - 1)
-                self.progress = Date()
+        // play() throws an ObjC exception if the engine stopped (audio device changed); catch it and drop the turn
+        if let e = HiveTry({
+            if !engine.isRunning { try? engine.start() }
+            player.scheduleBuffer(buf) { [weak self] in
+                Task { @MainActor in
+                    guard let self, gen == self.generation else { return }
+                    self.scheduled = max(0, self.scheduled - 1)
+                    self.progress = Date()
+                }
             }
+            if !player.isPlaying { player.play() }
+        }) {
+            voiceLog("ElevenLabs playback: \(e)")
+            stop()
         }
-        if !player.isPlaying { player.play() }
     }
 
     /// Raw 16-bit PCM at 24 kHz in chunks of about 100 ms.

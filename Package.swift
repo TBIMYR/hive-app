@@ -18,6 +18,7 @@ let package = Package(
             dependencies: [
                 "HiveCore",
                 "VoiceKit",
+                "ObjCTry",
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 .product(name: "MarkdownUI", package: "swift-markdown-ui"),
             ]
@@ -26,6 +27,8 @@ let package = Package(
         .executableTarget(name: "hive-state", dependencies: ["HiveCore"]),
         // Talking to Hive: the logic without audio (sentences, markers, confirmation gate, spoken names)
         .target(name: "VoiceKit", dependencies: ["HiveCore"]),
+        // Catches Objective-C exceptions (AVAudioEngine), which Swift cannot
+        .target(name: "ObjCTry"),
         .testTarget(name: "HiveCoreTests", dependencies: ["HiveCore"], resources: [.copy("Fixtures")]),
         .testTarget(name: "VoiceKitTests", dependencies: ["VoiceKit", "HiveCore"]),
     ]

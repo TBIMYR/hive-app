@@ -1,4 +1,5 @@
 import AVFoundation
+import ObjCTry
 import Speech
 
 /// Push to talk with on-device recognition (SpeechAnalyzer + SpeechTranscriber).
@@ -7,7 +8,7 @@ import Speech
 @MainActor
 final class Listener {
     private let locale: Locale
-    private let engine = AVAudioEngine()
+    private var engine = AVAudioEngine()
     private var transcriber: SpeechTranscriber?
     private var analyzer: SpeechAnalyzer?
     private var input: AsyncStream<AnalyzerInput>.Continuation?
@@ -42,17 +43,32 @@ final class Listener {
         let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
         input = continuation
 
-        // Microphone first: whatever is said while the analyzer starts is buffered in the stream
+        // Microphone first: whatever is said while the analyzer starts is buffered in the stream.
+        // A new engine each time: one kept from before still holds the formats of a device that may be gone
+        // (headset switched, Bluetooth changed to its call mode), and installTap then throws an ObjC exception.
+        engine = AVAudioEngine()
         let mic = engine.inputNode
-        let micFormat = mic.outputFormat(forBus: 0)
+        let micFormat = mic.inputFormat(forBus: 0)
+        guard micFormat.sampleRate > 0, micFormat.channelCount > 0 else { throw Failure("no microphone input") }
         guard let converter = AVAudioConverter(from: micFormat, to: format) else { throw Failure("audio format not convertible") }
-        mic.installTap(onBus: 0, bufferSize: 2048, format: micFormat) { buffer, _ in
-            if let converted = Self.convert(buffer, with: converter, to: format) {
-                continuation.yield(AnalyzerInput(buffer: converted))
+        var startError: Error?
+        if let e = HiveTry({
+            mic.installTap(onBus: 0, bufferSize: 2048, format: micFormat) { buffer, _ in
+                if let converted = Self.convert(buffer, with: converter, to: format) {
+                    continuation.yield(AnalyzerInput(buffer: converted))
+                }
             }
+            engine.prepare()
+            do { try engine.start() } catch { startError = error }
+        }) {
+            input = nil
+            throw Failure("microphone: \(e)")
         }
-        engine.prepare()
-        try engine.start()
+        if let startError {
+            _ = HiveTry { mic.removeTap(onBus: 0) }
+            input = nil
+            throw startError
+        }
 
         let analyzer = SpeechAnalyzer(modules: [transcriber],
                                       options: .init(priority: .userInitiated, modelRetention: .processLifetime))
@@ -84,8 +100,10 @@ final class Listener {
 
     func stop() async -> String {
         guard let analyzer else { return "" }
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
+        _ = HiveTry {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
         input?.finish()
         try? await analyzer.finalizeAndFinishThroughEndOfInput()
         let text = await collector?.value ?? ""
