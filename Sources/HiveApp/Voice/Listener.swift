@@ -49,31 +49,8 @@ final class Listener {
         input = continuation
 
         // Microphone first: whatever is said while the analyzer starts is buffered in the stream.
-        // A new engine each time: one kept from before still holds the formats of a device that may be gone
-        // (headset switched, Bluetooth changed to its call mode), and installTap then throws an ObjC exception.
-        engine = AVAudioEngine()
-        let mic = engine.inputNode
-        let micFormat = mic.inputFormat(forBus: 0)
-        guard micFormat.sampleRate > 0, micFormat.channelCount > 0 else { throw Failure("no microphone input") }
-        guard let converter = AVAudioConverter(from: micFormat, to: format) else { throw Failure("audio format not convertible") }
-        var startError: Error?
-        if let e = HiveTry({
-            mic.installTap(onBus: 0, bufferSize: 2048, format: micFormat) { buffer, _ in
-                if let converted = Self.convert(buffer, with: converter, to: format) {
-                    continuation.yield(AnalyzerInput(buffer: converted))
-                }
-            }
-            engine.prepare()
-            do { try engine.start() } catch { startError = error }
-        }) {
-            input = nil
-            throw Failure("microphone: \(e)")
-        }
-        if let startError {
-            _ = HiveTry { mic.removeTap(onBus: 0) }
-            input = nil
-            throw startError
-        }
+        do { try startMic(continuation, to: format) } catch { input = nil; throw error }
+        restarts = 0
 
         let analyzer = SpeechAnalyzer(modules: [transcriber],
                                       options: .init(priority: .userInitiated, modelRetention: .processLifetime))
@@ -103,7 +80,58 @@ final class Listener {
         try await analyzer.start(inputSequence: stream)
     }
 
+    /// A new engine each time: one kept from before still holds the formats of a device that may be gone
+    /// (headset switched, Bluetooth changed to its call mode), and installTap then throws an ObjC exception.
+    private func startMic(_ continuation: AsyncStream<AnalyzerInput>.Continuation, to format: AVAudioFormat) throws {
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
+        engine = AVAudioEngine()
+        let mic = engine.inputNode
+        let micFormat = mic.inputFormat(forBus: 0)
+        guard micFormat.sampleRate > 0, micFormat.channelCount > 0 else { throw Failure("no microphone input") }
+        guard let converter = AVAudioConverter(from: micFormat, to: format) else { throw Failure("audio format not convertible") }
+        var startError: Error?
+        if let e = HiveTry({
+            mic.installTap(onBus: 0, bufferSize: 2048, format: micFormat) { buffer, _ in
+                if let converted = Self.convert(buffer, with: converter, to: format) {
+                    continuation.yield(AnalyzerInput(buffer: converted))
+                }
+            }
+            engine.prepare()
+            do { try engine.start() } catch { startError = error }
+        }) {
+            throw Failure("microphone: \(e)")
+        }
+        if let startError {
+            _ = HiveTry { mic.removeTap(onBus: 0) }
+            throw startError
+        }
+        // Opening the AirPods' microphone switches them to their call mode right after the start, and macOS stops
+        // the engine then; the recording goes on with a new engine on the new format.
+        let started = engine
+        configObserver = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: started,
+                                                                queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.micChanged(started, to: format) }
+        }
+    }
+
+    private var configObserver: NSObjectProtocol?
+    private var restarts = 0
+
+    private func micChanged(_ changed: AVAudioEngine, to format: AVAudioFormat) {
+        guard changed === engine, let input, restarts < 5 else { return }
+        restarts += 1
+        _ = HiveTry {
+            changed.inputNode.removeTap(onBus: 0)
+            changed.stop()
+        }
+        do {
+            try startMic(input, to: format)
+            voiceLog("listener: audio device changed, microphone restarted")
+        } catch { voiceLog("listener: restart after a device change failed: \(error.localizedDescription)") }
+    }
+
     func stop() async -> String {
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver); self.configObserver = nil }
         guard let analyzer else { return "" }
         let collector = self.collector
         // cleared first: a second stop (key up and an event at once) or a start meanwhile finds nothing open
@@ -126,6 +154,7 @@ final class Listener {
     }
 
     private func drop() {
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver); self.configObserver = nil }
         _ = HiveTry {
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()
