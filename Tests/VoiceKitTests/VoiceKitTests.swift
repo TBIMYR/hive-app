@@ -193,6 +193,13 @@ final class SpokenNamesTests: XCTestCase {
         XCTAssertEqual(n.speakable("Lu.01 wartet, lu.pm auch. An or.12: Ja."), "Lumen eins wartet, Lumen PM auch. An Orbit zwölf: Ja.")
         XCTAssertEqual(n.speakable("Datei lu.01.txt bleibt"), "Datei lu.01.txt bleibt")
     }
+
+    func testOwnPrefixNameAlsoAloneAndForGoneSessions() {
+        let n = SpokenNames(sessions, overrides: ["lu": "L U Light"])
+        XCTAssertEqual(n.speakable("Lu zwei wartet, Lu.07 ist fertig, lu.01 auch."),
+                       "L U Light zwei wartet, L U Light sieben ist fertig, L U Light eins auch.")
+        XCTAssertEqual(n.speakable("LU-Projekt, lucky und lu.01.txt"), "L U Light-Projekt, lucky und lu.01.txt")
+    }
 }
 
 final class DoneTrackerTests: XCTestCase {

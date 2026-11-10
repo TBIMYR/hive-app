@@ -7,8 +7,11 @@ import HiveCore
 public struct SpokenNames: Equatable, Sendable {
     /// real name → spoken name
     public let spoken: [String: String]
+    /// own names for a prefix ("eb" → "E B Easy"); the brain also writes "Eb zwei" or "eb.03" of a session that is gone
+    let prefixes: [String: String]
 
     public init(_ sessions: [Session], overrides: [String: String] = [:]) {
+        prefixes = overrides.filter { !$0.key.contains(".") && !$0.key.isEmpty }
         var m: [String: String] = [:]
         for s in sessions where m[s.name] == nil {
             m[s.name] = overrides[s.name] ?? Self.say(s.name, project: s.project.isEmpty ? s.group : s.project, overrides: overrides)
@@ -45,6 +48,17 @@ public struct SpokenNames: Equatable, Sendable {
             let pattern = "(?<![\\w.])" + NSRegularExpression.escapedPattern(for: name) + "(?![\\w]|\\.\\w)"
             out = out.replacingOccurrences(of: pattern, with: NSRegularExpression.escapedTemplate(for: spoken[name]!),
                                            options: [.regularExpression, .caseInsensitive])
+        }
+        // a prefix with an own name, on its own or with a number the names above did not cover
+        for (prefix, word) in prefixes {
+            let pattern = "(?<![\\w.])" + NSRegularExpression.escapedPattern(for: prefix) + "(?:\\.(pm|\\d+))?(?![\\w]|\\.\\w)"
+            guard let re = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { continue }
+            let ns = out as NSString
+            for m in re.matches(in: out, range: NSRange(location: 0, length: ns.length)).reversed() {
+                let suffix = m.range(at: 1).location == NSNotFound ? nil : ns.substring(with: m.range(at: 1))
+                let said = suffix.map { s in "\(word) \(Int(s).map(Self.number) ?? "PM")" } ?? word
+                out = (out as NSString).replacingCharacters(in: m.range, with: said)
+            }
         }
         return out
     }
