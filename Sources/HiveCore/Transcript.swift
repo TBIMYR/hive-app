@@ -10,6 +10,29 @@ public struct Said: Codable, Equatable, Sendable {
     }
 }
 
+/// An open AskUserQuestion as the session wrote it.
+public struct AskedQuestion: Codable, Equatable, Sendable {
+    public struct Option: Codable, Equatable, Sendable {
+        public let label: String
+        public let description: String?
+
+        public init(label: String, description: String?) {
+            self.label = label
+            self.description = description
+        }
+    }
+
+    public let header: String?
+    public let text: String
+    public let options: [Option]
+
+    public init(header: String?, text: String, options: [Option]) {
+        self.header = header
+        self.text = text
+        self.options = options
+    }
+}
+
 /// Last work step of the assistant (last tool_use), briefly described for the "Now" line.
 public struct WorkAction: Codable, Equatable, Sendable {
     /// tool name as in the log ("Bash", "Edit" …)
@@ -27,9 +50,12 @@ public struct WorkAction: Codable, Equatable, Sendable {
     public let questionCount: Int?
     /// AskUserQuestion: first question with multi-select
     public let multiSelect: Bool?
+    /// AskUserQuestion: the first question as written, line breaks and option descriptions kept (reading view)
+    public let question: AskedQuestion?
 
     public init(tool: String, text: String, detail: String?, at: String?, pending: Bool, options: [String]? = nil,
-                questionCount: Int? = nil, multiSelect: Bool? = nil) {
+                questionCount: Int? = nil, multiSelect: Bool? = nil, question: AskedQuestion? = nil) {
+        self.question = question
         self.tool = tool
         self.text = text
         self.detail = detail
@@ -266,6 +292,7 @@ public enum Transcript {
         var options: [String]? = nil
         var questionCount: Int? = nil
         var multiSelect: Bool? = nil
+        var question: AskedQuestion? = nil
         switch tool {
         case "Bash":
             let cmd = str("command").map { $0.replacingOccurrences(of: home + "/", with: "~/") }
@@ -297,11 +324,19 @@ public enum Transcript {
             options = (first?["options"] as? [Any])?.compactMap { o in
                 ((o as? [String: Any])?["label"] as? String).map(oneLine).nonEmpty.map { clip($0, 60) }
             }
+            if let raw = (first?["question"] as? String).nonEmpty {
+                let full = (first?["options"] as? [Any])?.compactMap { o -> AskedQuestion.Option? in
+                    guard let o = o as? [String: Any], let label = (o["label"] as? String).map(oneLine).nonEmpty else { return nil }
+                    return AskedQuestion.Option(label: label, description: (o["description"] as? String).nonEmpty.map { clip($0, maxQuestion) })
+                } ?? []
+                question = AskedQuestion(header: (first?["header"] as? String).map(oneLine).nonEmpty,
+                                         text: clip(raw.trimmingCharacters(in: .whitespacesAndNewlines), maxQuestion), options: full)
+            }
         default:
             text = tool
         }
         return WorkAction(tool: tool, text: text, detail: detail, at: at, pending: pending, options: options,
-                          questionCount: questionCount, multiSelect: multiSelect)
+                          questionCount: questionCount, multiSelect: multiSelect, question: question)
     }
 
     // MARK: Last sentence

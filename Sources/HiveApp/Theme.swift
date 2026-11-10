@@ -19,6 +19,8 @@ enum Hive {
     static let muted = dyn(0x8C8C8C, 0x7D7D79)
     static let hair = dyn(0xE6E6E4, 0x242423)
     static let hair2 = dyn(0xCFCFCC, 0x3A3A38)
+    /// set-off area inside a card (the reading view of a question)
+    static let well = dyn(0xEFEFEC, 0x1F1F1E)
     static let soft = dyn(0xEFEFED, 0x1D1D1C)
 
     /// Settings → Monochrome: the status and project colors give way to black, white and gray. The window

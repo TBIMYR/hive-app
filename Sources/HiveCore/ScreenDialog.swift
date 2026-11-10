@@ -20,6 +20,10 @@ public struct ScreenDialog: Equatable, Sendable {
         /// Option of an AskUserQuestion, by its text
         case option(String)
         case permission(PermissionChoice)
+        /// own words in the AskUserQuestion's "Type something." line
+        case text(String)
+
+        public var isPermission: Bool { if case .permission = self { true } else { false } }
     }
 
     public let options: [Option]
@@ -114,6 +118,7 @@ public struct ScreenDialog: Equatable, Sendable {
         switch answer {
         case .option(let label): option(labeled: label)
         case .permission(let c): permission(c)
+        case .text: options.first { Self.norm($0.label).hasPrefix("type something") }
         }
     }
 

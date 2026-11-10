@@ -132,7 +132,7 @@ enum Tmux {
     static func answer(_ answer: ScreenDialog.Answer, known: [String], in name: String) -> String? {
         guard let before = capture(name).flatMap(ScreenDialog.parse), let option = before.pick(answer)
         else { return dialogChanged }
-        if case .option = answer, before.selectionOutside(known) { return dialogChanged }
+        if answer.isPermission == false, before.selectionOutside(known) { return dialogChanged }
         let r = run(SessionControl.keyArgs(String(option.number), into: name))
         guard r.status == 0 else { return failure(r) }
         Thread.sleep(forTimeInterval: 0.3)
@@ -143,6 +143,8 @@ enum Tmux {
         guard after.sameDialog(as: before) else { return "Check the terminal" }
         let marked = after.options.filter(\.selected)
         guard marked.map(\.number) == [option.number] else { return dialogChanged }
+        // "Type something." is an input line now: the words go in, Enter sends them
+        if case .text(let words) = answer { return type(words, into: name) }
         let e = run(SessionControl.keyArgs("Enter", into: name))
         return e.status == 0 ? nil : failure(e)
     }

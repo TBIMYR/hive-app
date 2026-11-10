@@ -155,3 +155,8 @@ private let wrapped = """
     #expect(SessionControl.captureArgs("lu.01") == ["capture-pane", "-p", "-t", "=lu.01:"])
     #expect(SessionControl.keyArgs("2", into: "lu.01") == ["send-keys", "-t", "=lu.01:", "2"])
 }
+
+@Test func ownWordsGoToTheTypeSomethingLine() {
+    #expect(ScreenDialog.pick(.text("First the header"), on: ask)?.number == 3)
+    #expect(ScreenDialog.pick(.text("First the header"), on: bash) == nil)
+}

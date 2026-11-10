@@ -25,8 +25,12 @@ public struct NowLine: Equatable, Sendable {
     public let options: [String]
     /// .choice with exactly one question without multi-select: answerable via button
     public let singleChoice: Bool
+    /// .choice: the question as written, for the reading view
+    public let question: AskedQuestion?
 
-    public init(kind: Kind, text: String, detail: String?, at: String?, options: [String] = [], singleChoice: Bool = false) {
+    public init(kind: Kind, text: String, detail: String?, at: String?, options: [String] = [], singleChoice: Bool = false,
+                question: AskedQuestion? = nil) {
+        self.question = question
         self.kind = kind
         self.text = text
         self.detail = detail
@@ -50,7 +54,8 @@ public struct NowLine: Equatable, Sendable {
             if let action, action.pending, action.tool == "AskUserQuestion" {
                 let options = action.options ?? []
                 self.init(kind: .choice, text: action.text, detail: nil, at: nil, options: options,
-                          singleChoice: action.questionCount == 1 && action.multiSelect != true && !options.isEmpty)
+                          singleChoice: action.questionCount == 1 && action.multiSelect != true && !options.isEmpty,
+                          question: action.question)
             } else if action?.pending == true || s.waitsForPermission {
                 self.init(kind: .permission, text: action.map { "Allow \($0.tool)?" } ?? "Allow tool?",
                           detail: action?.detail, at: nil)

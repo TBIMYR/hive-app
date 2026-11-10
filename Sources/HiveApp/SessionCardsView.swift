@@ -242,14 +242,20 @@ struct NowBox: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 7) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Hive.muted)
-                .frame(width: 16)
+            // the reading view of a question takes the whole width
+            if !(line.kind == .choice && line.question != nil) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Hive.muted)
+                    .frame(width: 16)
+            }
             VStack(alignment: .leading, spacing: 4) {
                 let since = line.kind == .working ? dur(line.at, now: now) : ""
                 let hasDetail = line.detail != nil || !since.isEmpty
                 // text and detail line take two lines; without a detail line the text may use both
+                if line.kind == .choice, let q = line.question {
+                    QuestionReader(question: q, line: line, answerFor: answerFor)
+                } else {
                 NowSlot {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(line.text)
@@ -277,9 +283,94 @@ struct NowBox: View {
                     Text("Answer in the terminal").font(.system(size: 12, weight: .medium)).foregroundStyle(Hive.ink2)
                         .padding(.top, 2)
                 }
+                }
             }
             Spacer(minLength: 0)
         }
+    }
+}
+
+/// An open question with options, readable: paragraphs, list items on their own lines, the question itself set
+/// apart. Folded it shows the start and the question; "Show all" opens the whole text and the options with
+/// their descriptions.
+struct QuestionReader: View {
+    let question: AskedQuestion
+    let line: NowLine
+    var answerFor: Session?
+    @State private var open = true
+
+    private var blocks: [QuestionText.Block] { QuestionText.blocks(question.text) }
+
+    var body: some View {
+        let blocks = blocks
+        let ask = blocks.last.flatMap { if case .ask(let a) = $0 { a } else { nil } }
+        let body = ask == nil ? blocks : Array(blocks.dropLast())
+        VStack(alignment: .leading, spacing: 10) {
+            // the question itself on a sheet of its own, set off from the card
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(alignment: .firstTextBaseline) {
+                    if let h = question.header {
+                        Text(h).font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted).textCase(.uppercase)
+                    }
+                    Spacer(minLength: 8)
+                    if body.count > 1 || !open && !body.isEmpty {
+                        Button(open ? "Show less" : "Show all") { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
+                            .buttonStyle(.link).font(.system(size: 12, weight: .medium))
+                    }
+                }
+                if open {
+                    ForEach(Array(body.enumerated()), id: \.offset) { _, b in block(b) }
+                } else if let first = body.first {
+                    block(first).lineLimit(2)
+                }
+                if let ask {
+                    Text(Self.md(ask)).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, body.isEmpty ? 0 : 4)
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Hive.well))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Hive.hair2, lineWidth: 1))
+            if let s = answerFor, line.singleChoice {
+                AnswerButtons(session: s, line: line, descriptions: open ? question.options : nil).padding(.top, 2)
+            } else {
+                ForEach(Array(question.options.enumerated()), id: \.offset) { i, o in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(i + 1) · \(o.label)").font(.system(size: 13, weight: .medium)).foregroundStyle(Hive.ink2)
+                        if open, let d = o.description {
+                            Text(Self.md(d)).font(.system(size: 12.5)).foregroundStyle(Hive.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                Text("Answer in the terminal").font(.system(size: 12, weight: .medium)).foregroundStyle(Hive.ink2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: question) { open = true }
+    }
+
+    @ViewBuilder private func block(_ b: QuestionText.Block) -> some View {
+        switch b {
+        case .paragraph(let p), .ask(let p):
+            Text(Self.md(p)).font(.system(size: 14)).foregroundStyle(Hive.ink2)
+                .lineSpacing(2).fixedSize(horizontal: false, vertical: !open ? false : true)
+        case .item(let marker, let title, let text):
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(marker).font(.hiveMono(12)).foregroundStyle(Hive.muted).frame(minWidth: 14, alignment: .trailing)
+                (Text(title.map { Self.md($0 + " ") } ?? "").fontWeight(.semibold).foregroundColor(Hive.ink)
+                 + Text(Self.md(text)).foregroundColor(Hive.ink2))
+                    .font(.system(size: 14)).lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: open)
+            }
+        }
+    }
+
+    /// inline Markdown (**bold**, `code`) as the session wrote it
+    static func md(_ s: String) -> AttributedString {
+        (try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
     }
 }
 
@@ -309,6 +400,9 @@ struct AnswerButtons: View {
     @ObservedObject private var activity = TerminalActivity.shared
     let session: Session
     let line: NowLine
+    /// the options with their descriptions: one wide button each (the opened reading view)
+    var descriptions: [AskedQuestion.Option]? = nil
+    @State private var ownWords = ""
     @State private var sending = false
     @State private var note: String?
     /// "Always allow" is on the screen (read once, when the permission appears)
@@ -334,10 +428,42 @@ struct AnswerButtons: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            FlowLayout(spacing: 6) {
-                ForEach(choices) { c in
-                    Button(c.id) { send(c.answer) }
-                        .buttonStyle(AnswerButtonStyle(primary: c.primary))
+            Group {
+                if let descriptions {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(descriptions.enumerated()), id: \.offset) { _, o in
+                            Button { send(.option(o.label)) } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(o.label).font(.system(size: 14, weight: .semibold)).foregroundStyle(Hive.ink)
+                                    if let d = o.description {
+                                        Text(QuestionReader.md(d)).font(.system(size: 12.5)).foregroundStyle(Hive.ink2)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(OptionCardStyle())
+                        }
+                        // Claude Code's own "Type something." line
+                        HStack(spacing: 6) {
+                            TextField("Or in your own words…", text: $ownWords)
+                                .textFieldStyle(.plain).font(.system(size: 14))
+                                .padding(.horizontal, 12).padding(.vertical, 9)
+                                .background(RoundedRectangle(cornerRadius: 9).fill(Hive.card))
+                                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Hive.hair2, lineWidth: 1))
+                                .onSubmit(sendOwnWords)
+                            Button("Send", action: sendOwnWords)
+                                .buttonStyle(AnswerButtonStyle(primary: true))
+                                .disabled(ownWords.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                    }
+                } else {
+                    FlowLayout(spacing: 6) {
+                        ForEach(choices) { c in
+                            Button(c.id) { send(c.answer) }
+                                .buttonStyle(AnswerButtonStyle(primary: c.primary))
+                        }
+                    }
                 }
             }
             .disabled(sending || typing)
@@ -351,6 +477,12 @@ struct AnswerButtons: View {
             guard line.kind == .permission else { return }
             hasAlways = await store.dialog(session)?.permission(.alwaysAllow) != nil
         }
+    }
+
+    private func sendOwnWords() {
+        let words = ownWords.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !words.isEmpty else { return }
+        send(.text(words.replacingOccurrences(of: "\n", with: " ")))
     }
 
     private func send(_ answer: ScreenDialog.Answer) {
@@ -379,6 +511,22 @@ struct AnswerButtonStyle: ButtonStyle {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(primary ? Color.clear : Hive.hair2, lineWidth: 1))
             .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
+            .contentShape(Rectangle())
+    }
+}
+
+/// An option with its description as one wide button (reading view).
+struct OptionCardStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .background(configuration.isPressed ? Hive.bg : Hive.card)
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Hive.hair2, lineWidth: 1))
+            .opacity(enabled ? 1 : 0.4)
             .contentShape(Rectangle())
     }
 }
