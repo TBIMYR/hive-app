@@ -66,7 +66,8 @@ private struct CardGrid: View {
         VStack(alignment: .leading, spacing: Self.spacing) {
             ForEach(rows, id: \.first?.item.id) { row in CardRow(cells: row, column: column, spacing: Self.spacing, ns: ns, full: full) }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // measured on the space offered, not on the cards: their fixed widths would otherwise never let it shrink
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
 
