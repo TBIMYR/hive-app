@@ -37,7 +37,12 @@ final class Listener {
     }
 
     func start() async throws {
-        guard analyzer == nil, let format else { return }
+        guard let format else { throw Failure("speech recognition is not ready") }
+        if analyzer != nil {
+            // a stop that never finished (results that never end) must not block every later start
+            voiceLog("listener: the last recording was still open, dropping it")
+            drop()
+        }
         let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [],
                                             reportingOptions: [.volatileResults, .fastResults], attributeOptions: [])
         let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
@@ -100,18 +105,39 @@ final class Listener {
 
     func stop() async -> String {
         guard let analyzer else { return "" }
+        let collector = self.collector
+        // cleared first: a second stop (key up and an event at once) or a start meanwhile finds nothing open
+        self.analyzer = nil
+        self.collector = nil
+        transcriber = nil
         _ = HiveTry {
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()
         }
         input?.finish()
+        input = nil
         try? await analyzer.finalizeAndFinishThroughEndOfInput()
+        // the results can fail to end (analyzer already finished); after a few seconds take what came
+        let timeout = Task { try? await Task.sleep(for: .seconds(3)); collector?.cancel() }
         let text = await collector?.value ?? ""
+        timeout.cancel()
+        if text.isEmpty { voiceLog("listener: heard nothing") }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func drop() {
+        _ = HiveTry {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+        input?.finish()
+        collector?.cancel()
+        let analyzer = self.analyzer
+        Task { await analyzer?.cancelAndFinishNow() }
         self.analyzer = nil
         transcriber = nil
         input = nil
         collector = nil
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     nonisolated private static func convert(_ buffer: AVAudioPCMBuffer, with converter: AVAudioConverter,

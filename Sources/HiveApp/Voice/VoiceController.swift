@@ -181,6 +181,7 @@ final class VoiceController: ObservableObject {
         Task {
             do { try await listener.start() } catch {
                 problem = error.localizedDescription
+                voiceLog("listener: \(problem ?? "")")
                 phase = .idle
             }
         }
