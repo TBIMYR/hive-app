@@ -3,8 +3,11 @@ import HiveCore
 
 /// "Cards" view: favorites first (without a heading), below that sections by urgency like in the dashboard,
 /// large cards with the "Now" box (last work step, question, or last result).
+/// With the terminal on screen the cards stay slim (reading and writing happen there); with it hidden they
+/// are the whole interface: questions in full, a field for a message in every running session.
 struct SessionCardsView: View {
     @EnvironmentObject private var store: StateStore
+    @EnvironmentObject private var dock: DockStore
     /// Favorites, already sorted (SessionOrder), including offline
     let favorites: [OverviewItem]
     /// Remaining sessions, already sorted (SessionOrder), without favorites
@@ -39,56 +42,84 @@ struct SessionCardsView: View {
         .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82), value: layout)
     }
 
-    private func grid(_ part: [OverviewItem]) -> some View { CardGrid(part: part, ns: cards) }
+    private func grid(_ part: [OverviewItem]) -> some View { CardGrid(part: part, ns: cards, full: !dock.layout.isOpen(.main)) }
 }
 
 /// Grid of one section: columns of at least 360 pt; the cards of one row are as tall as the tallest of that
-/// row (a long question only stretches its own row).
+/// row (a long question only stretches its own row). In the full cards an open question spans as many
+/// columns as come closest to a readable 760 pt.
 private struct CardGrid: View {
     let part: [OverviewItem]
     let ns: Namespace.ID
+    let full: Bool
     @State private var width: CGFloat = 0
 
     private static let minWidth: CGFloat = 360
     private static let spacing: CGFloat = 18
+    private static let readable: CGFloat = 760
 
     var body: some View {
         let columns = max(1, Int((width + Self.spacing) / (Self.minWidth + Self.spacing)))
-        let rows = stride(from: 0, to: part.count, by: columns).map { Array(part[$0..<min($0 + columns, part.count)]) }
+        let column = max(0, (width - CGFloat(columns - 1) * Self.spacing) / CGFloat(columns))
+        let wide = min(columns, max(1, Int(((Self.readable + Self.spacing) / (column + Self.spacing)).rounded())))
+        let rows = Self.rows(part.map { ($0, full && Self.asks($0) ? wide : 1) }, columns: columns)
         VStack(alignment: .leading, spacing: Self.spacing) {
-            ForEach(rows, id: \.first?.id) { row in CardRow(items: row, columns: columns, spacing: Self.spacing, ns: ns) }
+            ForEach(rows, id: \.first?.item.id) { row in CardRow(cells: row, column: column, spacing: Self.spacing, ns: ns, full: full) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
+
+    /// An open question with options is waiting in this card
+    private static func asks(_ it: OverviewItem) -> Bool {
+        guard it.status.rank == 0, let line = NowLine(it.session, rank: 0) else { return false }
+        return line.kind == .choice && line.question != nil
+    }
+
+    /// Cards in order, a new row when the next one no longer fits
+    private static func rows(_ cells: [(item: OverviewItem, span: Int)], columns: Int) -> [[(item: OverviewItem, span: Int)]] {
+        var rows: [[(item: OverviewItem, span: Int)]] = []
+        var used = columns
+        for c in cells {
+            if used + c.span > columns { rows.append([]); used = 0 }
+            rows[rows.count - 1].append(c)
+            used += c.span
+        }
+        return rows
+    }
 }
 
-/// One row of cards, equally tall; empty columns stay free so all cards keep the same width.
+/// One row of cards, equally tall; each card is as wide as its columns, empty columns stay free.
 private struct CardRow: View {
     @EnvironmentObject private var store: StateStore
-    let items: [OverviewItem]
-    let columns: Int
+    let cells: [(item: OverviewItem, span: Int)]
+    let column: CGFloat
     let spacing: CGFloat
     let ns: Namespace.ID
+    let full: Bool
     @State private var tallest: CGFloat = 0
 
     var body: some View {
         HStack(alignment: .top, spacing: spacing) {
-            ForEach(items) { it in
+            ForEach(cells, id: \.item.id) { cell in
+                let it = cell.item
+                let live = store.tmux(it.session) != nil
                 Tile(session: it.session, status: it.status, label: it.project, color: it.color,
                      inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now,
-                     isFavorite: it.isFavorite, minBody: tallest,
-                     canReply: it.status.rank == 0 && it.session.acceptsReply && store.tmux(it.session) != nil,
-                     canAnswer: it.status.rank == 0 && !it.status.core.waitsAtStart && store.tmux(it.session) != nil) {
+                     isFavorite: it.isFavorite, minBody: tallest, full: full,
+                     // slim cards: written in the terminal; full cards: in every running session
+                     canReply: full ? live && it.status.rank != 3 : false,
+                     canAnswer: it.status.rank == 0 && !it.status.core.waitsAtStart && live) {
                     store.toggleFavorite(it.name)
                 }
+                    .frame(width: CGFloat(cell.span) * column + CGFloat(cell.span - 1) * spacing)
                     .onTapGesture { store.selected = it.name }
                     .sessionMenu(store, it.session)
                     .navFrame(it.name)
                     .matchedGeometryEffect(id: it.id, in: ns)
             }
-            ForEach(items.count..<columns, id: \.self) { _ in Color.clear.frame(maxWidth: .infinity, maxHeight: 1) }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onPreferenceChange(TallestKey.self) { tallest = $0 }
     }
 }
@@ -104,7 +135,9 @@ struct Tile: View {
     let isFavorite: Bool
     /// Height of the tallest card body in the section (everything above the footer); this body grows to it
     var minBody: CGFloat = 0
-    /// Reply field at the bottom (only "needs you", in tmux, and without an open choice dialog)
+    /// Full card (terminal hidden): the question in full and a field for a message
+    var full = false
+    /// Field for a message at the bottom (full cards, running in tmux); left out while answer buttons show
     var canReply = false
     /// Answer buttons for a choice question or permission (only "needs you", in tmux, not at startup)
     var canAnswer = false
@@ -163,7 +196,7 @@ struct Tile: View {
                 if show.now || canAnswer {
                     Group {
                         if let line {
-                            NowBox(line: line, now: now, answerFor: canAnswer ? session : nil)
+                            NowBox(line: line, now: now, answerFor: canAnswer ? session : nil, full: full)
                         } else {
                             NowSlot {
                                 if let why = status.why {
@@ -175,7 +208,10 @@ struct Tile: View {
                     .padding(.top, 10)
                 }
 
-                if canReply { ReplyField(session: session).padding(.top, 12) }
+                // an open choice or approval is answered with its buttons; the field would type into the dialog
+                if canReply && !(canAnswer && (line?.kind == .permission || line?.kind == .choice)) {
+                    ReplyField(session: session).padding(.top, 12)
+                }
             }
             .matchTallest(minBody)
 
@@ -225,6 +261,8 @@ struct NowBox: View {
     let now: Date
     /// Session that can be answered via button; nil = no buttons
     var answerFor: Session? = nil
+    /// Full card: the question in full with the options' descriptions and a field for own words
+    var full = false
 
     private var icon: String {
         switch line.kind {
@@ -254,7 +292,7 @@ struct NowBox: View {
                 let hasDetail = line.detail != nil || !since.isEmpty
                 // text and detail line take two lines; without a detail line the text may use both
                 if line.kind == .choice, let q = line.question {
-                    QuestionReader(question: q, line: line, answerFor: answerFor)
+                    QuestionReader(question: q, line: line, answerFor: answerFor, full: full)
                 } else {
                 NowSlot {
                     VStack(alignment: .leading, spacing: 4) {
@@ -292,11 +330,13 @@ struct NowBox: View {
 
 /// An open question with options, readable: paragraphs, list items on their own lines, the question itself set
 /// apart. Folded it shows the start and the question; "Show all" opens the whole text and the options with
-/// their descriptions.
+/// their descriptions. Slim (terminal on screen) it shows only the question and the buttons; the text is in
+/// the terminal.
 struct QuestionReader: View {
     let question: AskedQuestion
     let line: NowLine
     var answerFor: Session?
+    var full = true
     @State private var open = true
 
     private var blocks: [QuestionText.Block] { QuestionText.blocks(question.text) }
@@ -304,7 +344,8 @@ struct QuestionReader: View {
     var body: some View {
         let blocks = blocks
         let ask = blocks.last.flatMap { if case .ask(let a) = $0 { a } else { nil } }
-        let body = ask == nil ? blocks : Array(blocks.dropLast())
+        let body = !full && ask != nil ? [] : ask == nil ? blocks : Array(blocks.dropLast())
+        let open = open && full
         VStack(alignment: .leading, spacing: 10) {
             // the question itself on a sheet of its own, set off from the card
             VStack(alignment: .leading, spacing: 9) {
@@ -313,8 +354,8 @@ struct QuestionReader: View {
                         Text(h).font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted).textCase(.uppercase)
                     }
                     Spacer(minLength: 8)
-                    if body.count > 1 || !open && !body.isEmpty {
-                        Button(open ? "Show less" : "Show all") { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
+                    if full && (body.count > 1 || !open && !body.isEmpty) {
+                        Button(open ? "Show less" : "Show all") { withAnimation(.easeOut(duration: 0.15)) { self.open.toggle() } }
                             .buttonStyle(.link).font(.system(size: 12, weight: .medium))
                     }
                 }
@@ -349,7 +390,7 @@ struct QuestionReader: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onChange(of: question) { open = true }
+        .onChange(of: question) { self.open = true }
     }
 
     @ViewBuilder private func block(_ b: QuestionText.Block) -> some View {

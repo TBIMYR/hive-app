@@ -91,6 +91,12 @@ public struct DockLayout: Codable, Equatable, Sendable {
 
     public func group(of panel: DockPanel) -> Group? { groups.first { $0.panels.contains(panel) } }
 
+    /// The panel is on screen: its tile is open and it is the tab in front.
+    public func isOpen(_ panel: DockPanel) -> Bool {
+        guard let g = group(of: panel) else { return false }
+        return !g.collapsed && g.selected == panel
+    }
+
     // MARK: Changing
 
     /// Brings the panel to the front of its group.

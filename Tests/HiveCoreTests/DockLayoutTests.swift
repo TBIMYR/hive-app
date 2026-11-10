@@ -228,3 +228,15 @@ private let all = Set(DockPanel.allCases)
     l.move(.project, to: .notes, zone: .bottom)
     #expect(l.group(of: .project)?.collapsed == false && l.group(of: .notes)?.collapsed == true)
 }
+
+@Test func dockKnowsWhetherAPanelIsOnScreen() {
+    var l = L(root: row(group(.overview), group(.main, .handover, .project, .notes), f: [0.5, 0.5]))
+    #expect(l.isOpen(.main) && !l.isOpen(.notes))
+    // behind another tab
+    l.select(.notes)
+    #expect(!l.isOpen(.main) && l.isOpen(.notes))
+    // in front, but its tile is folded to a bar
+    l.select(.main)
+    l.setCollapsed(true, groupOf: .main)
+    #expect(!l.isOpen(.main) && l.isOpen(.overview))
+}

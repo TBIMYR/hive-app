@@ -337,6 +337,8 @@ final class StateStore: ObservableObject {
     func reply(_ raw: String, to s: Session) async -> String? {
         guard let text = SessionControl.replyText(raw) else { return nil }
         guard let t = tmux(s) else { return "Not running in Hive" }
+        // the field also shows while the session works: a choice dialog that isn't known yet would take the text
+        guard await dialog(s) == nil else { return "A choice is open in the terminal" }
         let e = await Task.detached { Tmux.type(text, into: t) }.value
         refreshSoon()
         return e
