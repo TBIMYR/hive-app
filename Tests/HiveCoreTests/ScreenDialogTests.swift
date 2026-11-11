@@ -77,6 +77,22 @@ private let wrapped = """
     #expect(ScreenDialog.parse("❯ 1. Yes") == nil)
 }
 
+@Test func aNumberedListInTheAnswerIsNoDialog() {
+    // Claude Code marks one option of a dialog with "❯"; a list in the session's text never has it
+    let answer = """
+      Tomorrow three points need your yes:
+      1. Push the fix.
+      2. Turn off the nightly run. lu.02 does that
+         together with lu.03.
+      3. Turn on the morning run.
+    ✻ Crunched for 9s · done 12:47 AM
+    ───────────────────────────────────────── lu.pm ─
+    ❯ ok, until tomorrow
+    ─────────────────────────────────────────────────
+    """
+    #expect(ScreenDialog.parse(answer) == nil)
+}
+
 @Test func boxDrawingCharactersAreStripped() throws {
     let d = try #require(ScreenDialog.parse(boxed))
     #expect(d.options.map(\.label) == ["Yes", "Yes, allow all edits during this session (shift+tab)",

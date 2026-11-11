@@ -32,7 +32,7 @@ public struct ScreenDialog: Equatable, Sendable {
 
     static let contextLines = 12
 
-    /// Last block of consecutively numbered lines starting at 1 (at least 2), nil = no dialog visible.
+    /// Last block of consecutively numbered lines starting at 1 (at least 2, one marked), nil = no dialog visible.
     /// A numbered list further up in the text doesn't count, because the dialog always sits at the bottom.
     public static func parse(_ screen: String) -> ScreenDialog? {
         let lines = screen.components(separatedBy: "\n").map(stripBorder)
@@ -49,7 +49,8 @@ public struct ScreenDialog: Equatable, Sendable {
                 block = []
             }
         }
-        guard block.count >= 2 else { return nil }
+        // a dialog always marks one option with "❯"; a numbered list in the session's text has none
+        guard block.count >= 2, block.contains(where: \.selected) else { return nil }
         let context = lines[..<start].filter { !$0.isEmpty }.suffix(contextLines)
         return ScreenDialog(options: block, context: Array(context))
     }
