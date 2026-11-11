@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import HiveCore
 
@@ -45,7 +46,7 @@ struct SessionCardsView: View {
     private func grid(_ part: [OverviewItem]) -> some View { CardGrid(part: part, ns: cards, full: !dock.layout.isOpen(.main)) }
 }
 
-/// Grid of one section: columns of at least 360 pt; the cards of one row are as tall as the tallest of that
+/// Grid of one section: columns of at least 360 pt (320 in the full cards); the cards of one row are as tall as the tallest of that
 /// row (a long question only stretches its own row). In the full cards an open question spans as many
 /// columns as come closest to a readable 760 pt.
 private struct CardGrid: View {
@@ -55,14 +56,17 @@ private struct CardGrid: View {
     @State private var width: CGFloat = 0
 
     private static let minWidth: CGFloat = 360
+    private static let minFullWidth: CGFloat = 320
     private static let spacing: CGFloat = 18
     private static let readable: CGFloat = 760
 
     var body: some View {
-        let columns = max(1, Int((width + Self.spacing) / (Self.minWidth + Self.spacing)))
+        // the full cards carry more text, but three of them still fit beside each other
+        let least = full ? Self.minFullWidth : Self.minWidth
+        let columns = max(1, Int((width + Self.spacing) / (least + Self.spacing)))
         let column = max(0, (width - CGFloat(columns - 1) * Self.spacing) / CGFloat(columns))
         let wide = min(columns, max(1, Int(((Self.readable + Self.spacing) / (column + Self.spacing)).rounded())))
-        let rows = Self.rows(part.map { ($0, full && (Self.asks($0) || $0.session.talks) ? wide : 1) }, columns: columns)
+        let rows = Self.rows(part.map { ($0, full && Self.asks($0) ? wide : 1) }, columns: columns)
         VStack(alignment: .leading, spacing: Self.spacing) {
             ForEach(rows, id: \.first?.item.id) { row in CardRow(cells: row, columns: columns, spacing: Self.spacing, ns: ns, full: full) }
         }
@@ -677,20 +681,41 @@ struct CodeChip: View {
     }
 }
 
-/// Single-line reply field in waiting cards: Enter types the text into the session via tmux.
+/// Single-line reply field in the cards: Enter types the text into the session via tmux. ⌘V with an image on
+/// the clipboard adds it above the field; it goes into the session before the text (Tmux.pasteImages).
 /// A click into the field only grabs focus; the card doesn't get selected (otherwise the
 /// terminal of the selection would immediately take the focus back).
 struct ReplyField: View {
     @EnvironmentObject private var store: StateStore
     let session: Session
     @State private var text = ""
+    /// pasted images as PNG
+    @State private var images: [Data] = []
     @State private var error: String?
     @State private var sending = false
+    @State private var pasteWatch: Any?
     @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            TextField("", text: $text, prompt: Text("Reply…").foregroundColor(Hive.muted))
+            if !images.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(Array(images.enumerated()), id: \.offset) { i, png in
+                        ZStack(alignment: .topTrailing) {
+                            if let img = NSImage(data: png) {
+                                Image(nsImage: img).resizable().scaledToFill()
+                                    .frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                            Button { images.remove(at: i) } label: {
+                                Image(systemName: "xmark.circle.fill").font(.hive(size: 13)).foregroundStyle(Hive.ink2)
+                                    .background(Circle().fill(Hive.card))
+                            }
+                            .buttonStyle(.plain).offset(x: 5, y: -5).help("Remove")
+                        }
+                    }
+                }
+            }
+            TextField("", text: $text, prompt: Text(images.isEmpty ? "Reply… (⌘V pastes images too)" : "Add a message…").foregroundColor(Hive.muted))
                 .textFieldStyle(.plain)
                 .font(.hive(size: 13))
                 .foregroundStyle(Hive.ink)
@@ -710,17 +735,46 @@ struct ReplyField: View {
                 Text(error).font(.hive(size: 11.5)).foregroundStyle(Hive.need).lineLimit(2)
             }
         }
+        .onChange(of: focused) { _, on in on ? watchPaste() : stopWatching() }
+        .onDisappear(perform: stopWatching)
+    }
+
+    /// The text field only takes text; an image on the clipboard is caught on ⌘V while the field has focus.
+    private func watchPaste() {
+        stopWatching()
+        pasteWatch = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+            guard e.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  e.charactersIgnoringModifiers == "v", let png = Self.clipboardImage() else { return e }
+            images.append(png)
+            error = nil
+            return nil
+        }
+    }
+
+    private func stopWatching() {
+        if let w = pasteWatch { NSEvent.removeMonitor(w) }
+        pasteWatch = nil
+    }
+
+    /// An image on the clipboard (a screenshot, or an image file copied in Finder) as PNG; nil when there is
+    /// text, so a normal paste stays a normal paste.
+    static func clipboardImage() -> Data? {
+        let pb = NSPasteboard.general
+        guard pb.string(forType: .string) == nil, let img = NSImage(pasteboard: pb),
+              let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else { return nil }
+        return rep.representation(using: .png, properties: [:])
     }
 
     private func send() {
-        guard SessionControl.replyText(text) != nil, !sending else { return }
+        guard SessionControl.replyText(text) != nil || !images.isEmpty, !sending else { return }
         sending = true
-        let sent = text
+        let sent = text, pics = images
         Task {
-            if let e = await store.reply(sent, to: session) {
+            if let e = await store.reply(sent, images: pics, to: session) {
                 error = "Not sent: \(e)"
             } else {
                 text = ""
+                images = []
             }
             sending = false
             focused = true

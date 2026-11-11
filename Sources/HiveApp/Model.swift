@@ -334,12 +334,18 @@ final class StateStore: ObservableObject {
     // MARK: Control session (only sessions in tmux)
 
     /// Reply field of the card: type text and send. Returns an error message or nil.
-    func reply(_ raw: String, to s: Session) async -> String? {
-        guard let text = SessionControl.replyText(raw) else { return nil }
+    /// `images`: PNG data, pasted into the session before the text (Tmux.pasteImages)
+    func reply(_ raw: String, images: [Data] = [], to s: Session) async -> String? {
+        let text = SessionControl.replyText(raw)
+        guard text != nil || !images.isEmpty else { return nil }
         guard let t = tmux(s) else { return "Not running in Hive" }
         // the field also shows while the session works: a choice dialog that isn't known yet would take the text
         guard await dialog(s) == nil else { return "A choice is open in the terminal" }
-        let e = await Task.detached { Tmux.type(text, into: t) }.value
+        let e = await Task.detached { () -> String? in
+            if let e = Tmux.pasteImages(images, into: t) { return e }
+            guard let text else { return Tmux.key("Enter", into: t) }
+            return Tmux.type(text, into: t)
+        }.value
         refreshSoon()
         return e
     }

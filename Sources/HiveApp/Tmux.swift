@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import HiveCore
 
 enum Tmux {
@@ -93,6 +93,29 @@ enum Tmux {
         Thread.sleep(forTimeInterval: 0.15)
         let e = run(cmds[1])
         return e.status == 0 ? nil : failure(e)
+    }
+
+    /// Presses one key ("Enter", "C-v") in the session. Returns an error message or nil.
+    static func key(_ key: String, into name: String) -> String? {
+        let r = run(SessionControl.keyArgs(key, into: name))
+        return r.status == 0 ? nil : failure(r)
+    }
+
+    /// Hands images to Claude Code the way the terminal does: each one goes onto the clipboard, then ctrl+v
+    /// makes Claude Code read it ("[Image #1]" in its input line). Blocks about half a second per image, don't
+    /// call it on the main thread. Returns an error message or nil.
+    static func pasteImages(_ images: [Data], into name: String) -> String? {
+        for png in images {
+            DispatchQueue.main.sync {
+                let pb = NSPasteboard.general
+                pb.clearContents()
+                pb.setData(png, forType: .png)
+            }
+            if let e = key("C-v", into: name) { return e }
+            // Claude Code reads the clipboard by itself; give it a moment before the next image or the text
+            Thread.sleep(forTimeInterval: 0.6)
+        }
+        return nil
     }
 
     /// Ends Remote Control: `/remote-control` opens Claude Code's dialog (Disconnect this session /
