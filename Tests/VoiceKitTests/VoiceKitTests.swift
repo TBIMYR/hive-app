@@ -65,28 +65,28 @@ final class DirectiveTests: XCTestCase {
 final class HandoffTests: XCTestCase {
     func testSendsOnlyAfterAConfirmInALaterAnswer() {
         var h = Handoff()
-        XCTAssertNil(h.apply([.propose(to: "lu.01", text: "pushen")]))
+        XCTAssertEqual(h.apply([.propose(to: "lu.01", text: "pushen")]), [])
         XCTAssertEqual(h.pending?.to, "lu.01")
-        XCTAssertEqual(h.apply([.confirm]), .send(.init(to: "lu.01", text: "pushen")))
+        XCTAssertEqual(h.apply([.confirm]), [.send(.init(to: "lu.01", text: "pushen"))])
         XCTAssertNil(h.pending)
     }
 
     func testConfirmInTheSameAnswerDoesNotSend() {
         var h = Handoff()
-        XCTAssertNil(h.apply([.propose(to: "lu.01", text: "pushen"), .confirm]))
+        XCTAssertEqual(h.apply([.propose(to: "lu.01", text: "pushen"), .confirm]), [])
         XCTAssertNotNil(h.pending)
     }
 
     func testConfirmWithoutProposalDoesNothing() {
         var h = Handoff()
-        XCTAssertNil(h.apply([.confirm]))
+        XCTAssertEqual(h.apply([.confirm]), [])
     }
 
     func testCancelAndChangedProposal() {
         var h = Handoff()
         _ = h.apply([.propose(to: "lu.01", text: "a")])
-        XCTAssertNil(h.apply([.propose(to: "lu.01", text: "b")]))
-        XCTAssertNil(h.apply([.cancel, .confirm]))
+        XCTAssertEqual(h.apply([.propose(to: "lu.01", text: "b")]), [])
+        XCTAssertEqual(h.apply([.cancel, .confirm]), [])
         XCTAssertNil(h.pending)
     }
 }
@@ -107,21 +107,30 @@ final class QuickReplyTests: XCTestCase {
 
     func testShortMessageToAReachableSessionGoesOutAfterTheCountdown() {
         var h = Handoff()
-        XCTAssertEqual(h.apply([.reply(to: "or.pm", text: "Ja.")], reachable: ["or.pm"]), .countdown(.init(to: "or.pm", text: "Ja.")))
+        XCTAssertEqual(h.apply([.reply(to: "or.pm", text: "Ja.")], reachable: ["or.pm"]), [.countdown(.init(to: "or.pm", text: "Ja."))])
         XCTAssertNil(h.pending)
     }
 
     func testMessageToASessionThatCannotBeReachedNeedsAYes() {
         var h = Handoff()
-        XCTAssertNil(h.apply([.reply(to: "lu.01", text: "Ja.")], reachable: ["or.pm"]))
+        XCTAssertEqual(h.apply([.reply(to: "lu.01", text: "Ja.")], reachable: ["or.pm"]), [])
         XCTAssertEqual(h.pending, .init(to: "lu.01", text: "Ja."))
     }
 
     func testLongReplyNeedsAYes() {
         var h = Handoff()
         let long = String(repeating: "a", count: Handoff.quickReplyLimit + 1)
-        XCTAssertNil(h.apply([.reply(to: "or.pm", text: long)], reachable: ["or.pm"]))
+        XCTAssertEqual(h.apply([.reply(to: "or.pm", text: long)], reachable: ["or.pm"]), [])
         XCTAssertNotNil(h.pending)
+    }
+
+    func testEveryShortMessageOfOneAnswerGoesOut() {
+        var h = Handoff()
+        let names = ["lu.pm", "or.01", "fj.02"]
+        let all = names.map { Directive.reply(to: $0, text: "Bitte schreib ein Handover.") }
+        XCTAssertEqual(h.apply(all, reachable: Set(names)),
+                       names.map { .countdown(.init(to: $0, text: "Bitte schreib ein Handover.")) })
+        XCTAssertNil(h.pending)
     }
 }
 

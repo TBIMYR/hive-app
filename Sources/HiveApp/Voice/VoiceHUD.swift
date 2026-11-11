@@ -19,7 +19,7 @@ final class VoiceHUD {
         watch = voice.$phase.combineLatest(voice.$sending, voice.$dismissed).receive(on: RunLoop.main)
             .sink { [weak self] phase, sending, dismissed in
                 let justClosed = Date().timeIntervalSince(dismissed) < 1
-                self?.update(active: (phase != .idle && phase != .off) || sending != nil, off: phase == .off || justClosed)
+                self?.update(active: (phase != .idle && phase != .off) || !sending.isEmpty, off: phase == .off || justClosed)
             }
     }
 
@@ -106,7 +106,9 @@ struct VoicePill: View {
     }
 
     private var title: String {
-        if let m = voice.sending { return "To \(m.to) in a moment" }
+        if let m = voice.sending.first {
+            return voice.sending.count == 1 ? "To \(m.to) in a moment" : "To \(voice.sending.count) sessions in a moment"
+        }
         switch voice.phase {
         case .listening: return voice.handsFree ? "Listening – just answer" : "Listening"
         case .thinking: return "Thinking"
@@ -126,7 +128,10 @@ struct VoicePill: View {
     }
 
     private var line: String {
-        if let m = voice.sending { return m.text }
+        if let m = voice.sending.first {
+            // one text for all of them (e.g. "write a handover"), otherwise who gets something
+            return voice.sending.allSatisfy { $0.text == m.text } ? m.text : voice.sending.map(\.to).joined(separator: ", ")
+        }
         switch voice.phase {
         case .listening, .thinking: return voice.heard
         default: return voice.answer.isEmpty ? voice.heard : voice.answer
@@ -134,7 +139,7 @@ struct VoicePill: View {
     }
 
     private var sub: String? {
-        if voice.sending != nil { return "Press \(VoiceSettings.trigger.hint.replacingOccurrences(of: "Hold ", with: "")) to stop" }
+        if !voice.sending.isEmpty { return "Press \(VoiceSettings.trigger.hint.replacingOccurrences(of: "Hold ", with: "")) to stop" }
         if let p = voice.pending { return "Waiting for your yes – to \(p.to): \(p.text)" }
         return voice.problem
     }

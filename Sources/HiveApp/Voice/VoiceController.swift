@@ -21,7 +21,8 @@ final class VoiceController: ObservableObject {
     @Published private(set) var heard = ""
     @Published private(set) var answer = ""
     @Published private(set) var pending: Handoff.Message?
-    @Published private(set) var sending: Handoff.Message?
+    /// Quick replies of the last answer, waiting out the pause for "stop"; empty = none
+    @Published private(set) var sending: [Handoff.Message] = []
     @Published private(set) var focus: String?
     @Published private(set) var problem: String?
     @Published private(set) var needsInputMonitoring = false
@@ -285,11 +286,11 @@ final class VoiceController: ObservableObject {
             answer = spoken
             voiceLog("claude: \(full.replacingOccurrences(of: "\n", with: " ⏎ "))")
             let reachable = Set(store.displaySessions.filter { store.tmux($0) != nil }.map(\.name))
-            switch handoff.apply(directives, reachable: reachable) {
-            case let .send(msg): Task { await deliver(msg) }
-            case let .countdown(msg): startCountdown(msg)
-            case nil: break
-            }
+            let actions = handoff.apply(directives, reachable: reachable)
+            let now = actions.compactMap { if case let .send(m) = $0 { m } else { nil } }
+            let later = actions.compactMap { if case let .countdown(m) = $0 { m } else { nil } }
+            if !now.isEmpty { Task { for m in now { await deliver(m) } } }
+            if !later.isEmpty { startCountdown(later) }
         } else {
             // the user interrupted: the answer was not heard, so any proposal in it does not count
             notes.append("the user interrupted your last answer; they did not hear it to the end")
@@ -340,29 +341,32 @@ final class VoiceController: ObservableObject {
 
     // MARK: quick reply with a pause for "stop"
 
-    private func startCountdown(_ msg: Handoff.Message) {
-        sending = msg
+    /// One pause for all of them, then they go out one after the other.
+    private func startCountdown(_ msgs: [Handoff.Message]) {
+        stopCountdown(silently: true)
+        sending = msgs
         countdown = Task {
             while speaker.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
             phase = .countdown
             try? await Task.sleep(for: Self.stopWindow)
-            guard !Task.isCancelled, sending == msg else { return }
-            sending = nil
+            guard !Task.isCancelled, sending == msgs else { return }
+            sending = []
             countdown = nil
             phase = .idle
-            await deliver(msg)
+            for m in msgs { await deliver(m) }
         }
     }
 
     private func stopCountdown(silently: Bool = false) {
-        guard let msg = sending else { return }
+        guard !sending.isEmpty else { return }
+        let to = sending.map(\.to).joined(separator: ", ")
         countdown?.cancel()
         countdown = nil
-        sending = nil
+        sending = []
         if phase == .countdown { phase = .idle }
         guard !silently else { return }
-        voiceLog("stopped the reply to \(msg.to)")
-        notes.append("the user STOPPED your reply to \(msg.to) before it went out; nothing was sent")
+        voiceLog("stopped the reply to \(to)")
+        notes.append("the user STOPPED your reply to \(to) before it went out; nothing was sent")
     }
 
     // MARK: Hive speaks up
@@ -386,7 +390,7 @@ final class VoiceController: ObservableObject {
     }
 
     private func announceNext() {
-        guard phase == .idle, !inTurn, sending == nil, !announce.isEmpty || !finished.isEmpty else { return }
+        guard phase == .idle, !inTurn, sending.isEmpty, !announce.isEmpty || !finished.isEmpty else { return }
         func said(_ name: String) -> String { session(name)?.lastSentence.map { " – its last words: \"\($0)\"" } ?? "" }
         let names = announce.keys.sorted()
         let done = finished.keys.sorted()
@@ -424,7 +428,7 @@ final class VoiceController: ObservableObject {
             guard Date().timeIntervalSince(quiet) >= Self.echoGap else { break }
             quietSince = nil
             // conversation mode: the user can just answer, no key needed
-            if VoiceSettings.followUp, expectsReply, listenerReady, sending == nil { startListening(handsFree: true) } else { phase = .idle }
+            if VoiceSettings.followUp, expectsReply, listenerReady, sending.isEmpty { startListening(handsFree: true) } else { phase = .idle }
         case .listening where handsFree:
             let now = Date()
             if heard.isEmpty, now.timeIntervalSince(listenStarted) > Self.followUpWait { talkCancelled() }

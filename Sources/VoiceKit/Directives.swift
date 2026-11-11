@@ -104,20 +104,21 @@ public struct Handoff: Equatable, Sendable {
     public init() {}
 
     /// Applies the markers of one answer; `reachable` are the sessions a message can be typed into right now.
-    public mutating func apply(_ directives: [Directive], reachable: Set<String> = []) -> Action? {
+    /// Every short reply of the answer goes out (one per session, e.g. "all of you write a handover").
+    public mutating func apply(_ directives: [Directive], reachable: Set<String> = []) -> [Action] {
         let before = pending
-        var send: Action?
+        var send: [Action] = []
         for d in directives {
             switch d {
             case let .reply(to, text):
                 let m = Message(to: to, text: text)
-                if reachable.contains(to), text.count <= Self.quickReplyLimit { send = .countdown(m); pending = nil } else { pending = m }
+                if reachable.contains(to), text.count <= Self.quickReplyLimit { send.append(.countdown(m)); pending = nil } else { pending = m }
             case let .propose(to, text): pending = Message(to: to, text: text)
             case .cancel: pending = nil
             case .wake: continue  // only the broadcast field wakes sessions
             case .confirm:
                 // a confirm in the same answer as its proposal does not count: the user never heard it
-                if let p = before, pending == p { send = .send(p); pending = nil }
+                if let p = before, pending == p { send.append(.send(p)); pending = nil }
             }
         }
         return send
