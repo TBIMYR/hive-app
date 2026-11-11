@@ -36,6 +36,10 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public let branch: String?
     public let lastAssistant: Said?
     public let lastUser: Said?
+    /// everything written since the user's last message (Transcript.Tail.answer), for the full cards
+    public let answer: Said?
+    /// the last work steps of that turn, oldest first
+    public let steps: [WorkAction]
     public let task: TaskLine?
     /// last work step (last tool_use) for the "Now" line; not in the Node server
     public let lastAction: WorkAction?
@@ -60,7 +64,7 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
     public init(name: String, project: String = "", group: String, isPm: Bool = false, cwd: String? = nil,
                 pid: Int? = nil, kind: String? = nil, tmuxPane: String? = nil, alive: Bool = false, status: String = "offline",
                 waitingFor: String? = nil, statusUpdatedAt: String? = nil, branch: String? = nil,
-                lastAssistant: Said? = nil, lastUser: Said? = nil, task: TaskLine? = nil,
+                lastAssistant: Said? = nil, lastUser: Said? = nil, answer: Said? = nil, steps: [WorkAction] = [], task: TaskLine? = nil,
                 lastAction: WorkAction? = nil, lastSentence: String? = nil, hasHandover: Bool = false, backgroundTasks: Int = 0,
                 remoteControl: Bool = false, contextPercent: Double? = nil, model: String? = nil, errors: [String] = []) {
         self.name = name
@@ -78,6 +82,8 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
         self.branch = branch
         self.lastAssistant = lastAssistant
         self.lastUser = lastUser
+        self.answer = answer
+        self.steps = steps
         self.task = task
         self.lastAction = lastAction
         self.lastSentence = lastSentence
@@ -103,6 +109,8 @@ public struct Session: Codable, Equatable, Identifiable, Sendable {
             branch: try c.decodeIfPresent(String.self, forKey: .branch),
             lastAssistant: try c.decodeIfPresent(Said.self, forKey: .lastAssistant),
             lastUser: try c.decodeIfPresent(Said.self, forKey: .lastUser),
+            answer: try c.decodeIfPresent(Said.self, forKey: .answer),
+            steps: try c.decodeIfPresent([WorkAction].self, forKey: .steps) ?? [],
             task: try c.decodeIfPresent(TaskLine.self, forKey: .task),
             lastAction: try c.decodeIfPresent(WorkAction.self, forKey: .lastAction),
             lastSentence: try c.decodeIfPresent(String.self, forKey: .lastSentence),
@@ -127,6 +135,8 @@ public enum StateBuilder {
     public static let defaultClaudeHome = "\(home)/.claude"
     public static let staleAfter: TimeInterval = 60 * 60
     static let maxText = 600
+    /// the whole answer is read in the cards; only a runaway one is cut
+    static let maxAnswer = 8000
     /// corresponds to localeCompare in Node (checked with period, #, -, _, umlauts, capitalization)
     private static let collation = Locale(identifier: "en")
 
@@ -162,6 +172,7 @@ public enum StateBuilder {
                 isPm: Project.isPm(e.name), cwd: e.cwd, pid: e.pid, kind: e.kind, tmuxPane: e.tmuxPane, alive: e.alive, status: status,
                 waitingFor: e.waitingFor, statusUpdatedAt: e.statusUpdatedAt, branch: tail.branch,
                 lastAssistant: clip(tail.lastAssistant), lastUser: clip(tail.lastUser),
+                answer: clip(tail.answer, to: maxAnswer), steps: tail.steps,
                 task: taskOf(h, status: status, now: now), lastAction: tail.lastAction, lastSentence: tail.lastSentence,
                 hasHandover: h != nil, backgroundTasks: background, remoteControl: e.alive && e.remoteControl,
                 contextPercent: e.alive ? e.sessionId.flatMap { ContextUsage.percent(claudeHome: claudeHome, sessionId: $0) } : nil,
@@ -202,8 +213,8 @@ public enum StateBuilder {
     }
 
     /// Truncates to 600 UTF-16 units like text.slice(0, 600) in JS.
-    static func clip(_ s: Said?) -> Said? {
-        guard let s, s.text.utf16.count > maxText else { return s }
-        return Said(text: String(decoding: Array(s.text.utf16.prefix(maxText)), as: UTF16.self) + "…", at: s.at)
+    static func clip(_ s: Said?, to max: Int = maxText) -> Said? {
+        guard let s, s.text.utf16.count > max else { return s }
+        return Said(text: String(decoding: Array(s.text.utf16.prefix(max)), as: UTF16.self) + "…", at: s.at)
     }
 }

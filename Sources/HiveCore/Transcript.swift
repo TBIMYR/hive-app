@@ -70,6 +70,10 @@ public struct WorkAction: Codable, Equatable, Sendable {
 public struct Tail: Equatable, Sendable {
     public var lastAssistant: Said? = nil
     public var lastUser: Said? = nil
+    /// everything the session wrote since the user's last message, in order (paragraphs joined by a blank line)
+    public var answer: Said? = nil
+    /// the last work steps since the user's last message, oldest first (at most `maxSteps`)
+    public var steps: [WorkAction] = []
     public var branch: String? = nil
     public var lastAction: WorkAction? = nil
     /// last sentence of the last text response, without Markdown, truncated
@@ -81,6 +85,7 @@ public struct Tail: Equatable, Sendable {
 /// Reads the end of a conversation transcript (JSONL) like hive/lib/transcript.js.
 public enum Transcript {
     public static let defaultTailBytes = 64 * 1024
+    public static let maxSteps = 3
 
     /// Last `bytes` bytes; if the file is longer, the truncated first line is dropped.
     public static func readTail(_ path: String, bytes: Int = defaultTailBytes) -> String {
@@ -134,6 +139,8 @@ public enum Transcript {
         // tool_results from more recent lines (already seen, since we read backwards)
         var resultIds = Set<String>()
         var sawResult = false
+        // the turn since the user's last message, newest first while reading backwards
+        var texts: [Said] = []
         for raw in text.components(separatedBy: "\n").reversed() {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             if line.isEmpty { continue }
@@ -159,6 +166,15 @@ public enum Transcript {
                let m = (obj["message"] as? [String: Any])?["model"] as? String, !m.isEmpty, !m.hasPrefix("<") {
                 tail.model = m
             }
+            if tail.lastUser == nil && type == "assistant" {
+                let t = textOf(content)
+                if !t.isEmpty { texts.append(Said(text: t, at: at)) }
+                if tail.steps.count < maxSteps, let blocks = content as? [Any] {
+                    for case let b as [String: Any] in blocks.reversed() where b["type"] as? String == "tool_use" && tail.steps.count < maxSteps {
+                        tail.steps.insert(describe(b, at: at, pending: false), at: 0)
+                    }
+                }
+            }
             if tail.lastAssistant == nil && type == "assistant" {
                 let t = textOf(content)
                 if !t.isEmpty { tail.lastAssistant = Said(text: t, at: at) }
@@ -170,6 +186,11 @@ public enum Transcript {
                 && tail.model != nil { break }
         }
         tail.lastSentence = tail.lastAssistant.flatMap { lastSentence(of: $0.text) }
+        // the newest step is the last action, which knows whether it is still running
+        if !tail.steps.isEmpty, let last = tail.lastAction { tail.steps[tail.steps.count - 1] = last }
+        if let newest = texts.first {
+            tail.answer = Said(text: texts.reversed().map(\.text).joined(separator: "\n\n"), at: newest.at)
+        }
         return tail
     }
 

@@ -62,7 +62,7 @@ private struct CardGrid: View {
         let columns = max(1, Int((width + Self.spacing) / (Self.minWidth + Self.spacing)))
         let column = max(0, (width - CGFloat(columns - 1) * Self.spacing) / CGFloat(columns))
         let wide = min(columns, max(1, Int(((Self.readable + Self.spacing) / (column + Self.spacing)).rounded())))
-        let rows = Self.rows(part.map { ($0, full && Self.asks($0) ? wide : 1) }, columns: columns)
+        let rows = Self.rows(part.map { ($0, full && (Self.asks($0) || $0.session.talks) ? wide : 1) }, columns: columns)
         VStack(alignment: .leading, spacing: Self.spacing) {
             ForEach(rows, id: \.first?.item.id) { row in CardRow(cells: row, column: column, spacing: Self.spacing, ns: ns, full: full) }
         }
@@ -194,9 +194,13 @@ struct Tile: View {
                 // always two lines high, so plain cards are equally tall; without a "Now" line the reason (if any)
                 // in the status color
                 // hidden: only an open question keeps its box, for the answer buttons
-                if show.now || canAnswer {
+                // an open choice or approval keeps its buttons; otherwise a full card shows the conversation
+                let buttons = canAnswer && (line?.kind == .permission || line?.kind == .choice)
+                if show.now || canAnswer || full {
                     Group {
-                        if let line {
+                        if full && !buttons && session.talks {
+                            CardConversation(session: session, working: status.rank == 1, now: now)
+                        } else if let line {
                             NowBox(line: line, now: now, answerFor: canAnswer ? session : nil, full: full)
                         } else {
                             NowSlot {
@@ -210,7 +214,7 @@ struct Tile: View {
                 }
 
                 // an open choice or approval is answered with its buttons; the field would type into the dialog
-                if canReply && !(canAnswer && (line?.kind == .permission || line?.kind == .choice)) {
+                if canReply && !buttons {
                     ReplyField(session: session).padding(.top, 12)
                 }
             }
@@ -726,4 +730,9 @@ struct ContextDot: View {
         .frame(width: 15, height: 15)
         .help(ContextLine.help(percent))
     }
+}
+
+extension Session {
+    /// Has a conversation to show in a full card: running, with a message or an answer
+    var talks: Bool { alive && (answer != nil || lastUser != nil) }
 }

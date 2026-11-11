@@ -66,3 +66,26 @@ private func full() throws -> String { try String(contentsOfFile: file, encoding
     #expect(Transcript.parseTail(text).model == "claude-opus-5-5")
     #expect(Transcript.parseTail(#"{"type":"user","message":{"content":"hi"}}"#).model == nil)
 }
+
+@Test func answerIsTheWholeTurnSinceTheLastPrompt() {
+    func line(_ type: String, _ content: String, _ t: Int) -> String {
+        #"{"type":"\#(type)","timestamp":"2026-09-30T10:00:0\#(t).000Z","message":{"content":\#(content)}}"#
+    }
+    let text = [
+        line("user", #""Earlier question""#, 0),
+        line("assistant", #"[{"type":"text","text":"Earlier answer."}]"#, 1),
+        line("user", #""Check the layout""#, 2),
+        line("assistant", #"[{"type":"text","text":"I read the grid first."},{"type":"tool_use","id":"a","name":"Read","input":{"file_path":"/x/Grid.swift"}}]"#, 3),
+        line("user", #"[{"type":"tool_result","tool_use_id":"a","content":"…"}]"#, 4),
+        line("assistant", #"[{"type":"tool_use","id":"b","name":"Bash","input":{"command":"swift test"}}]"#, 5),
+        line("user", #"[{"type":"tool_result","tool_use_id":"b","content":"ok"}]"#, 6),
+        line("assistant", #"[{"type":"text","text":"All tests pass:\n1. Grid\n2. Cards"}]"#, 7),
+    ].joined(separator: "\n")
+    let t = Transcript.parseTail(text)
+    #expect(t.lastUser?.text == "Check the layout")
+    #expect(t.answer?.text == "I read the grid first.\n\nAll tests pass:\n1. Grid\n2. Cards")
+    #expect(t.answer?.at == "2026-09-30T10:00:07.000Z")
+    #expect(t.steps.count == 2 && t.steps.last?.pending == false)
+    // the earlier turn is not part of it
+    #expect(t.answer?.text.contains("Earlier") == false)
+}
