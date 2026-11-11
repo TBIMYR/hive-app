@@ -82,7 +82,9 @@ final class Brain {
        on the last line. If the user declines, put [[cancel]]. If they want changes, make a new [[send …]] proposal.
     If [HIVE] says the session shows a choice dialog, the message is the option number (e.g. [[reply lu.02: 1]]);
     say the choice in two or three words ("Okay, einmal erlaubt."). Never pick an option that allows something
-    permanently unless the user said so.
+    permanently unless the user said so. Before asking the user to choose, name the options briefly (number and two
+    or three words each), never just "Welche Option?". If the user answers in their own words and no option fits, and
+    the dialog has a "Type something." option, send their words as the message; the app types them into that line.
 
     Hive also speaks up by itself: a turn with [HIVE EVENT] instead of [USER] means a session just started needing the
     user, or just finished. Tell the user briefly who needs them and for what, or who is done and the gist, in your own

@@ -160,6 +160,20 @@ final class DialogReplyTests: XCTestCase {
         XCTAssertNil(DialogReply.answer("7", in: approval))
     }
 
+    func testOwnWordsGoIntoAQuestionsTypeSomethingLine() {
+        let question = ScreenDialog.parse("""
+        Which way should the notices take?
+        ❯ 1. Chat
+          2. Mail
+          3. Type something.
+        """)!
+        XCTAssertEqual(DialogReply.answer("2", in: question), .option("Mail"))
+        XCTAssertEqual(DialogReply.answer("Push and restart, if nothing private is in it.", in: question),
+                       .text("Push and restart, if nothing private is in it."))
+        // an approval has no such line: words that are no yes or no still go nowhere
+        XCTAssertNil(DialogReply.answer("Push and restart", in: approval))
+    }
+
     func testDescribe() {
         XCTAssertTrue(DialogReply.describe(approval).hasPrefix("1. Yes / 2. Yes, and don't ask again"))
     }

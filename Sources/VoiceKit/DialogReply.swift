@@ -2,8 +2,9 @@ import Foundation
 import HiveCore
 
 /// A spoken answer to a choice dialog on a session's screen: the option number, the option's text,
-/// or for an approval "ja" / "immer" / "nein". Text is never typed into a dialog. The result is what Hive's
-/// answer buttons send, so it goes through the same checks (`Tmux.answer`).
+/// or for an approval "ja" / "immer" / "nein". Other words go into a question's "Type something." line as the
+/// user's own answer; an approval has none, so there they are refused. The result is what Hive's answer buttons
+/// send, so it goes through the same checks (`Tmux.answer`).
 public enum DialogReply {
     public static func answer(_ reply: String, in dialog: ScreenDialog) -> ScreenDialog.Answer? {
         let t = reply.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
@@ -15,8 +16,10 @@ public enum DialogReply {
         else if !words.isDisjoint(with: ["immer", "always", "dauerhaft"]) { choice = .alwaysAllow }
         else if !words.isDisjoint(with: ["ja", "yes", "erlaub", "erlauben", "erlaubt", "ok", "okay", "mach", "go"]) { choice = .allow }
         else { choice = nil }
-        guard let choice, dialog.permission(choice) != nil else { return nil }
-        return .permission(choice)
+        if let choice, dialog.permission(choice) != nil { return .permission(choice) }
+        let own = reply.split(whereSeparator: \.isNewline).joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        guard !own.isEmpty, dialog.pick(.text(own)) != nil else { return nil }
+        return .text(own)
     }
 
     /// The options for the model, e.g. "1. Yes / 2. Yes, and don't ask again … / 3. No".
