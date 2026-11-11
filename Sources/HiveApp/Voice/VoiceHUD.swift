@@ -75,11 +75,11 @@ struct VoicePill: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 PulseDot(color: color, pulsing: voice.phase == .listening || voice.phase == .thinking)
-                Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(Hive.muted)
+                Text(title).font(.hive(size: 12, weight: .medium)).foregroundStyle(Hive.muted)
                 Spacer(minLength: 0)
-                Text(VoiceSettings.trigger.hint).font(.system(size: 11)).foregroundStyle(Hive.idle)
+                Text(VoiceSettings.trigger.hint).font(.hive(size: 11)).foregroundStyle(Hive.idle)
                 Button { voice.dismiss() } label: {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Hive.muted)
+                    Image(systemName: "xmark").font(.hive(size: 10, weight: .semibold)).foregroundStyle(Hive.muted)
                         .frame(width: 18, height: 18).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -87,12 +87,12 @@ struct VoicePill: View {
             }
             if !line.isEmpty {
                 // while listening the newest words matter, so a long transcript loses its start, not its end
-                Text(line).font(.system(size: 14)).foregroundStyle(Hive.ink).lineLimit(Self.maxLines)
+                Text(line).font(.hive(size: 14)).foregroundStyle(Hive.ink).lineLimit(Self.maxLines)
                     .truncationMode(voice.phase == .listening ? .head : .tail)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let sub {
-                Text(sub).font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(3)
+                Text(sub).font(.hive(size: 12)).foregroundStyle(Hive.muted).lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

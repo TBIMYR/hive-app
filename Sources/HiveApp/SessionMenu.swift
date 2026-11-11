@@ -63,7 +63,7 @@ struct SessionMenu: View {
         let notInHive = inHive ? nil : "Only for sessions running in Hive"
         VStack(alignment: .leading, spacing: 0) {
             Text(session.name)
-                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
+                .font(.hive(size: 12, weight: .semibold)).foregroundStyle(Hive.muted)
                 .padding(.horizontal, 10).padding(.top, 4).padding(.bottom, 6)
             if !session.alive {
                 item("Wake Up", "power") { store.wakeUp(session) }
@@ -141,7 +141,7 @@ struct MenuItemStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .medium))
+            .font(.hive(size: 13, weight: .medium))
             .foregroundStyle(destructive ? Hive.need : Hive.ink)
             .padding(.horizontal, 10).padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)

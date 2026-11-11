@@ -55,8 +55,8 @@ struct RailSwitcher<Value: Hashable>: View {
                     withAnimation(.snappy(duration: 0.2)) { selection = item.value }
                 } label: {
                     HStack(spacing: 7) {
-                        Image(systemName: item.symbol).font(.system(size: 12, weight: .semibold))
-                        Text(item.title).font(.system(size: 13, weight: on ? .semibold : .medium))
+                        Image(systemName: item.symbol).font(.hive(size: 12, weight: .semibold))
+                        Text(item.title).font(.hive(size: 13, weight: on ? .semibold : .medium))
                     }
                     .foregroundStyle(on ? Hive.bg : Hive.ink)
                     .padding(.horizontal, 14).frame(height: 36)
@@ -95,15 +95,15 @@ struct SessionSearchField: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.ink)
+            Image(systemName: "magnifyingglass").font(.hive(size: 12, weight: .semibold)).foregroundStyle(Hive.ink)
             TextField("Find session", text: $query, prompt: Text("Find session").foregroundStyle(Hive.ink))
-                .textFieldStyle(.plain).font(.system(size: 13))
+                .textFieldStyle(.plain).font(.hive(size: 13))
                 .focused(focused)
                 .onSubmit(submit)
                 .onExitCommand { query = ""; focused.wrappedValue = false }
             if !query.isEmpty {
                 Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(Hive.ink)
+                    Image(systemName: "xmark.circle.fill").font(.hive(size: 12)).foregroundStyle(Hive.ink)
                 }
                 .buttonStyle(.plain)
                 .help("Clear the search")
@@ -221,7 +221,7 @@ struct OverviewView: View {
                 Spacer(minLength: 0)
                 if let collapse {
                     Button(action: collapse) {
-                        Image(systemName: "arrow.down.right.and.arrow.up.left").font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "arrow.down.right.and.arrow.up.left").font(.hive(size: 12, weight: .semibold))
                             .foregroundStyle(Hive.ink).frame(width: 30, height: 30).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -237,7 +237,7 @@ struct OverviewView: View {
                 ScrollView {
                     if shown.isEmpty && !query.isEmpty {
                         Text("No session matches “\(query)”")
-                            .font(.system(size: 13)).foregroundStyle(Hive.muted)
+                            .font(.hive(size: 13)).foregroundStyle(Hive.muted)
                             .frame(maxWidth: .infinity).padding(.top, 40)
                     }
                     content(favorites: parts.favorites, rest: parts.rest)

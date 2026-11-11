@@ -47,7 +47,7 @@ struct NoteBadge: View {
 
     var body: some View {
         if notes.sessions.contains(name) {
-            Image(systemName: "note.text").font(.system(size: 10.5, weight: .semibold))
+            Image(systemName: "note.text").font(.hive(size: 10.5, weight: .semibold))
                 .foregroundStyle(Hive.muted)
                 .fixedSize()
                 .help("Has notes (⌘T)")
@@ -74,7 +74,7 @@ struct NotepadView: View {
                 Text(name == Notes.global
                      ? "Notes for all sessions. They stay the same whichever session is selected."
                      : "Notes for \(name). Markdown works; they stay until you delete them.")
-                    .font(.system(size: 15)).foregroundStyle(Hive.muted)
+                    .font(.hive(size: 15)).foregroundStyle(Hive.muted)
                     .padding(.horizontal, 16).padding(.top, 2)
                     .allowsHitTesting(false)
             }
@@ -132,7 +132,7 @@ struct NotesSplit: View {
 
     private func part(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted)
+            Text(title).font(.hive(size: 11, weight: .semibold)).foregroundStyle(Hive.muted)
                 .padding(.horizontal, 28).padding(.top, 12)
             content()
         }

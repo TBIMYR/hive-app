@@ -105,7 +105,7 @@ struct SleepCountdown: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "moon.stars.fill").font(.system(size: 34)).foregroundStyle(.tint)
+            Image(systemName: "moon.stars.fill").font(.hive(size: 34)).foregroundStyle(.tint)
             Text("No session is working any more").font(.headline)
             TimelineView(.periodic(from: .now, by: 1)) { t in
                 Text("The Mac goes to sleep in \(max(0, Int(deadline.timeIntervalSince(t.date).rounded(.up)))) s.")
@@ -129,6 +129,7 @@ struct SettingsView: View {
     @AppStorage(Notifier.topicKey) private var topic = ""
     @AppStorage(Notifier.awayKey) private var awayMinutes = 5
     @AppStorage(Hive.monoKey) private var mono = false
+    @AppStorage(TextSize.key) private var textScale = 1.0
     private var show = Show()
 
     var body: some View {
@@ -199,6 +200,12 @@ struct SettingsView: View {
     @ViewBuilder
     private var display: some View {
         Section {
+            Picker(selection: $textScale) {
+                ForEach(TextSize.choices, id: \.scale) { Text($0.label).tag($0.scale) }
+            } label: {
+                Text("Text size")
+                Text("Makes all text of the window larger. The terminal keeps its own size.")
+            }
             Toggle(isOn: $mono) {
                 Text("Monochrome")
                 Text("Black, white and gray instead of status and project colors. The terminal keeps its colors.")
@@ -237,6 +244,8 @@ struct ContentView: View {
     @EnvironmentObject private var usage: UsageStore
     /// Settings → Monochrome; the whole window content is rebuilt so every color is read again
     @AppStorage(Hive.monoKey) private var mono = false
+    /// Settings → Text size; rebuilt the same way, so every font size is read again
+    @AppStorage(TextSize.key) private var textScale = 1.0
     /// Mark and wordmark on the left of the title bar
     private var brandLabel: some View {
         HStack(spacing: 8) {
@@ -245,7 +254,7 @@ struct ContentView: View {
                 HiveMark().stroke(Hive.ink, style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
             }
             .frame(width: 15, height: 17)
-            Text("Hive").font(.system(size: 15, weight: .medium)).kerning(-0.1).foregroundStyle(Hive.ink)
+            Text("Hive").font(.hive(size: 15, weight: .medium)).kerning(-0.1).foregroundStyle(Hive.ink)
         }
         .padding(.leading, 4)
     }
@@ -401,7 +410,7 @@ struct ContentView: View {
             Text(store.notice ?? "")
         }
         .tint(mono ? Hive.ink : nil)
-        .id(mono)
+        .id("\(mono) \(textScale)")
         #if DEBUG
         // for checking the look without screen recording: HIVE_SNAPSHOT=<file.png> saves the window content
         // a few seconds after launch (drawn by the app itself, so the title bar is missing)

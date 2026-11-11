@@ -110,8 +110,8 @@ struct DockTabs: View {
             ForEach(items) { item in
                 let on = item.panel == selected
                 HStack(spacing: 7) {
-                    Image(systemName: item.symbol).font(.system(size: 12, weight: .semibold))
-                    if titles { Text(item.title).font(.system(size: 13, weight: on ? .semibold : .medium)).fixedSize() }
+                    Image(systemName: item.symbol).font(.hive(size: 12, weight: .semibold))
+                    if titles { Text(item.title).font(.hive(size: 13, weight: on ? .semibold : .medium)).fixedSize() }
                 }
                 .foregroundStyle(on ? Hive.bg : Hive.ink)
                 .padding(.horizontal, titles ? 14 : 11).frame(height: 36)
@@ -286,8 +286,8 @@ struct DockDropOverlay: View {
                     .offset(x: r.minX + 4, y: r.minY + 4)
             }
             HStack(spacing: 7) {
-                Image(systemName: drag.symbol).font(.system(size: 12, weight: .semibold))
-                Text(drag.title).font(.system(size: 13, weight: .semibold))
+                Image(systemName: drag.symbol).font(.hive(size: 12, weight: .semibold))
+                Text(drag.title).font(.hive(size: 13, weight: .semibold))
             }
             .foregroundStyle(Hive.bg)
             .padding(.horizontal, 14).frame(height: 36)

@@ -132,7 +132,7 @@ struct SessionRow: View {
                                            bottomTrailingRadius: last ? r : 0, topTrailingRadius: first ? r : 0)
         HStack(spacing: 14) {
             ContextDot(color: st.color, percent: show.context ? item.session.contextPercent : nil).frame(width: 14)
-            Text(item.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
+            Text(item.name).font(.hive(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
                 .frame(width: nameWidth, alignment: .leading)
             HStack(spacing: 6) {
                 // status as colored text like on the cards; the leading dot is the row's status dot
@@ -164,17 +164,17 @@ struct SessionRow: View {
             .help(item.project)
             .frame(maxWidth: .infinity, alignment: .leading)
             if show.model {
-                Text(item.session.model.map(ModelName.short) ?? "").font(.system(size: 12)).foregroundStyle(Hive.muted)
+                Text(item.session.model.map(ModelName.short) ?? "").font(.hive(size: 12)).foregroundStyle(Hive.muted)
                     .frame(width: 72, alignment: .trailing)
             }
             if show.since {
-                Text(item.since).font(.system(size: 12)).foregroundStyle(Hive.muted).monospacedDigit()
+                Text(item.since).font(.hive(size: 12)).foregroundStyle(Hive.muted).monospacedDigit()
                     .frame(width: 56, alignment: .trailing)
             }
             StarButton(isOn: item.isFavorite, toggle: toggleFavorite)
                 .padding(.leading, -4)
         }
-        .font(.system(size: 13.5))
+        .font(.hive(size: 13.5))
         .lineLimit(1).truncationMode(.tail)
         .padding(.leading, indent)
         .padding(.horizontal, 14).padding(.vertical, 15)

@@ -130,7 +130,7 @@ struct UsageButton: View {
         let joined = parts.dropFirst().reduce(parts.first ?? Text("")) { a, b in
             a + Text("  ·  ").foregroundColor(Hive.hair2) + b
         }
-        return joined.font(.system(size: 12.5, weight: .medium)).monospacedDigit().lineLimit(1).fixedSize()
+        return joined.font(.hive(size: 12.5, weight: .medium)).monospacedDigit().lineLimit(1).fixedSize()
     }
 
     private func part(_ name: String, _ w: PlanLimits.Window, length: TimeInterval, now: Date) -> Text {
@@ -140,7 +140,7 @@ struct UsageButton: View {
         if let pace = w.pace(length: length, now: now) { main = main + Text(" ") + PaceArrow.text(pace) }
         guard let r = w.resetsAt else { return main }
         return main + Text(" (\(UsageFormat.countdown(r.timeIntervalSince(now))))")
-            .font(.system(size: 11)).foregroundColor(Hive.ink)
+            .font(.hive(size: 11)).foregroundColor(Hive.ink)
     }
 }
 
@@ -161,13 +161,13 @@ struct UsagePopover: View {
                         LimitRow(title: "Week · \(s.name)", window: s.window, length: PlanLimits.weekLength, now: now)
                     }
                 }
-                Text(source(l, now: now)).font(.system(size: 11.5)).foregroundStyle(Hive.muted)
+                Text(source(l, now: now)).font(.hive(size: 11.5)).foregroundStyle(Hive.muted)
             }
             Rectangle().fill(Hive.hair).frame(height: 1)
             if let s = usage.stats {
                 tokens(s)
             } else {
-                Text("Reading transcripts…").font(.system(size: 12.5)).foregroundStyle(Hive.muted)
+                Text("Reading transcripts…").font(.hive(size: 12.5)).foregroundStyle(Hive.muted)
             }
         }
         .padding(18)
@@ -185,20 +185,20 @@ struct UsagePopover: View {
     private func tokens(_ s: UsageStats) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Tokens").font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.ink)
+                Text("Tokens").font(.hive(size: 13, weight: .semibold)).foregroundStyle(Hive.ink)
                 Spacer()
                 Text("Output").frame(width: 64, alignment: .trailing)
                 Text("Total").frame(width: 64, alignment: .trailing)
                 Text("API $").frame(width: 64, alignment: .trailing)
                     .help("What these tokens would cost at Anthropic's API list prices (input, output, cache writes and reads per model). Your plan is a flat fee.")
             }
-            .font(.system(size: 11.5)).foregroundStyle(Hive.muted)
+            .font(.hive(size: 11.5)).foregroundStyle(Hive.muted)
             TokenRow(name: "Today", tokens: s.today, bold: true)
             TokenRow(name: "Last 7 days", tokens: s.last7Days, bold: true)
             TokenRow(name: "Last 30 days", tokens: s.last30Days, bold: true)
             DayBars(days: Array(s.days.prefix(UsagePeriod.month.days)))
                 .padding(.top, 4)
-            Text(cacheNote(s)).font(.system(size: 11.5)).foregroundStyle(Hive.muted)
+            Text(cacheNote(s)).font(.hive(size: 11.5)).foregroundStyle(Hive.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         Rectangle().fill(Hive.hair).frame(height: 1)
@@ -207,7 +207,7 @@ struct UsagePopover: View {
         let sessions = s.sessions(period)
         if projects.isEmpty && sessions.isEmpty {
             Text("No usage \(period == .today ? "today" : "in the last \(period.label)").")
-                .font(.system(size: 12.5)).foregroundStyle(Hive.muted)
+                .font(.hive(size: 12.5)).foregroundStyle(Hive.muted)
         }
         if !projects.isEmpty { section("Top projects · \(period.label.lowercased())", projects) }
         if !sessions.isEmpty { section("Top sessions · \(period.label.lowercased())", sessions) }
@@ -223,7 +223,7 @@ struct UsagePopover: View {
 
     private func section(_ title: String, _ rows: [UsageStats.Row]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.ink)
+            Text(title).font(.hive(size: 13, weight: .semibold)).foregroundStyle(Hive.ink)
             ForEach(rows.prefix(5)) { r in TokenRow(name: r.name, tokens: r.tokens) }
         }
     }
@@ -252,7 +252,7 @@ private struct PeriodSwitcher: View {
                     withAnimation(.snappy(duration: 0.2)) { period = p }
                 } label: {
                     Text(p.label)
-                        .font(.system(size: 12, weight: on ? .semibold : .medium))
+                        .font(.hive(size: 12, weight: on ? .semibold : .medium))
                         .foregroundStyle(on ? Hive.bg : Hive.ink)
                         .frame(maxWidth: .infinity).frame(height: 24)
                         .background {
@@ -305,7 +305,7 @@ private enum PaceArrow {
         case .runsOut: "arrow.up.right"
         }
         return Text(Image(systemName: symbol))
-            .font(.system(size: 10.5, weight: .bold))
+            .font(.hive(size: 10.5, weight: .bold))
             .foregroundColor(pace.outlook.color)
     }
 
@@ -325,10 +325,10 @@ private struct LimitRow: View {
         let color = window.outlook(length: length, now: now)?.color
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(title).font(.system(size: 13, weight: .medium)).foregroundStyle(Hive.ink)
+                Text(title).font(.hive(size: 13, weight: .medium)).foregroundStyle(Hive.ink)
                 Spacer()
                 Text("\(Int(window.percent.rounded())) %")
-                    .font(.system(size: 13, weight: .semibold)).monospacedDigit()
+                    .font(.hive(size: 13, weight: .semibold)).monospacedDigit()
                     .foregroundStyle(color ?? Hive.ink)
             }
             GeometryReader { geo in
@@ -341,11 +341,11 @@ private struct LimitRow: View {
             .frame(height: 6)
             if let r = window.resetsAt {
                 Text("resets in \(UsageFormat.countdown(r.timeIntervalSince(now)))")
-                    .font(.system(size: 11.5)).foregroundStyle(Hive.muted).monospacedDigit()
+                    .font(.hive(size: 11.5)).foregroundStyle(Hive.muted).monospacedDigit()
             }
             if let pace = window.pace(length: length, now: now) {
                 (PaceArrow.text(pace) + Text(" ") + Text(PaceArrow.sentence(pace)).foregroundColor(pace.outlook == .lasts ? Hive.muted : pace.outlook.color))
-                    .font(.system(size: 11.5)).monospacedDigit()
+                    .font(.hive(size: 11.5)).monospacedDigit()
             }
         }
     }
@@ -364,7 +364,7 @@ private struct TokenRow: View {
             Text(UsageFormat.tokens(tokens.total)).frame(width: 64, alignment: .trailing).foregroundStyle(Hive.muted)
             Text(UsageFormat.usd(tokens.usd)).frame(width: 64, alignment: .trailing).foregroundStyle(Hive.ink2)
         }
-        .font(.system(size: 12.5, weight: bold ? .medium : .regular))
+        .font(.hive(size: 12.5, weight: bold ? .medium : .regular))
         .monospacedDigit()
     }
 }

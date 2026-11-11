@@ -31,7 +31,7 @@ struct StatusLabel: View {
             Text(status.label).lineLimit(1).truncationMode(.tail)
             if !since.isEmpty { Text(since).foregroundStyle(loud ? Hive.onColor.opacity(0.8) : Hive.muted).fixedSize() }
         }
-        .font(.system(size: 12, weight: loud ? .semibold : .medium))
+        .font(.hive(size: 12, weight: loud ? .semibold : .medium))
         .foregroundStyle(loud ? Hive.onColor : Hive.ink2)
         .padding(.horizontal, loud ? 9 : 0).padding(.vertical, loud ? 3 : 0)
         .background(loud ? status.color : Color.clear)
@@ -57,7 +57,7 @@ struct CardStatus: View {
             Text(since.isEmpty ? label : label.isEmpty ? since : "\(label) · \(since)")
                 .lineLimit(1).truncationMode(.tail)
         }
-        .font(.system(size: size, weight: loud ? .semibold : .medium))
+        .font(.hive(size: size, weight: loud ? .semibold : .medium))
         .foregroundStyle(loud ? status.color : Hive.muted)
     }
 }
@@ -173,8 +173,8 @@ struct LoadBadge: View {
         if let cpu = store.load[session.id], let share = ProcessLoad.share(cpu, cores: StateStore.cores) {
             let warn = share >= ProcessLoad.warnFrom
             HStack(spacing: 3) {
-                Image(systemName: "cpu").font(.system(size: 10.5, weight: .semibold))
-                Text("\(share) %").font(.system(size: 12, weight: warn ? .semibold : .regular)).monospacedDigit()
+                Image(systemName: "cpu").font(.hive(size: 10.5, weight: .semibold))
+                Text("\(share) %").font(.hive(size: 12, weight: warn ? .semibold : .regular)).monospacedDigit()
             }
             .foregroundStyle(warn ? Hive.block : Hive.muted)
             .fixedSize()
@@ -194,7 +194,7 @@ struct BackgroundBadge: View {
             let help = count == 1 ? "1 background task running" : "\(count) background tasks running"
             HStack(spacing: 4) {
                 TurningArrows(color: NSColor(Hive.onColor), turning: !reduceMotion)
-                Text("\(count)").font(.system(size: 12, weight: .semibold)).monospacedDigit()
+                Text("\(count)").font(.hive(size: 12, weight: .semibold)).monospacedDigit()
             }
             .foregroundStyle(Hive.onColor)
             .padding(.horizontal, 8).padding(.vertical, 3)
@@ -288,7 +288,7 @@ struct RemoteControlBadge: View {
     var body: some View {
         if on {
             Image(systemName: "iphone.radiowaves.left.and.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.hive(size: 12, weight: .semibold))
                 .foregroundStyle(Hive.shell)
                 .help("Remote Control is on")
                 .accessibilityLabel("Remote Control is on")
@@ -305,7 +305,7 @@ struct StarButton: View {
     var body: some View {
         Button(action: toggle) {
             Image(systemName: isOn ? "star.fill" : "star")
-                .font(.system(size: 13, weight: .medium))
+                .font(.hive(size: 13, weight: .medium))
                 .foregroundStyle(Hive.ink)
                 .frame(width: 20, height: 20)
                 .contentShape(Rectangle())
@@ -347,11 +347,11 @@ struct SectionHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.ink)
-            Text("\(count)").font(.system(size: 13)).foregroundStyle(Hive.muted).monospacedDigit()
+            Text(title).font(.hive(size: 13, weight: .semibold)).foregroundStyle(Hive.ink)
+            Text("\(count)").font(.hive(size: 13)).foregroundStyle(Hive.muted).monospacedDigit()
             if let expanded {
                 Image(systemName: expanded.wrappedValue ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(Hive.muted)
+                    .font(.hive(size: 10, weight: .semibold)).foregroundStyle(Hive.muted)
             }
             Rectangle().fill(Hive.hair).frame(height: 1).padding(.leading, 4)
         }
@@ -432,19 +432,19 @@ struct EmptyState: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Image(systemName: symbol).font(.system(size: 18, weight: .medium)).foregroundStyle(Hive.ink2)
+            Image(systemName: symbol).font(.hive(size: 18, weight: .medium)).foregroundStyle(Hive.ink2)
                 .frame(width: 48, height: 48)
                 .background(Circle().fill(Hive.soft))
-            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
+            Text(title).font(.hive(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
                 .padding(.top, 16)
-            Text(text).font(.system(size: 13)).foregroundStyle(Hive.muted)
+            Text(text).font(.hive(size: 13)).foregroundStyle(Hive.muted)
                 .multilineTextAlignment(.center).lineSpacing(3)
                 .frame(maxWidth: 300)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 6)
             if let action {
                 Button(action: action.run) {
-                    Text(action.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.bg)
+                    Text(action.title).font(.hive(size: 13, weight: .semibold)).foregroundStyle(Hive.bg)
                         .padding(.horizontal, 18).frame(height: 32)
                         .background(RoundedRectangle(cornerRadius: 9).fill(Hive.ink))
                         .contentShape(Rectangle())

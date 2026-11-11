@@ -123,15 +123,18 @@ enum Tmux {
         return r.status == 0 ? r.output : nil
     }
 
-    static let dialogChanged = "Dialog changed – answer in the terminal"
+    static let dialogChanged = "The question on the screen changed"
+    /// No dialog on the screen any more: answered meanwhile (in the terminal, or by the permission hook)
+    static let noDialog = "Already answered"
 
     /// Answer button: find the dialog on the screen, type the option's digit; if the same dialog
     /// is still there afterward and the option is marked, also send Enter. If the option isn't found, or
     /// someone is currently typing into a free-text option, nothing is sent. Blocks briefly, don't call
     /// it on the main thread. `known`: options according to the transcript. Returns a message or nil.
     static func answer(_ answer: ScreenDialog.Answer, known: [String], in name: String) -> String? {
-        guard let before = capture(name).flatMap(ScreenDialog.parse), let option = before.pick(answer)
-        else { return dialogChanged }
+        guard let screen = capture(name) else { return dialogChanged }
+        guard let before = ScreenDialog.parse(screen) else { return noDialog }
+        guard let option = before.pick(answer) else { return dialogChanged }
         if answer.isPermission == false, before.selectionOutside(known) { return dialogChanged }
         let r = run(SessionControl.keyArgs(String(option.number), into: name))
         guard r.status == 0 else { return failure(r) }

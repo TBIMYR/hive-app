@@ -17,7 +17,7 @@ struct CardConversation: View {
         VStack(alignment: .leading, spacing: 10) {
             if let you = session.lastUser {
                 Text(QuestionReader.md(you.text))
-                    .font(.system(size: 13)).foregroundStyle(Hive.ink2)
+                    .font(.hive(size: 13)).foregroundStyle(Hive.ink2)
                     .lineLimit(3)
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: 10).fill(Hive.well))
@@ -27,7 +27,7 @@ struct CardConversation: View {
             if let answer = session.answer {
                 let long = height > Self.folded + 20
                 let shut = long && !open
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 11) {
                     ForEach(Array(AnswerText.blocks(answer.text).enumerated()), id: \.offset) { _, b in block(b) }
                 }
                 .fixedSize(horizontal: false, vertical: true)
@@ -42,7 +42,7 @@ struct CardConversation: View {
                 }
                 if long {
                     Button(open ? "Show less" : "Show all") { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
-                        .buttonStyle(.link).font(.system(size: 12, weight: .medium))
+                        .buttonStyle(.link).font(.hive(size: 12, weight: .medium))
                 }
             }
             if working, !session.steps.isEmpty {
@@ -50,15 +50,15 @@ struct CardConversation: View {
                     ForEach(Array(session.steps.enumerated()), id: \.offset) { _, step in
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Image(systemName: step.pending ? "gearshape" : "checkmark")
-                                .font(.system(size: 11, weight: .medium)).frame(width: 14)
-                            Text(step.text).foregroundStyle(Hive.ink2).fixedSize()
+                                .font(.hive(size: 11, weight: .medium)).frame(width: 14)
+                            Text(step.text).foregroundStyle(Hive.ink2).layoutPriority(1)
                             if let d = step.detail { CodeChip(text: d) }
                             if step.pending { Text(dur(step.at, now: now)).fixedSize() }
                         }
                         .lineLimit(1)
                     }
                 }
-                .font(.system(size: 12.5)).foregroundStyle(Hive.muted)
+                .font(.hive(size: 12.5)).foregroundStyle(Hive.muted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,15 +68,15 @@ struct CardConversation: View {
     @ViewBuilder private func block(_ b: AnswerText.Block) -> some View {
         switch b {
         case .heading(let h):
-            Text(QuestionReader.md(h)).font(.system(size: 14, weight: .semibold)).foregroundStyle(Hive.ink)
+            Text(QuestionReader.md(h)).font(.hive(size: 14, weight: .semibold)).foregroundStyle(Hive.ink)
                 .fixedSize(horizontal: false, vertical: true)
         case .paragraph(let p):
-            Text(QuestionReader.md(p)).font(.system(size: 14)).foregroundStyle(Hive.ink2).lineSpacing(2)
+            Text(QuestionReader.md(p)).font(.hive(size: 14)).foregroundStyle(Hive.ink2).lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         case .item(let marker, let text, let depth):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(marker).font(.hiveMono(12)).foregroundStyle(Hive.muted).frame(minWidth: 14, alignment: .trailing)
-                Text(QuestionReader.md(text)).font(.system(size: 14)).foregroundStyle(Hive.ink2).lineSpacing(2)
+                Text(QuestionReader.md(text)).font(.hive(size: 14)).foregroundStyle(Hive.ink2).lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.leading, CGFloat(depth) * 18)

@@ -64,7 +64,7 @@ private struct CardGrid: View {
         let wide = min(columns, max(1, Int(((Self.readable + Self.spacing) / (column + Self.spacing)).rounded())))
         let rows = Self.rows(part.map { ($0, full && (Self.asks($0) || $0.session.talks) ? wide : 1) }, columns: columns)
         VStack(alignment: .leading, spacing: Self.spacing) {
-            ForEach(rows, id: \.first?.item.id) { row in CardRow(cells: row, column: column, spacing: Self.spacing, ns: ns, full: full) }
+            ForEach(rows, id: \.first?.item.id) { row in CardRow(cells: row, columns: columns, spacing: Self.spacing, ns: ns, full: full) }
         }
         // measured on the space offered, not on the cards: their fixed widths would otherwise never let it shrink
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
@@ -94,14 +94,14 @@ private struct CardGrid: View {
 private struct CardRow: View {
     @EnvironmentObject private var store: StateStore
     let cells: [(item: OverviewItem, span: Int)]
-    let column: CGFloat
+    let columns: Int
     let spacing: CGFloat
     let ns: Namespace.ID
     let full: Bool
     @State private var tallest: CGFloat = 0
 
     var body: some View {
-        HStack(alignment: .top, spacing: spacing) {
+        SpanRow(spans: cells.map(\.span), columns: columns, spacing: spacing) {
             ForEach(cells, id: \.item.id) { cell in
                 let it = cell.item
                 let live = store.tmux(it.session) != nil
@@ -113,15 +113,40 @@ private struct CardRow: View {
                      canAnswer: it.status.rank == 0 && !it.status.core.waitsAtStart && live) {
                     store.toggleFavorite(it.name)
                 }
-                    .frame(width: CGFloat(cell.span) * column + CGFloat(cell.span - 1) * spacing)
                     .onTapGesture { store.selected = it.name }
                     .sessionMenu(store, it.session)
                     .navFrame(it.name)
                     .matchedGeometryEffect(id: it.id, in: ns)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .onPreferenceChange(TallestKey.self) { tallest = $0 }
+    }
+}
+
+/// Lays a row of cards out over the width it is given, `columns` equal columns, each card over its span.
+/// The cards never decide the width themselves, so the grid can't grow with its own content.
+private struct SpanRow: Layout {
+    let spans: [Int]
+    let columns: Int
+    let spacing: CGFloat
+
+    private func widths(_ total: CGFloat) -> [CGFloat] {
+        let column = max(0, (total - CGFloat(columns - 1) * spacing) / CGFloat(max(1, columns)))
+        return spans.map { CGFloat($0) * column + CGFloat($0 - 1) * spacing }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 0
+        let height = zip(subviews, widths(width)).map { $0.sizeThatFits(.init(width: $1, height: nil)).height }.max() ?? 0
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        for (view, width) in zip(subviews, widths(bounds.width)) {
+            view.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: .init(width: width, height: nil))
+            x += width + spacing
+        }
     }
 }
 
@@ -153,7 +178,7 @@ struct Tile: View {
                 // Name and status
                 HStack(spacing: 8) {
                     if isPm { Token(text: session.abbr, color: color) }
-                    Text(session.name).font(.system(size: 18, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1).fixedSize()
+                    Text(session.name).font(.hive(size: 18, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1).fixedSize()
                     Spacer(minLength: 8)
                     if status.cls == "off" {
                         WakeUpButton(session: session)
@@ -182,12 +207,12 @@ struct Tile: View {
                 // task: gray if it's noticeably older than the last activity
                 let outdated = session.taskOutdated
                 Text(session.task?.text ?? "No task line")
-                    .font(.system(size: 15, weight: session.task?.text == nil || outdated ? .medium : .semibold))
+                    .font(.hive(size: 15, weight: session.task?.text == nil || outdated ? .medium : .semibold))
                     .foregroundStyle(session.task?.text == nil || outdated ? Hive.muted : Hive.ink)
                     .lineLimit(2, reservesSpace: !show.detail || session.task?.detail == nil)
                     .padding(.top, 12)
                 if show.detail, let detail = session.task?.detail {
-                    Text(detail).font(.system(size: 13)).foregroundStyle(Hive.muted).lineLimit(2)
+                    Text(detail).font(.hive(size: 13)).foregroundStyle(Hive.muted).lineLimit(2)
                         .padding(.top, 3)
                 }
 
@@ -205,7 +230,7 @@ struct Tile: View {
                         } else {
                             NowSlot {
                                 if let why = status.why {
-                                    Text(why).font(.system(size: 13, weight: .medium)).foregroundStyle(status.color).lineLimit(2)
+                                    Text(why).font(.hive(size: 13, weight: .medium)).foregroundStyle(status.color).lineLimit(2)
                                 }
                             }
                         }
@@ -247,7 +272,7 @@ struct Tile: View {
                 }
             }
             .lineLimit(1)
-            .font(.system(size: 12))
+            .font(.hive(size: 12))
             .foregroundStyle(Hive.muted)
             .padding(.top, 16)
         }
@@ -288,7 +313,7 @@ struct NowBox: View {
             // the reading view of a question takes the whole width
             if !(line.kind == .choice && line.question != nil) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.hive(size: 12, weight: .medium))
                     .foregroundStyle(Hive.muted)
                     .frame(width: 16)
             }
@@ -302,7 +327,7 @@ struct NowBox: View {
                 NowSlot {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(line.text)
-                            .font(.system(size: 14, weight: line.kind == .permission ? .semibold : .regular))
+                            .font(.hive(size: 14, weight: line.kind == .permission ? .semibold : .regular))
                             .foregroundStyle(line.kind == .permission ? Hive.ink : Hive.ink2)
                             // an open question with options is shown whole, otherwise it can't be answered
                             .lineLimit(line.kind == .choice ? nil : hasDetail ? 1 : 2)
@@ -312,7 +337,7 @@ struct NowBox: View {
                                 if let d = line.detail { CodeChip(text: d) }
                                 if !since.isEmpty { Text(line.detail == nil ? since : "· \(since)").fixedSize() }
                             }
-                            .font(.system(size: 12)).foregroundStyle(Hive.muted).lineLimit(1)
+                            .font(.hive(size: 12)).foregroundStyle(Hive.muted).lineLimit(1)
                         }
                     }
                 }
@@ -322,9 +347,8 @@ struct NowBox: View {
                     ForEach(Array(line.options.enumerated()), id: \.offset) { i, o in
                         Text("\(i + 1) · \(o)").lineLimit(1)
                     }
-                    .font(.system(size: 12)).foregroundStyle(Hive.muted)
-                    Text("Answer in the terminal").font(.system(size: 12, weight: .medium)).foregroundStyle(Hive.ink2)
-                        .padding(.top, 2)
+                    .font(.hive(size: 12)).foregroundStyle(Hive.muted)
+                    TerminalHint(session: answerFor).padding(.top, 2)
                 }
                 }
             }
@@ -351,17 +375,17 @@ struct QuestionReader: View {
         let ask = blocks.last.flatMap { if case .ask(let a) = $0 { a } else { nil } }
         let body = !full && ask != nil ? [] : ask == nil ? blocks : Array(blocks.dropLast())
         let open = open && full
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             // the question itself on a sheet of its own, set off from the card
             VStack(alignment: .leading, spacing: 9) {
                 HStack(alignment: .firstTextBaseline) {
                     if let h = question.header {
-                        Text(h).font(.system(size: 11, weight: .semibold)).foregroundStyle(Hive.muted).textCase(.uppercase)
+                        Text(h).font(.hive(size: 11, weight: .semibold)).foregroundStyle(Hive.muted).textCase(.uppercase)
                     }
                     Spacer(minLength: 8)
                     if full && (body.count > 1 || !open && !body.isEmpty) {
                         Button(open ? "Show less" : "Show all") { withAnimation(.easeOut(duration: 0.15)) { self.open.toggle() } }
-                            .buttonStyle(.link).font(.system(size: 12, weight: .medium))
+                            .buttonStyle(.link).font(.hive(size: 12, weight: .medium))
                     }
                 }
                 if open {
@@ -370,7 +394,7 @@ struct QuestionReader: View {
                     block(first).lineLimit(2)
                 }
                 if let ask {
-                    Text(Self.md(ask)).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
+                    Text(Self.md(ask)).font(.hive(size: 15, weight: .semibold)).foregroundStyle(Hive.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, body.isEmpty ? 0 : 4)
                 }
@@ -384,14 +408,14 @@ struct QuestionReader: View {
             } else {
                 ForEach(Array(question.options.enumerated()), id: \.offset) { i, o in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(i + 1) · \(o.label)").font(.system(size: 13, weight: .medium)).foregroundStyle(Hive.ink2)
+                        Text("\(i + 1) · \(o.label)").font(.hive(size: 13, weight: .medium)).foregroundStyle(Hive.ink2)
                         if open, let d = o.description {
-                            Text(Self.md(d)).font(.system(size: 12.5)).foregroundStyle(Hive.muted)
+                            Text(Self.md(d)).font(.hive(size: 12.5)).foregroundStyle(Hive.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
-                Text("Answer in the terminal").font(.system(size: 12, weight: .medium)).foregroundStyle(Hive.ink2)
+                TerminalHint(session: answerFor)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -401,14 +425,14 @@ struct QuestionReader: View {
     @ViewBuilder private func block(_ b: QuestionText.Block) -> some View {
         switch b {
         case .paragraph(let p), .ask(let p):
-            Text(Self.md(p)).font(.system(size: 14)).foregroundStyle(Hive.ink2)
-                .lineSpacing(2).fixedSize(horizontal: false, vertical: !open ? false : true)
+            Text(Self.md(p)).font(.hive(size: 14)).foregroundStyle(Hive.ink2)
+                .lineSpacing(4).fixedSize(horizontal: false, vertical: !open ? false : true)
         case .item(let marker, let title, let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(marker).font(.hiveMono(12)).foregroundStyle(Hive.muted).frame(minWidth: 14, alignment: .trailing)
                 (Text(title.map { Self.md($0 + " ") } ?? "").fontWeight(.semibold).foregroundColor(Hive.ink)
                  + Text(Self.md(text)).foregroundColor(Hive.ink2))
-                    .font(.system(size: 14)).lineSpacing(2)
+                    .font(.hive(size: 14)).lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: open)
             }
         }
@@ -420,6 +444,36 @@ struct QuestionReader: View {
     }
 }
 
+/// "Answer in the terminal" for what the buttons can't answer (several questions, multiple choice)
+struct TerminalHint: View {
+    let session: Session?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Answer in the terminal").foregroundStyle(Hive.ink2)
+            if let session { ShowTerminal(session: session) }
+        }
+        .font(.hive(size: 12, weight: .medium))
+    }
+}
+
+/// With the terminal folded away: a link that opens it on this session, instead of sending the user there.
+struct ShowTerminal: View {
+    @EnvironmentObject private var store: StateStore
+    @EnvironmentObject private var dock: DockStore
+    let session: Session
+
+    var body: some View {
+        if !dock.layout.isOpen(.main) {
+            Button("Show terminal") {
+                store.selected = session.name
+                dock.change { $0.setCollapsed(false, groupOf: .main); $0.select(.main) }
+            }
+            .buttonStyle(.link)
+        }
+    }
+}
+
 /// Reserves the height of a "Now" line plus its detail line, so cards with less to say are just as tall.
 /// The content sits on top.
 struct NowSlot<Content: View>: View {
@@ -428,8 +482,8 @@ struct NowSlot<Content: View>: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(" ").font(.system(size: 14))
-                CodeChip(text: " ").font(.system(size: 12))
+                Text(" ").font(.hive(size: 14))
+                CodeChip(text: " ").font(.hive(size: 12))
             }
             .hidden()
             content
@@ -480,9 +534,9 @@ struct AnswerButtons: View {
                         ForEach(Array(descriptions.enumerated()), id: \.offset) { _, o in
                             Button { send(.option(o.label)) } label: {
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(o.label).font(.system(size: 14, weight: .semibold)).foregroundStyle(Hive.ink)
+                                    Text(o.label).font(.hive(size: 14, weight: .semibold)).foregroundStyle(Hive.ink)
                                     if let d = o.description {
-                                        Text(QuestionReader.md(d)).font(.system(size: 12.5)).foregroundStyle(Hive.ink2)
+                                        Text(QuestionReader.md(d)).font(.hive(size: 12.5)).foregroundStyle(Hive.ink2)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
@@ -493,7 +547,7 @@ struct AnswerButtons: View {
                         // Claude Code's own "Type something." line
                         HStack(spacing: 6) {
                             TextField("Or in your own words…", text: $ownWords)
-                                .textFieldStyle(.plain).font(.system(size: 14))
+                                .textFieldStyle(.plain).font(.hive(size: 14))
                                 .padding(.horizontal, 12).padding(.vertical, 9)
                                 .background(RoundedRectangle(cornerRadius: 9).fill(Hive.card))
                                 .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Hive.hair2, lineWidth: 1))
@@ -515,7 +569,11 @@ struct AnswerButtons: View {
             .disabled(sending || typing)
             .help(typing ? "You are typing in this terminal – wait a moment" : "")
             if let note {
-                Text(note).font(.system(size: 11.5)).foregroundStyle(Hive.need).lineLimit(2)
+                HStack(spacing: 8) {
+                    Text(note).font(.hive(size: 11.5)).foregroundStyle(note == Tmux.noDialog ? Hive.muted : Hive.need).lineLimit(2)
+                    // with the terminal folded away, open it instead of sending the user to it
+                    if note != Tmux.noDialog { ShowTerminal(session: session).font(.hive(size: 11.5, weight: .medium)) }
+                }
             }
         }
         .task(id: line) {
@@ -549,7 +607,7 @@ struct AnswerButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 14, weight: .medium))
+            .font(.hive(size: 14, weight: .medium))
             .lineLimit(2).multilineTextAlignment(.leading)
             .foregroundStyle(primary ? Hive.card : Hive.ink)
             .padding(.horizontal, 14).padding(.vertical, 9)
@@ -593,7 +651,7 @@ struct WakeUpButton: View {
 struct WakeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .medium))
+            .font(.hive(size: 12, weight: .medium))
             .foregroundStyle(Hive.ink)
             .padding(.horizontal, 10).padding(.vertical, 4)
             .background(Hive.card)
@@ -634,7 +692,7 @@ struct ReplyField: View {
         VStack(alignment: .leading, spacing: 5) {
             TextField("", text: $text, prompt: Text("Reply…").foregroundColor(Hive.muted))
                 .textFieldStyle(.plain)
-                .font(.system(size: 13))
+                .font(.hive(size: 13))
                 .foregroundStyle(Hive.ink)
                 .focused($focused)
                 .disabled(sending)
@@ -649,7 +707,7 @@ struct ReplyField: View {
                 .onTapGesture { focused = true }
                 .onChange(of: text) { error = nil }
             if let error {
-                Text(error).font(.system(size: 11.5)).foregroundStyle(Hive.need).lineLimit(2)
+                Text(error).font(.hive(size: 11.5)).foregroundStyle(Hive.need).lineLimit(2)
             }
         }
     }

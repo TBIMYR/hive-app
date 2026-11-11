@@ -149,7 +149,7 @@ struct BroadcastPanel: View {
             Text("Broadcast").font(.headline)
             TextField("e.g. lu.pm and or.pm should check their tickets", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
-                .font(.system(size: 14))
+                .font(.hive(size: 14))
                 .lineLimit(3...8)
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Hive.card))

@@ -52,9 +52,24 @@ extension NSColor {
     }
 }
 
+/// The user's text size (Settings → Text size): a factor on every font size of the app.
+enum TextSize {
+    static let key = "textScale"
+    static let choices: [(label: String, scale: Double)] = [("Normal", 1), ("Larger", 1.1), ("Large", 1.2), ("Largest", 1.3)]
+    static var scale: CGFloat {
+        let v = UserDefaults.standard.double(forKey: key)
+        return v > 0 ? v : 1
+    }
+}
+
 extension Font {
+    /// `.system(size:…)` grown by the user's text size
+    static func hive(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
+        .system(size: size * TextSize.scale, weight: weight, design: design)
+    }
+
     static func hiveMono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
+        .hive(size: size, weight: weight, design: .monospaced)
     }
 }
 

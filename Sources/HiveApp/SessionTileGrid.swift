@@ -66,7 +66,7 @@ struct SmallTile: View {
         VStack(alignment: .leading, spacing: 8) {
             // name, then the status as dot + colored text like on the cards; the status gives way first
             HStack(spacing: 8) {
-                Text(item.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
+                Text(item.name).font(.hive(size: 15, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
                     .layoutPriority(1)
                 Spacer(minLength: 4)
                 if st.cls == "off" {
@@ -84,7 +84,7 @@ struct SmallTile: View {
                     .padding(.trailing, -4)
             }
             Text(text ?? "No task line")
-                .font(.system(size: 13, weight: task == nil ? .regular : .medium))
+                .font(.hive(size: 13, weight: task == nil ? .regular : .medium))
                 .foregroundStyle(text == nil ? Hive.muted : task == nil ? Hive.ink2 : Hive.ink)
                 .lineLimit(2, reservesSpace: true)
             .matchTallest(minBody)
@@ -95,7 +95,7 @@ struct SmallTile: View {
                     if show.project { Circle().fill(item.color).frame(width: 6, height: 6) }
                     Text(meta.joined(separator: " · "))
                 }
-                .font(.system(size: 11.5)).foregroundStyle(Hive.muted).lineLimit(1)
+                .font(.hive(size: 11.5)).foregroundStyle(Hive.muted).lineLimit(1)
                 .padding(.top, 2)
             }
         }

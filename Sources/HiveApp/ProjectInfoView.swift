@@ -23,7 +23,7 @@ struct ProjectInfoView: View {
             Rectangle().fill(Hive.hair).frame(height: 1)
             if editing != nil {
                 TextEditor(text: $draft)
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(.hive(size: 13, design: .monospaced))
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 26).padding(.vertical, 14)
             } else if let info = resolved?.info {
@@ -54,10 +54,10 @@ struct ProjectInfoView: View {
     private var header: some View {
         HStack(spacing: 8) {
             if let r = resolved {
-                Text(r.slug).font(.system(size: 14, weight: .semibold))
+                Text(r.slug).font(.hive(size: 14, weight: .semibold))
                 if r.info != nil {
                     Button((projects.path(r.slug) as NSString).abbreviatingWithTildeInPath) { projects.openInEditor(r.slug) }
-                        .buttonStyle(.link).font(.system(size: 12))
+                        .buttonStyle(.link).font(.hive(size: 12))
                         .help("Open the file in the default editor")
                 }
             }

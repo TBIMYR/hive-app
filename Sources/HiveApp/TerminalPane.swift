@@ -176,7 +176,7 @@ struct Workspace: View {
 
     private func iconButton(_ symbol: String, help: String, on: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+            Image(systemName: symbol).font(.hive(size: 12, weight: .semibold))
                 .foregroundStyle(on ? Hive.bg : Hive.ink)
                 .frame(width: 30, height: 30)
                 .background { if on { RoundedRectangle(cornerRadius: 8).fill(Hive.ink) } }
@@ -259,7 +259,7 @@ struct Workspace: View {
                         HStack(spacing: 8) {
                             if panels[0] == header {
                                 Circle().fill(store.color(for: s.groupKey)).frame(width: 8, height: 8)
-                                Text(s.name).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                                Text(s.name).font(.hive(size: 15, weight: .semibold)).lineLimit(1)
                                 Spacer(minLength: 4)
                                 if let msg = message { Text(msg).font(.caption).foregroundStyle(Hive.muted).lineLimit(1) }
                                 if show.status {
@@ -367,9 +367,9 @@ struct Workspace: View {
                     .onTapGesture { dock.peek = nil }
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
-                        Image(systemName: it.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Hive.ink)
+                        Image(systemName: it.symbol).font(.hive(size: 12, weight: .semibold)).foregroundStyle(Hive.ink)
                         Text(p == .overview ? it.title : "\(it.title) · \(s?.name ?? "")")
-                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
+                            .font(.hive(size: 13, weight: .semibold)).foregroundStyle(Hive.ink).lineLimit(1)
                         Spacer(minLength: 4)
                         iconButton("arrow.up.left.and.arrow.down.right", help: "Open this tile again") {
                             dock.peek = nil
