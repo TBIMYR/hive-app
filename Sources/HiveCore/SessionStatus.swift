@@ -44,12 +44,17 @@ public struct SessionStatus: Equatable, Sendable {
             self.init(1, "busy", "background")
         case state == "waiting":
             self.init(2, "wait", "awaiting feedback")
+        case state == "handover" && s.handoverIsLatest:
+            self.init(2, "handover", "handover written")
         case s.status == "shell":
             self.init(2, "shell", "Shell")
         default:
             self.init(2, "idle", "ready")
         }
     }
+
+    /// A handover counts as long as the session hasn't done anything since (its closing sentence is a moment later).
+    static let handoverGrace: TimeInterval = 5 * 60
 
     private init(_ rank: Int, _ cls: String, _ label: String, why: String? = nil, reason: String? = nil,
                  waitsAtStart: Bool = false) {
@@ -64,5 +69,15 @@ public struct SessionStatus: Equatable, Sendable {
     /// Command in front of a tmux pane is a shell (not an agent).
     public static func isShell(_ command: String) -> Bool {
         ["zsh", "bash", "fish", "sh", "-zsh", "-bash", "login"].contains(command)
+    }
+}
+
+extension Session {
+    /// The task line's handover is the last thing the session did: no work step or status change after it,
+    /// apart from the short closing sentence.
+    public var handoverIsLatest: Bool {
+        guard let written = task?.updatedAt.flatMap(parseISO) else { return false }
+        let after = [lastAction?.at, statusUpdatedAt].compactMap { $0.flatMap(parseISO) }.max() ?? written
+        return after.timeIntervalSince(written) < SessionStatus.handoverGrace
     }
 }

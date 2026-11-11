@@ -25,7 +25,7 @@ struct Status {
     private static var look: [String: (Color, Bool)] { [
         "need": (Hive.need, true), "block": (Hive.block, true), "busy": (Hive.busy, true),
         "wait": (Hive.wait, true), "shell": (Hive.shell, false), "agent": (Hive.ink2, false),
-        "off": (Hive.off, false), "idle": (Hive.idle, false),
+        "off": (Hive.off, false), "idle": (Hive.idle, false), "handover": (Hive.busy, false),
     ] }
 
     init(_ s: Session, tmuxCommand: String? = nil) {

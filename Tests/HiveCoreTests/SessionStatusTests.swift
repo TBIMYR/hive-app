@@ -62,6 +62,20 @@ private func s(_ status: String = "idle", alive: Bool = true, waitingFor: String
     #expect(st.rank == 2 && st.cls == "wait" && st.label == "awaiting feedback")
 }
 
+@Test func handoverWrittenUntilTheSessionWorksAgain() {
+    func idle(handover: String, lastStep: String) -> Session {
+        Session(name: "al.01", group: "al", pid: 1, alive: true, status: "idle", statusUpdatedAt: lastStep,
+                task: Session.TaskLine(text: "x", state: "handover", updatedAt: handover, stale: false))
+    }
+    // the closing sentence a moment after the handover still counts
+    let st = SessionStatus(idle(handover: "2026-01-01T10:00:00Z", lastStep: "2026-01-01T10:00:20Z"))
+    #expect(st.rank == 2 && st.cls == "handover" && st.label == "handover written")
+    // worked on afterwards: just ready again
+    #expect(SessionStatus(idle(handover: "2026-01-01T10:00:00Z", lastStep: "2026-01-01T11:00:00Z")).cls == "idle")
+    // a working session is working, whatever its task line says
+    #expect(SessionStatus(s("busy", task: "x", taskState: "handover")).cls == "busy")
+}
+
 @Test func shellInRegister() {
     #expect(SessionStatus(s("shell")).cls == "shell")
 }
