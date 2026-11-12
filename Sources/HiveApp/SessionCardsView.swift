@@ -117,7 +117,11 @@ private struct CardRow: View {
                      canAnswer: it.status.rank == 0 && !it.status.core.waitsAtStart && live) {
                     store.toggleFavorite(it.name)
                 }
-                    .onTapGesture { store.selected = it.name }
+                    .onTapGesture {
+                        store.selected = it.name
+                        // full cards: straight into the reply field (after the selection settled)
+                        if full { DispatchQueue.main.async { NotificationCenter.default.post(name: ReplyField.focusRequest, object: it.name) } }
+                    }
                     .sessionMenu(store, it.session)
                     .navFrame(it.name)
                     .matchedGeometryEffect(id: it.id, in: ns)
@@ -715,14 +719,17 @@ struct ReplyField: View {
                     }
                 }
             }
-            TextField("", text: $text, prompt: Text(images.isEmpty ? "Reply… (⌘V pastes images too)" : "Add a message…").foregroundColor(Hive.muted))
+            // two lines high, grows with longer text; Return sends
+            TextField("", text: $text, prompt: Text(images.isEmpty ? "Reply… (⌘V pastes images too)" : "Add a message…").foregroundColor(Hive.muted),
+                      axis: .vertical)
+                .lineLimit(2...6)
                 .textFieldStyle(.plain)
                 .font(.hive(size: 13))
                 .foregroundStyle(Hive.ink)
                 .focused($focused)
                 .disabled(sending)
                 .onSubmit(send)
-                .padding(.horizontal, 10).padding(.vertical, 7)
+                .padding(.horizontal, 10).padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Hive.card)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -736,8 +743,14 @@ struct ReplyField: View {
             }
         }
         .onChange(of: focused) { _, on in on ? watchPaste() : stopWatching() }
+        .onReceive(NotificationCenter.default.publisher(for: Self.focusRequest)) { n in
+            if n.object as? String == session.name { focused = true }
+        }
         .onDisappear(perform: stopWatching)
     }
+
+    /// Posted with a session name when its card is clicked: the card's field takes the focus.
+    static let focusRequest = Notification.Name("hive.replyField.focus")
 
     /// The text field only takes text; an image on the clipboard is caught on ⌘V while the field has focus.
     private func watchPaste() {
