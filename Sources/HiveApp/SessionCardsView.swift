@@ -102,7 +102,6 @@ private struct CardRow: View {
     let spacing: CGFloat
     let ns: Namespace.ID
     let full: Bool
-    @State private var tallest: CGFloat = 0
 
     var body: some View {
         SpanRow(spans: cells.map(\.span), columns: columns, spacing: spacing) {
@@ -111,7 +110,7 @@ private struct CardRow: View {
                 let live = store.tmux(it.session) != nil
                 Tile(session: it.session, status: it.status, label: it.project, color: it.color,
                      inTmux: it.inTmux, isSelected: it.name == store.selected, now: store.now,
-                     isFavorite: it.isFavorite, minBody: tallest, full: full,
+                     isFavorite: it.isFavorite, full: full,
                      // slim cards: written in the terminal; full cards: in every running session
                      canReply: full ? live && it.status.rank != 3 : false,
                      canAnswer: it.status.rank == 0 && !it.status.core.waitsAtStart && live) {
@@ -127,12 +126,12 @@ private struct CardRow: View {
                     .matchedGeometryEffect(id: it.id, in: ns)
             }
         }
-        .onPreferenceChange(TallestKey.self) { tallest = $0 }
     }
 }
 
-/// Lays a row of cards out over the width it is given, `columns` equal columns, each card over its span.
-/// The cards never decide the width themselves, so the grid can't grow with its own content.
+/// Lays a row of cards out over the width it is given, `columns` equal columns, each card over its span,
+/// all as tall as the tallest. The cards never decide the width themselves, so the grid can't grow with its
+/// own content; the height is measured right here, not passed back up, so it shrinks again at once.
 private struct SpanRow: Layout {
     let spans: [Int]
     let columns: Int
@@ -152,7 +151,7 @@ private struct SpanRow: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var x = bounds.minX
         for (view, width) in zip(subviews, widths(bounds.width)) {
-            view.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: .init(width: width, height: nil))
+            view.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: .init(width: width, height: bounds.height))
             x += width + spacing
         }
     }
@@ -167,8 +166,6 @@ struct Tile: View {
     let isSelected: Bool
     let now: Date
     let isFavorite: Bool
-    /// Height of the tallest card body in the section (everything above the footer); this body grows to it
-    var minBody: CGFloat = 0
     /// Full card (terminal hidden): the question in full and a field for a message
     var full = false
     /// Field for a message at the bottom (full cards, running in tmux); left out while answer buttons show
@@ -251,7 +248,8 @@ struct Tile: View {
                     ReplyField(session: session).padding(.top, 12)
                 }
             }
-            .matchTallest(minBody)
+            // takes the row's height, so the footer sits at the bottom
+            .frame(maxHeight: .infinity, alignment: .top)
 
             // Meta: project · branch, on the right where the session runs
             HStack(spacing: 6) {
