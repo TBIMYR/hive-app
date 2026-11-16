@@ -10,6 +10,7 @@ struct CardConversation: View {
     let now: Date
     @State private var open = false
     @State private var height: CGFloat = 0
+    @AppStorage(VoiceSettings.enabledKey) private var voiceOn = false
 
     private static let folded: CGFloat = 190
 
@@ -40,9 +41,21 @@ struct CardConversation: View {
                         if shut { LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 36) }
                     }
                 }
-                if long {
-                    Button(open ? "Show less" : "Show all") { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
-                        .buttonStyle(.link).font(.hive(size: 12, weight: .medium))
+                if long || voiceOn {
+                    HStack {
+                        if long {
+                            Button(open ? "Show less" : "Show all") { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } }
+                                .buttonStyle(.link).font(.hive(size: 12, weight: .medium))
+                        }
+                        Spacer()
+                        if voiceOn {
+                            Button { NotificationCenter.default.post(name: .readAloud, object: session.name) } label: {
+                                Image(systemName: "speaker.wave.2").font(.hive(size: 12, weight: .medium))
+                            }
+                            .buttonStyle(.borderless).foregroundStyle(Hive.muted)
+                            .help("Read aloud")
+                        }
+                    }
                 }
             }
             if working, !session.steps.isEmpty {

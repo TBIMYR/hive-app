@@ -4,6 +4,8 @@ import SwiftUI
 extension Notification.Name {
     /// the ElevenLabs key was saved or removed in Settings
     static let voiceKeyChanged = Notification.Name("hiveVoiceKeyChanged")
+    /// object: a session name; the voice reads out what it wrote last
+    static let readAloud = Notification.Name("hiveReadAloud")
 }
 
 /// Settings → Voice.

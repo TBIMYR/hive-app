@@ -342,3 +342,34 @@ final class BroadcastTests: XCTestCase {
         XCTAssertEqual(plan.ask, [Handoff.Message(to: "lu.pm", text: "B")])
     }
 }
+
+final class ReadAloudTests: XCTestCase {
+    func testReadsTheAnswerWithoutCodeAndTables() {
+        let answer = """
+        ## Stand
+        Die Tests laufen wieder.
+
+        - **Fix:** der Zähler stimmt
+        ```
+        swift test
+        ```
+        | a | b |
+        |---|---|
+        """
+        XCTAssertEqual(ReadAloud.sentences(answer), ["Stand.", "Die Tests laufen wieder.", "Fix: der Zähler stimmt"])
+    }
+
+    func testALongAnswerStopsAndPointsToTheCard() {
+        let answer = Array(repeating: "Das ist ein Satz mit einigen Wörtern darin.", count: 10).joined(separator: " ")
+        let out = ReadAloud.sentences(answer, limit: 100)
+        XCTAssertEqual(out.count, 3)
+        XCTAssertEqual(out.last, ReadAloud.more)
+    }
+
+    func testReadMarker() {
+        let (spoken, d) = Directives.parse("[[read lu.01]]")
+        XCTAssertEqual(spoken, "")
+        XCTAssertEqual(d, [.read("lu.01")])
+        XCTAssertEqual(Directives.parse("[[read ]]").directives, [])
+    }
+}

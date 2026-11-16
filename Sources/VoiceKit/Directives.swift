@@ -4,11 +4,13 @@ import Foundation
 /// `[[send lu.01: text]]` proposes a message, `[[confirm]]` sends the proposal, `[[cancel]]` drops it,
 /// `[[reply lu.01: text]]` sends a short, clear message right away (after a short pause for "stop").
 /// `[[wake lu.pm]]` restarts an offline session with its handover (broadcast field only).
+/// `[[read lu.01]]` has the app read out what the session wrote last, word for word (voice only).
 /// `[[quiet]]` alone means "nothing to say": it is no directive, the spoken part is simply empty.
 public enum Directive: Equatable, Sendable {
     case propose(to: String, text: String)
     case reply(to: String, text: String)
     case wake(String)
+    case read(String)
     case confirm
     case cancel
 }
@@ -37,9 +39,10 @@ public enum Directives {
         default: break
         }
         let verb = b.prefix(while: { $0 != " " }).lowercased()
-        if verb == "wake" {
+        if verb == "wake" || verb == "read" {
             let name = b.dropFirst(verb.count).trimmingCharacters(in: .whitespaces)
-            return name.isEmpty || name.contains(" ") || name.contains(":") ? nil : .wake(name)
+            guard !name.isEmpty, !name.contains(" "), !name.contains(":") else { return nil }
+            return verb == "wake" ? .wake(name) : .read(name)
         }
         guard verb == "send" || verb == "reply", let colon = b.firstIndex(of: ":") else { return nil }
         let to = b[b.index(b.startIndex, offsetBy: verb.count)..<colon].trimmingCharacters(in: .whitespaces)
@@ -115,7 +118,7 @@ public struct Handoff: Equatable, Sendable {
                 if reachable.contains(to), text.count <= Self.quickReplyLimit { send.append(.countdown(m)); pending = nil } else { pending = m }
             case let .propose(to, text): pending = Message(to: to, text: text)
             case .cancel: pending = nil
-            case .wake: continue  // only the broadcast field wakes sessions
+            case .wake, .read: continue  // only the broadcast field wakes sessions; reading is no message
             case .confirm:
                 // a confirm in the same answer as its proposal does not count: the user never heard it
                 if let p = before, pending == p { send.append(.send(p)); pending = nil }

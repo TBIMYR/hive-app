@@ -69,6 +69,9 @@ final class VoiceController: ObservableObject {
     private var doneTracker = DoneTracker()
     private var finished: [String: String] = [:]   // session → its task line, finished and not yet told
     private var countdown: Task<Void, Never>?
+    /// sessions whose last answer is to be read out, one after the other
+    private var toRead: [String] = []
+    private var readRequests: AnyCancellable?
     private var ticker: Timer?
     private var settings: AnyCancellable?
     private var keyChanged: AnyCancellable?
@@ -92,6 +95,9 @@ final class VoiceController: ObservableObject {
         keyChanged = NotificationCenter.default.publisher(for: .voiceKeyChanged)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.reloadKey() }
+        readRequests = NotificationCenter.default.publisher(for: .readAloud)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] n in if let name = n.object as? String { self?.read(name) } }
         applySettings()
     }
 
@@ -147,6 +153,7 @@ final class VoiceController: ObservableObject {
         focus = nil
         announce = [:]
         finished = [:]
+        toRead = []
         polled = false
         tracker = AttentionTracker()
         doneTracker = DoneTracker()
@@ -228,6 +235,7 @@ final class VoiceController: ObservableObject {
         heard = ""
         answer = ""
         quietSince = nil
+        toRead = []
         phase = .idle
         dismissed = Date()
     }
@@ -291,6 +299,7 @@ final class VoiceController: ObservableObject {
             let later = actions.compactMap { if case let .countdown(m) = $0 { m } else { nil } }
             if !now.isEmpty { Task { for m in now { await deliver(m) } } }
             if !later.isEmpty { startCountdown(later) }
+            for case let .read(name) in directives { read(name) }
         } else {
             // the user interrupted: the answer was not heard, so any proposal in it does not count
             notes.append("the user interrupted your last answer; they did not hear it to the end")
@@ -369,6 +378,32 @@ final class VoiceController: ObservableObject {
         notes.append("the user STOPPED your reply to \(to) before it went out; nothing was sent")
     }
 
+    // MARK: reading out what a session wrote
+
+    /// Queues a session's last answer; it is read once the voice is free, after the others asked for before.
+    func read(_ name: String) {
+        guard phase != .off, !toRead.contains(name) else { return }
+        toRead.append(name)
+    }
+
+    /// Word for word, without the model: the name as the cue, then the answer (no code, cut after a while).
+    private func readNext() {
+        guard phase == .idle, !inTurn, sending.isEmpty, !toRead.isEmpty else { return }
+        let name = toRead.removeFirst()
+        names = SpokenNames(store.displaySessions, overrides: SpokenNames.loadOverrides())
+        let sentences = session(name)?.answer.map { ReadAloud.sentences($0.text) } ?? []
+        let said = sentences.isEmpty ? ["\(name) hat noch nichts geschrieben."] : ["\(name) schreibt:"] + sentences
+        voiceLog("read out \(name): \(sentences.count) sentences")
+        // a "mach weiter" afterwards goes to this session
+        focus = name
+        heard = ""
+        answer = said.joined(separator: " ")
+        expectsReply = false
+        quietSince = nil
+        phase = .speaking
+        said.forEach(voice)
+    }
+
     // MARK: Hive speaks up
 
     /// A session that starts waiting for the user gets announced once the voice is free.
@@ -433,7 +468,9 @@ final class VoiceController: ObservableObject {
             let now = Date()
             if heard.isEmpty, now.timeIntervalSince(listenStarted) > Self.followUpWait { talkCancelled() }
             else if !heard.isEmpty, now.timeIntervalSince(heardChanged) > Self.endOfSpeech { talkReleased() }
-        case .idle: announceNext()
+        case .idle:
+            readNext()
+            announceNext()
         default: break
         }
     }

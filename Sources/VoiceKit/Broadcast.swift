@@ -38,7 +38,7 @@ public enum Broadcast {
             case let .propose(to, text):
                 m = Handoff.Message(to: to, text: text)
                 quick = false
-            case .wake, .confirm, .cancel: continue
+            case .wake, .read, .confirm, .cancel: continue
             }
             plan.now.removeAll { $0.to == m.to }
             plan.ask.removeAll { $0.to == m.to }
