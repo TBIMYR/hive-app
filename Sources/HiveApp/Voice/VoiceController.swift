@@ -98,6 +98,12 @@ final class VoiceController: ObservableObject {
         readRequests = NotificationCenter.default.publisher(for: .readAloud)
             .receive(on: RunLoop.main)
             .sink { [weak self] n in if let name = n.object as? String { self?.read(name) } }
+        // from outside too (scripts, tests): a distributed notification "<bundle id>.readAloud" with the session name
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name((Bundle.main.bundleIdentifier ?? "hive") + ".readAloud"),
+                                                            object: nil, queue: .main) { [weak self] n in
+            guard let name = n.object as? String else { return }
+            Task { @MainActor in self?.read(name) }
+        }
         applySettings()
     }
 
@@ -426,6 +432,12 @@ final class VoiceController: ObservableObject {
 
     private func announceNext() {
         guard phase == .idle, !inTurn, sending.isEmpty, !announce.isEmpty || !finished.isEmpty else { return }
+        // finished ones are read out as they wrote it (after whoever needs the user); no model turn for them
+        if VoiceSettings.readDone, !finished.isEmpty {
+            finished.keys.sorted().forEach(read)
+            finished = [:]
+            guard !announce.isEmpty else { return }
+        }
         func said(_ name: String) -> String { session(name)?.lastSentence.map { " – its last words: \"\($0)\"" } ?? "" }
         let names = announce.keys.sorted()
         let done = finished.keys.sorted()
