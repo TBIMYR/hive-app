@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         if #available(macOS 26, *) {
-            let v = VoiceController(store: store)
+            let v = VoiceController(store: store, dock: dock)
             voice = v
             voiceHUD = VoiceHUD(voice: v)
         }

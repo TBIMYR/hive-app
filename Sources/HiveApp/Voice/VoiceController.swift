@@ -43,6 +43,7 @@ final class VoiceController: ObservableObject {
     static let endOfSpeech: TimeInterval = 1.2
 
     private unowned let store: StateStore
+    private unowned let dock: DockStore
     private let listener = Listener(locale: VoiceSettings.locale)
     private let brain = Brain(name: Brain.voiceName, systemPrompt: Brain.voicePrompt)
     private let apple = AppleSpeaker(locale: VoiceSettings.locale)
@@ -77,8 +78,9 @@ final class VoiceController: ObservableObject {
     private var keyChanged: AnyCancellable?
     private var model = VoiceSettings.model
 
-    init(store: StateStore) {
+    init(store: StateStore, dock: DockStore) {
         self.store = store
+        self.dock = dock
         listener.onPartial = { [weak self] text in
             guard let self, text != self.heard else { return }
             self.heard = text
@@ -422,22 +424,40 @@ final class VoiceController: ObservableObject {
         for (name, why) in added { announce[name] = why }
         if !VoiceSettings.announce { announce = [:] }
 
-        // the session open in front of the user needs no announcement
-        let inFront = NSApp.isActive ? store.selected : nil
-        for (name, task) in doneTracker.update(store.displaySessions, now: Date()) where name != inFront && announce[name] == nil {
+        // the session open in front of the user needs no announcement (in front: its terminal is on screen)
+        let inFront = NSApp.isActive && dock.layout.isOpen(.main) ? store.selected : nil
+        // read out, a short answer counts too; a one-sentence summary only after real work
+        let minWork = VoiceSettings.readDone ? Self.minReadWork : DoneTracker.minWork
+        for (name, task) in doneTracker.update(store.displaySessions, now: Date(), minWork: minWork) where name != inFront && announce[name] == nil {
             finished[name] = task
         }
         if !VoiceSettings.announceDone { finished = [:] }
     }
 
+    /// a turn shorter than this is no "done" even for reading out (a quick "ok" back)
+    static let minReadWork: TimeInterval = 20
+    private var preparing = false
+
     private func announceNext() {
-        guard phase == .idle, !inTurn, sending.isEmpty, !announce.isEmpty || !finished.isEmpty else { return }
-        // finished ones are read out as they wrote it (after whoever needs the user); no model turn for them
-        if VoiceSettings.readDone, !finished.isEmpty {
+        guard phase == .idle, !inTurn, !preparing, sending.isEmpty, !announce.isEmpty || !finished.isEmpty else { return }
+        guard VoiceSettings.readDone else { announceAll(); return }
+        // finished ones and those asking in plain text are read out as they wrote it, no model turn for them;
+        // a dialog (choice, permission) still gets the short announcement with its options
+        preparing = true
+        Task {
+            for name in announce.keys.sorted() {
+                guard let s = session(name), await store.dialog(s) == nil else { continue }
+                announce[name] = nil
+                finished[name] = ""
+            }
             finished.keys.sorted().forEach(read)
             finished = [:]
-            guard !announce.isEmpty else { return }
+            preparing = false
+            if phase == .idle, !inTurn, !announce.isEmpty { announceAll() }
         }
+    }
+
+    private func announceAll() {
         func said(_ name: String) -> String { session(name)?.lastSentence.map { " – its last words: \"\($0)\"" } ?? "" }
         let names = announce.keys.sorted()
         let done = finished.keys.sorted()

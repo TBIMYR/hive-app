@@ -278,6 +278,14 @@ final class DoneTrackerTests: XCTestCase {
         _ = t.update([s("busy")], now: t0 + 40)
         XCTAssertEqual(t.update([s("waiting", waitingFor: "Allow?")], now: t0 + 400), [:])
     }
+
+    func testAShorterTurnCountsWhenAsked() {
+        var t = DoneTracker()
+        let t0 = Date()
+        _ = t.update([s("idle")], now: t0)
+        _ = t.update([s("busy")], now: t0 + 1, minWork: 20)
+        XCTAssertEqual(t.update([s("idle")], now: t0 + 30, minWork: 20), ["lu.01": ""])
+    }
 }
 
 final class StateSummaryTests: XCTestCase {

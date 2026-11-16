@@ -19,7 +19,7 @@ public struct DoneTracker {
     public init() {}
 
     /// name → what to tell (the task line, if any)
-    public mutating func update(_ sessions: [Session], now: Date) -> [String: String] {
+    public mutating func update(_ sessions: [Session], now: Date, minWork: TimeInterval = minWork) -> [String: String] {
         var done: [String: String] = [:]
         var seen = Set<String>()
         for s in sessions where s.alive && seen.insert(s.name).inserted {
@@ -34,7 +34,7 @@ public struct DoneTracker {
             if s.status == "busy" {
                 if busySince[s.name] == nil { busySince[s.name] = now; workStart[s.name] = now }
             } else if let since = busySince.removeValue(forKey: s.name) {
-                if started, new, done[s.name] == nil, !rank0, now.timeIntervalSince(since) >= Self.minWork { done[s.name] = task }
+                if started, new, done[s.name] == nil, !rank0, now.timeIntervalSince(since) >= minWork { done[s.name] = task }
             }
             if done[s.name] != nil { reported[s.name] = now }
         }
