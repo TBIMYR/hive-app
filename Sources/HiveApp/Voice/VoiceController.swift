@@ -426,39 +426,27 @@ final class VoiceController: ObservableObject {
 
         // the session open in front of the user needs no announcement (in front: its terminal is on screen)
         let inFront = NSApp.isActive && dock.layout.isOpen(.main) ? store.selected : nil
-        // read out, a short answer counts too; a one-sentence summary only after real work
-        let minWork = VoiceSettings.readDone ? Self.minReadWork : DoneTracker.minWork
-        for (name, task) in doneTracker.update(store.displaySessions, now: Date(), minWork: minWork) where name != inFront && announce[name] == nil {
+        for (name, task) in doneTracker.update(store.displaySessions, now: Date(), minWork: Self.minDoneWork) where name != inFront && announce[name] == nil {
             finished[name] = task
         }
         if !VoiceSettings.announceDone { finished = [:] }
     }
 
-    /// a turn shorter than this is no "done" even for reading out (a quick "ok" back)
-    static let minReadWork: TimeInterval = 20
-    private var preparing = false
+    /// a turn shorter than this is no "done" (a quick "ok" back)
+    static let minDoneWork: TimeInterval = 30
+    /// how much of what a session wrote goes to the model for its update
+    static let updateSource = 1500
 
     private func announceNext() {
-        guard phase == .idle, !inTurn, !preparing, sending.isEmpty, !announce.isEmpty || !finished.isEmpty else { return }
-        guard VoiceSettings.readDone else { announceAll(); return }
-        // finished ones and those asking in plain text are read out as they wrote it, no model turn for them;
-        // a dialog (choice, permission) still gets the short announcement with its options
-        preparing = true
-        Task {
-            for name in announce.keys.sorted() {
-                guard let s = session(name), await store.dialog(s) == nil else { continue }
-                announce[name] = nil
-                finished[name] = ""
+        guard phase == .idle, !inTurn, sending.isEmpty, !announce.isEmpty || !finished.isEmpty else { return }
+        // the model gets what the session wrote, so its short update says what came out, not just the last line
+        func said(_ name: String) -> String {
+            guard let s = session(name) else { return "" }
+            if let a = s.answer?.text, !a.isEmpty {
+                return " – what it wrote: \"\(String(a.prefix(Self.updateSource)))\(a.count > Self.updateSource ? " …" : "")\""
             }
-            finished.keys.sorted().forEach(read)
-            finished = [:]
-            preparing = false
-            if phase == .idle, !inTurn, !announce.isEmpty { announceAll() }
+            return s.lastSentence.map { " – its last words: \"\($0)\"" } ?? ""
         }
-    }
-
-    private func announceAll() {
-        func said(_ name: String) -> String { session(name)?.lastSentence.map { " – its last words: \"\($0)\"" } ?? "" }
         let names = announce.keys.sorted()
         let done = finished.keys.sorted()
         var lines = names.map { "\($0) needs the user: \(announce[$0] ?? "")\(said($0))" }
@@ -471,7 +459,8 @@ final class VoiceController: ObservableObject {
         // whoever needs the user comes first and is in focus; otherwise the finished one (to give it the next step)
         focus = names.first ?? done.first
         let ask = names.isEmpty
-            ? "Tell the user in one short sentence who finished and the gist of the result, no details."
+            ? "Give the user a short update, one or two sentences: who finished, what came out, and whether it waits for"
+              + " something from them. No details, no lists; they ask if they want more."
             : "Tell the user in one or two short sentences who needs them and what for, so they can answer by voice;"
               + " say in plain words what the session wants to do (\"will 'n Befehl ausführen\", \"will die Datei ändern\"),"
               + " never a label like \"Berechtigungs-Dialog\" or \"Auswahl\""

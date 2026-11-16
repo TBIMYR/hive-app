@@ -15,7 +15,6 @@ struct VoiceSettingsView: View {
     @AppStorage(VoiceSettings.announceKey) private var announce = true
     @AppStorage(VoiceSettings.followUpKey) private var followUp = true
     @AppStorage(VoiceSettings.announceDoneKey) private var announceDone = true
-    @AppStorage(VoiceSettings.readDoneKey) private var readDone = true
     @AppStorage(VoiceSettings.outputKey) private var output = VoiceSettings.Output.eleven.rawValue
     @AppStorage(VoiceSettings.elevenVoiceKey) private var voiceID = ""
     @AppStorage(VoiceSettings.stabilityKey) private var stability = 0.5
@@ -56,13 +55,8 @@ struct VoiceSettingsView: View {
             }
             Toggle(isOn: $announceDone) {
                 Text("Say when a session is done")
-                Text("When its task line turns done, or after at least two minutes of work. Not for the session open in front of you.")
+                Text("A short update: what came out and whether it waits for you. When its task line turns done, or after half a minute of work; not for the session whose terminal you have in front of you. Ask for more, or say \"lies vor\" to hear it word for word.")
             }
-            Toggle(isOn: $readDone) {
-                Text("Read out its answer")
-                Text("Instead of a one-sentence summary: the session's name, then what it wrote, word for word without code and tables, cut after about a minute. Several come one after the other; the key stops the current one.")
-            }
-            .disabled(!announceDone)
         }
         Section("Voice") {
             Picker("Voice", selection: $output) {

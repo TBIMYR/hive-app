@@ -66,6 +66,11 @@ final class ElevenSpeaker: Speaker {
     private var player = AVAudioPlayerNode()
     private let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 24_000, channels: 1, interleaved: false)!
     private var chain: Task<Void, Never>?
+    /// the sentence before the last one: a new request starts only once it is loaded, so at most two run at
+    /// once (the plan allows three; a long text read out would otherwise ask for all its sentences at once)
+    private var chainBefore: Task<Void, Never>?
+    /// generation whose error was already said, so a failing answer is reported once, not per sentence
+    private var errorSaid = -1
     private var generation = 0
     private var scheduled = 0
     private var loading = 0
@@ -115,12 +120,16 @@ final class ElevenSpeaker: Speaker {
         if !engine.isRunning { _ = HiveTry { try? engine.start() } }
         let gen = generation
         let started = Date()
-        let audio = Self.stream(text: sentence, previous: previous, voice: VoiceSettings.elevenVoice, model: model, key: key)
-        previous = sentence
-        let before = chain
+        let previous = self.previous, voice = VoiceSettings.elevenVoice, model = self.model
+        self.previous = sentence
+        let before = chain, twoBefore = chainBefore
         if !isSpeaking { progress = Date() }
         loading += 1
+        chainBefore = chain
         chain = Task { [weak self] in
+            await twoBefore?.value
+            guard !Task.isCancelled else { return }
+            let audio = Self.stream(text: sentence, previous: previous, voice: voice, model: model, key: key)
             await before?.value                      // keep the order of the sentences
             var first = true
             do {
@@ -132,8 +141,11 @@ final class ElevenSpeaker: Speaker {
             } catch is CancellationError {
             } catch {
                 voiceLog("ElevenLabs: \(error.localizedDescription)")
-                self?.onError?((error as? Failure)?.message.contains("HTTP 401") == true
-                               ? "Der ElevenLabs-Schlüssel stimmt nicht." : "ElevenLabs antwortet nicht.")
+                if let self, self.errorSaid != gen {
+                    self.errorSaid = gen
+                    self.onError?((error as? Failure)?.message.contains("HTTP 401") == true
+                                   ? "Der ElevenLabs-Schlüssel stimmt nicht." : "ElevenLabs antwortet nicht.")
+                }
             }
             if let self, gen == self.generation { self.loading -= 1 }
         }
@@ -142,7 +154,9 @@ final class ElevenSpeaker: Speaker {
     func stop() {
         generation += 1
         chain?.cancel()
+        chainBefore?.cancel()
         chain = nil
+        chainBefore = nil
         previous = ""
         player.stop()
         scheduled = 0

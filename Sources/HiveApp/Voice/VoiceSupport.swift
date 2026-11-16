@@ -12,7 +12,6 @@ enum VoiceSettings {
     static let stabilityKey = "voiceStability"
     static let followUpKey = "voiceFollowUp"
     static let announceDoneKey = "voiceAnnounceDone"
-    static let readDoneKey = "voiceReadDone"
     static let userNameKey = "voiceUserName"
     static let speedKey = "voiceSpeed"
 
@@ -27,8 +26,6 @@ enum VoiceSettings {
     static var trigger: Trigger { d.string(forKey: triggerKey).flatMap(Trigger.init) ?? .rightOption }
     static var announce: Bool { d.object(forKey: announceKey) as? Bool ?? true }
     static var announceDone: Bool { d.object(forKey: announceDoneKey) as? Bool ?? true }
-    /// a finished session's answer is read out word for word instead of summed up in a sentence
-    static var readDone: Bool { d.object(forKey: readDoneKey) as? Bool ?? true }
     static var output: Output { d.string(forKey: outputKey).flatMap(Output.init) ?? .eleven }
     static var elevenVoice: String {
         let v = d.string(forKey: elevenVoiceKey)?.trimmingCharacters(in: .whitespaces) ?? ""

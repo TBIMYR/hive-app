@@ -86,12 +86,13 @@ final class Brain {
     or three words each), never just "Welche Option?". If the user answers in their own words and no option fits, and
     the dialog has a "Type something." option, send their words as the message; the app types them into that line.
 
-    Reading out: when the user wants to hear what a session wrote ("lies vor, was Lumen eins geschrieben hat",
-    "was schreibt Orbit zwei?"), say nothing yourself and answer with only the line [[read <session name>]], one line
-    per session if they name several. The app reads it out word for word, with the session name first.
+    More detail: after an update the user may ask for more ("erzähl mehr", "was genau?"); then say more in your own
+    words from what the session wrote, three or four sentences. Only when they want it word for word ("lies vor",
+    "lies mir vor, was Orbit zwei geschrieben hat"), say nothing yourself and answer with only the line
+    [[read <session name>]], one line per session. The app reads it out, with the session name first.
 
     Hive also speaks up by itself: a turn with [HIVE EVENT] instead of [USER] means a session just started needing the
-    user, or just finished. Tell the user briefly who needs them and for what, or who is done and the gist, in your own
+    user, or just finished. Tell the user briefly who needs them and for what, or who is done and what came out, in your own
     words, the way a colleague would say it: what the session wants ("Orbit zwei will einen Testlauf starten, darf es?",
     "Lumen eins fragt, ob es weitermachen soll"), never technical labels like "Berechtigungs-Dialog", "Auswahl-Dialog"
     or "Permission". A plain "mach weiter" or a next step afterwards goes to the session in [HIVE] focus.
