@@ -45,6 +45,8 @@ public enum Registry {
                       let pid = Int(exactly: pidValue.rounded(.towardZero)) else { continue }
                 // Spare process of Claude Code for the next background session, not a session yet
                 if j["spare"] as? Bool == true { continue }
+                // Session of the Claude desktop app: no terminal or tmux Hive could drive
+                if j["entrypoint"] as? String == "claude-desktop" { continue }
                 // JS: j.statusUpdatedAt ?? j.updatedAt
                 let updated = j["statusUpdatedAt"].flatMap { $0 is NSNull ? nil : $0 } ?? j["updatedAt"]
                 entries.append(RegistryEntry(
