@@ -55,7 +55,7 @@ struct VoiceSettingsView: View {
             }
             Toggle(isOn: $announceDone) {
                 Text("Say when a session is done")
-                Text("A short update: what came out and whether it waits for you. When its task line turns done, or after half a minute of work; not for the session whose terminal you have in front of you. Ask for more, or say \"lies vor\" to hear it word for word.")
+                Text("A short update: what came out and whether it waits for you. After every answer; not for the session whose terminal you have in front of you. Ask for more, or say \"lies vor\" to hear it word for word.")
             }
         }
         Section("Voice") {

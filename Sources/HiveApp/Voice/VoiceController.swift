@@ -432,8 +432,8 @@ final class VoiceController: ObservableObject {
         if !VoiceSettings.announceDone { finished = [:] }
     }
 
-    /// a turn shorter than this is no "done" (a quick "ok" back)
-    static let minDoneWork: TimeInterval = 30
+    /// every answer gets its update (the user may only listen); only a blip of "busy" is no answer
+    static let minDoneWork: TimeInterval = 5
     /// how much of what a session wrote goes to the model for its update
     static let updateSource = 1500
 
