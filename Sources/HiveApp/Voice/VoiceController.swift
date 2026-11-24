@@ -302,10 +302,16 @@ final class VoiceController: ObservableObject {
             answer = spoken
             voiceLog("claude: \(full.replacingOccurrences(of: "\n", with: " ⏎ "))")
             let reachable = Set(store.displaySessions.filter { store.tmux($0) != nil }.map(\.name))
-            let actions = handoff.apply(directives, reachable: reachable)
+            let actions = handoff.apply(directives, reachable: reachable, wakeable: wakeable)
             let now = actions.compactMap { if case let .send(m) = $0 { m } else { nil } }
             let later = actions.compactMap { if case let .countdown(m) = $0 { m } else { nil } }
-            if !now.isEmpty { Task { for m in now { await deliver(m) } } }
+            let wakes = actions.compactMap { if case let .wake(name) = $0 { name } else { nil } }
+            if !now.isEmpty || !wakes.isEmpty {
+                Task {
+                    for name in wakes { await wake(name) }
+                    for m in now { await deliver(m) }
+                }
+            }
             if !later.isEmpty { startCountdown(later) }
             for case let .read(name) in directives { read(name) }
         } else {
@@ -336,7 +342,24 @@ final class VoiceController: ObservableObject {
 
     private func session(_ name: String) -> Session? { store.session(named: name) }
 
+    /// offline sessions with a handover: a message to one starts it again, the message becomes its first prompt
+    private var wakeable: Set<String> {
+        Set(store.displaySessions.filter { !$0.alive && $0.hasHandover }.map(\.name))
+    }
+
+    private func wake(_ name: String, task: String? = nil) async {
+        if let e = await store.wake(name, task: task) {
+            voiceLog("could not wake \(name): \(e)")
+            notes.append("waking \(name) FAILED: \(e)")
+            voice("\(name) ließ sich nicht starten.")
+        } else {
+            voiceLog("woke \(name)" + (task.map { " with: \($0)" } ?? ""))
+            notes.append("woke \(name)" + (task.map { " with the message: \($0)" } ?? ""))
+        }
+    }
+
     private func deliver(_ msg: Handoff.Message) async {
+        if wakeable.contains(msg.to) { return await wake(msg.to, task: msg.text) }
         let why: String? = switch await store.deliver(msg.text, to: msg.to) {
         case nil: nil
         case .unknownSession: "Eine Session \(msg.to) kenne ich nicht."

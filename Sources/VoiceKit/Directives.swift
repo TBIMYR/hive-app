@@ -3,7 +3,7 @@ import Foundation
 /// What the model asks the app to do, written as a marker line at the end of its answer:
 /// `[[send lu.01: text]]` proposes a message, `[[confirm]]` sends the proposal, `[[cancel]]` drops it,
 /// `[[reply lu.01: text]]` sends a short, clear message right away (after a short pause for "stop").
-/// `[[wake lu.pm]]` restarts an offline session with its handover (broadcast field only).
+/// `[[wake lu.pm]]` restarts an offline session with its handover.
 /// `[[read lu.01]]` has the app read out what the session wrote last, word for word (voice only).
 /// `[[quiet]]` alone means "nothing to say": it is no directive, the spoken part is simply empty.
 public enum Directive: Equatable, Sendable {
@@ -97,6 +97,8 @@ public struct Handoff: Equatable, Sendable {
         case send(Message)
         /// send after the countdown unless the user stops it
         case countdown(Message)
+        /// start an offline session again with its handover, at once
+        case wake(String)
     }
 
     /// longer replies are real tasks: those need a proper yes
@@ -106,19 +108,29 @@ public struct Handoff: Equatable, Sendable {
 
     public init() {}
 
-    /// Applies the markers of one answer; `reachable` are the sessions a message can be typed into right now.
-    /// Every short reply of the answer goes out (one per session, e.g. "all of you write a handover").
-    public mutating func apply(_ directives: [Directive], reachable: Set<String> = []) -> [Action] {
+    /// Applies the markers of one answer; `reachable` are the sessions a message can be typed into right now,
+    /// `wakeable` the offline ones with a handover: a message to one of those starts it with the message as its
+    /// first prompt. Every short reply of the answer goes out (one per session, e.g. "all of you write a handover").
+    /// A reply to a session that is neither goes out at once, so the app reports why it failed instead of keeping
+    /// it as a proposal the user never heard.
+    public mutating func apply(_ directives: [Directive], reachable: Set<String> = [], wakeable: Set<String> = []) -> [Action] {
         let before = pending
         var send: [Action] = []
         for d in directives {
             switch d {
             case let .reply(to, text):
                 let m = Message(to: to, text: text)
-                if reachable.contains(to), text.count <= Self.quickReplyLimit { send.append(.countdown(m)); pending = nil } else { pending = m }
+                if !reachable.contains(to), !wakeable.contains(to) { send.append(.send(m)) }
+                else if text.count <= Self.quickReplyLimit { send.append(.countdown(m)); pending = nil } else { pending = m }
             case let .propose(to, text): pending = Message(to: to, text: text)
             case .cancel: pending = nil
-            case .wake, .read: continue  // only the broadcast field wakes sessions; reading is no message
+            case let .wake(name):
+                // a message for it in the same answer wakes it with that message
+                let messaged = directives.contains {
+                    switch $0 { case .reply(name, _), .propose(name, _): true; default: false }
+                }
+                if wakeable.contains(name), !messaged, !send.contains(.wake(name)) { send.append(.wake(name)) }
+            case .read: continue  // reading is no message
             case .confirm:
                 // a confirm in the same answer as its proposal does not count: the user never heard it
                 if let p = before, pending == p { send.append(.send(p)); pending = nil }

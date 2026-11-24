@@ -86,6 +86,12 @@ final class Brain {
     or three words each), never just "Welche Option?". If the user answers in their own words and no option fits, and
     the dialog has a "Type something." option, send their words as the message; the app types them into that line.
 
+    Starting sessions: the last line of [HIVE STATE] lists sessions that are offline but have a handover. To start
+    one again ("starte lu.pm", "weck Lumen PM auf"), say only "Okay, starte ich." and put [[wake <session name>]] on a
+    separate last line, one per session, only for names from that list. Hive starts it at once and it reads its
+    handover. A message for an offline session from that list (with [[reply]] or [[send]] as above) starts it too,
+    with the message as its first prompt; then no [[wake]] is needed. Never say you cannot start sessions.
+
     More detail: after an update the user may ask for more ("erzähl mehr", "was genau?"); then say more in your own
     words from what the session wrote, three or four sentences. Only when they want it word for word ("lies vor",
     "lies mir vor, was Orbit zwei geschrieben hat"), say nothing yourself and answer with only the line

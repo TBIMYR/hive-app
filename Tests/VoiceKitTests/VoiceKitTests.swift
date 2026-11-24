@@ -111,10 +111,22 @@ final class QuickReplyTests: XCTestCase {
         XCTAssertNil(h.pending)
     }
 
-    func testMessageToASessionThatCannotBeReachedNeedsAYes() {
+    func testReplyToASessionThatCannotBeReachedGoesOutAtOnceToReportWhy() {
         var h = Handoff()
-        XCTAssertEqual(h.apply([.reply(to: "lu.01", text: "Ja.")], reachable: ["or.pm"]), [])
-        XCTAssertEqual(h.pending, .init(to: "lu.01", text: "Ja."))
+        XCTAssertEqual(h.apply([.reply(to: "lu.01", text: "Ja.")], reachable: ["or.pm"]), [.send(.init(to: "lu.01", text: "Ja."))])
+        XCTAssertNil(h.pending)
+    }
+
+    func testReplyToAnOfflineSessionWithHandoverGoesOutAfterTheCountdown() {
+        var h = Handoff()
+        XCTAssertEqual(h.apply([.wake("lu.01"), .reply(to: "lu.01", text: "Warum?")], wakeable: ["lu.01"]),
+                       [.countdown(.init(to: "lu.01", text: "Warum?"))])
+    }
+
+    func testWakeAloneWakesOnlyOfflineSessionsOnce() {
+        var h = Handoff()
+        XCTAssertEqual(h.apply([.wake("lu.pm"), .wake("or.pm"), .wake("lu.pm")], reachable: ["or.pm"], wakeable: ["lu.pm"]),
+                       [.wake("lu.pm")])
     }
 
     func testLongReplyNeedsAYes() {
